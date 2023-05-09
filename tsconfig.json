@@ -1,0 +1,71 @@
+{
+	// custom options for this project
+	"compilerOptions": {
+		// downleveling ES features can have very nasty side effects
+		"target": "es2022",
+		"module": "es2022",
+		"lib": ["ES2022", "WebWorker", "DOM"],
+		"moduleResolution": "node",
+		"sourceMap": true,
+
+		/**
+		 *	Svelte Preprocess cannot figure out whether you have a value or a type, so tell TypeScript
+		 * to enforce using `import type` instead of `import` for Types.
+		*/
+		"verbatimModuleSyntax": true,
+
+		// for explicit posterity, this is true anyway with "es2022
+		"useDefineForClassFields": true,
+
+		// ensure certain coding styles are not mishandled by compiler
+		"exactOptionalPropertyTypes": true,
+		"noPropertyAccessFromIndexSignature": false,
+
+		// type checking and type safety
+		"noImplicitOverride": true,
+		"strictNullChecks": true,
+		// "suppressExcessPropertyErrors": true,
+		// "noStrictGenericChecks": true,
+
+		// ensure consistent build outputs for code hashes
+		"newLine": "lf",
+		"removeComments": true,
+
+ 		// convenient preferences for development sake
+		"allowSyntheticDefaultImports": true,
+		"resolveJsonModule": true,
+
+		// for svelte
+		"isolatedModules": false,
+		"strict": false,
+		"esModuleInterop": true,
+		"skipLibCheck": true,
+		"forceConsistentCasingInFileNames": true,
+
+		// define convenient "home" path alias to src directory
+		"baseUrl": "./",
+		"paths": {
+			"#/*": ["./src/*"],
+			"~/*": ["./*"],
+		}
+	},
+
+	"ts-node": {
+		"require": ["tsconfig-paths/register"],
+		"experimentalSpecifierResolution": "node"
+	},
+
+	"include": [
+		"src/**/*.d.ts",
+		"src/**/*.ts",
+		"test/**/*.ts",
+		"rollup.config.ts",
+		".eslintrc.cjs",
+	],
+
+	"exclude": [
+		"node_modules/*",
+		"public/*",
+		"dist/*",
+	],
+}
