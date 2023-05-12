@@ -5,9 +5,15 @@ import type {JsonObject, Nilable} from '@solar-republic/belt';
 import {base64_to_buffer, buffer_to_text} from '@solar-republic/belt';
 
 import {bech32Decode} from './bech32';
-import {any, coin, protobuf, type SlimCoin} from './protobuf';
+import {any, coin, protobuf, type SlimCoin} from './protobuf-writer';
 import {SecretWasm} from './secret-wasm';
 
+
+// pads all query messages to be multiples of this many bytes
+const NB_QUERY_BLOCK = 64;
+
+// pads all execution messages to be multiples of this many bytes
+const NB_EXEC_BLOCK = 0;
 
 const h_codes_cache: Record<ContractInfo['code_id'], string> = {};
 
@@ -16,9 +22,10 @@ const h_contract_cache: Record<SecretBech32, ContractInfo> = {};
 const hm_networks = new Map<LcdQueryClient, SecretWasm>();
 
 
-interface ContractQuerier {
+export interface SecretContract {
 	info: ContractInfo;
 	hash: string;
+	wasm: SecretWasm;
 	query(h_query: JsonObject): Promise<JsonObject>;
 	exec(h_exec: JsonObject, sa_sender: SecretBech32, a_funds?: SlimCoin[]): Promise<[
 		atu8_data: Uint8Array,
@@ -28,7 +35,7 @@ interface ContractQuerier {
 
 
 // eslint-disable-next-line @typescript-eslint/naming-convention
-export const secretContract = async(k_querier: LcdQueryClient, sa_contract: SecretBech32, atu8_seed: Nilable<Uint8Array>=null): Promise<ContractQuerier> => {
+export const secretContract = async(k_querier: LcdQueryClient, sa_contract: SecretBech32, atu8_seed: Nilable<Uint8Array>=null): Promise<SecretContract> => {
 	// try loading instance from cache
 	let k_wasm = hm_networks.get(k_querier)!;
 
@@ -61,10 +68,13 @@ export const secretContract = async(k_querier: LcdQueryClient, sa_contract: Secr
 		// code hash
 		hash: sb16_code_hash,
 
+		// wasm instance
+		wasm: k_wasm,
+
 		// query contract
 		async query(h_query) {
 			// encrypt and encode query msg
-			const atu8_msg = await k_wasm.encodeMsg(sb16_code_hash, h_query);
+			const atu8_msg = await k_wasm.encodeMsg(sb16_code_hash, h_query, NB_QUERY_BLOCK);
 
 			// extract nonce
 			const atu8_nonce = atu8_msg.slice(0, 32);
@@ -87,7 +97,7 @@ export const secretContract = async(k_querier: LcdQueryClient, sa_contract: Secr
 		// execute contract method
 		async exec(h_exec, sa_sender, a_funds=[]) {
 			// encrypt and encode execution body
-			const atu8_exec = await k_wasm.encodeMsg(sb16_code_hash, h_exec);
+			const atu8_exec = await k_wasm.encodeMsg(sb16_code_hash, h_exec, NB_EXEC_BLOCK);
 
 			// extract nonce
 			const atu8_nonce = atu8_exec.slice(0, 32);

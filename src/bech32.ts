@@ -28,7 +28,7 @@ const prefix_checksum = (s_prefix: string): number => {
 };
 
 const regroup_bits = (a_words: Iterable<number>, ni_in: number, ni_out: number, xc_pad=0, xm_mask=(1 << ni_out) - 1): number[] => {
-	const a_out: number[] = [];
+	let a_out: number[] = [];
 	let xb_tmp = 0;
 	let xi_carry = 0;
 
@@ -54,7 +54,7 @@ export const bech32Encode = (si_prefix: string, atu8_data: Uint8Array): string =
 
 	let sa_output = si_prefix+'1';
 
-	for(const x_word of regroup_bits(atu8_data, 8, 5, 1)) {
+	for(let x_word of regroup_bits(atu8_data, 8, 5, 1)) {
 		xb_checksum = polymod_step(xb_checksum) ^ x_word;
 		sa_output += SX_ALPHABET.charAt(x_word);
 	}
@@ -101,8 +101,8 @@ export const bech32Decode = (sa_bech32: string): Uint8Array => {
 
 	const a_words: number[] = [];
 
-	for(const s_char of sx_data) {
-		const x_word = SX_ALPHABET.indexOf(s_char);
+	for(let s_char of sx_data) {
+		let x_word = SX_ALPHABET.indexOf(s_char);
 		if(x_word < 0) throw new Error('Unknown character '+s_char);
 
 		xb_checksum = polymod_step(xb_checksum) ^ x_word;

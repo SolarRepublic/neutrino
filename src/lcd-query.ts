@@ -2,7 +2,7 @@ import type {A, F} from 'ts-toolbelt';
 
 import type {ContractInfo, SecretBech32} from './types';
 import type {Coin} from '@cosmjs/amino';
-import type {Dict, JsonObject} from '@solar-republic/belt';
+import type {Dict, JsonObject, Nilable} from '@solar-republic/belt';
 
 import {
 	F_IDENTITY,
@@ -45,6 +45,25 @@ export interface AccountResponse {
 	sequence: `${bigint}`;
 }
 
+export interface BasicAllowance {
+	'@type': '/cosmos.feegrant.v1beta1.BasicAllowance';
+	spend_limit: Coin[];
+	expiration: string | null;
+}
+
+export interface PeriodicAllowance {
+	'@type': '/cosmos.feegrant.v1beta1.PeriodicAllowance';
+	basic: BasicAllowance | null;
+	period: string | null;
+	// period_spend_limit
+}
+
+export interface AllowanceResponse {
+	granter: SecretBech32;
+	grantee: SecretBech32;
+	allowance: BasicAllowance;
+}
+
 const H_QUERIES = {
 	cosmos: {
 		auth: {
@@ -70,6 +89,19 @@ const H_QUERIES = {
 
 					// 	],
 					// },
+				],
+			},
+		},
+
+		feegrant: {
+			v1beta1: {
+				allowance: [
+					(sa_granter: SecretBech32, sa_grantee: SecretBech32) => ['/'+sa_granter+'/'+sa_grantee],
+					g => g.allowance as AllowanceResponse,
+				],
+				allowances: [
+					F_APPEND_PATH as (sa_grantee: SecretBech32) => [string],
+					g => g.allowances as AllowanceResponse[],
 				],
 			},
 		},

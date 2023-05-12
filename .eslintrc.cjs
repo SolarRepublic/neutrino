@@ -653,8 +653,11 @@ const GC_APP = {
 				},
 
 				'prefer-': {
-					...warn([
+					...off([
 						'const',
+					]),
+
+					...warn([
 						'spread',
 						'promise-reject-errors',
 					]),

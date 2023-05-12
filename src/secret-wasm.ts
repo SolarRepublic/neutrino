@@ -1,11 +1,12 @@
 import type {JsonValue, Nilable} from '@solar-republic/belt';
 
 import {aes128SivDecrypt, aes128SivEncrypt} from '@solar-republic/aes-128-siv-js';
-import {ATU8_NIL,
+import {buffer_to_base58, buffer_to_base64, ATU8_NIL,
 	base64_to_buffer,
 	buffer_to_text,
 	text_to_buffer,
 } from '@solar-republic/belt';
+
 
 
 import {crypto_scalarmult, crypto_scalarmult_base} from './ed25519';
@@ -40,9 +41,8 @@ export class SecretWasm {
 		];
 	}
 
-	#_atu8_sk: Uint8Array;
 	#_atu8_pk: Uint8Array;
-	#_atu8_cons_io_pk: Uint8Array;
+	#_atu8_tx_ikm: Uint8Array;
 
 	constructor(atu8_consensus_pk: Uint8Array, atu8_seed?: Nilable<Uint8Array>) {
 		atu8_seed = atu8_seed || crypto.getRandomValues(new Uint8Array(32));
@@ -50,10 +50,8 @@ export class SecretWasm {
 		if(32 !== atu8_consensus_pk.byteLength) throw new Error(`Invalid consensus key length`);
 		if(32 !== atu8_seed.byteLength) throw new Error(`Invalid seed length`);
 
-		this.#_atu8_cons_io_pk = atu8_consensus_pk;
-
 		// copy seed to new private key
-		const atu8_sk = this.#_atu8_sk = atu8_seed.slice();
+		const atu8_sk = atu8_seed.slice();
 
 		// derive curve25119 public key
 		const atu8_pk = this.#_atu8_pk = crypto_scalarmult_base(atu8_sk);
@@ -65,12 +63,13 @@ export class SecretWasm {
 
 		// remove sign bit from public key
 		atu8_pk[31] &= 0x7f;
+
+		// produce tx ikm
+		this.#_atu8_tx_ikm = crypto_scalarmult(atu8_sk, atu8_consensus_pk);
 	}
 
 	async txKey(atu8_nonce=crypto.getRandomValues(new Uint8Array(32))): Promise<Uint8Array> {
-		const atu8_tx_ikm = crypto_scalarmult(this.#_atu8_sk, this.#_atu8_cons_io_pk);
-
-		const atu8_input = concat2(atu8_tx_ikm, atu8_nonce);
+		const atu8_input = concat2(this.#_atu8_tx_ikm, atu8_nonce);
 
 		const dk_input = await crypto.subtle.importKey('raw', atu8_input, 'HKDF', false, ['deriveBits']);
 
@@ -84,13 +83,13 @@ export class SecretWasm {
 		return new Uint8Array(ab_encryption);
 	}
 
-	async encodeMsg(sb16_code_hash: string, g_msg: JsonValue, nb_msg_block=NB_MSG_BLOCK): Promise<Uint8Array> {
+	async encodeMsg(sb16_code_hash: string, g_msg: JsonValue, nb_msg_block?: number): Promise<Uint8Array> {
 		// construct payload
 		const atu8_payload = text_to_buffer(sb16_code_hash.toUpperCase()+JSON.stringify(g_msg));
 
 		// pad to make multiple of block size
 		const nb_payload = atu8_payload.byteLength;
-		const nb_target = Math.ceil(nb_payload / nb_msg_block) * nb_msg_block;
+		const nb_target = nb_msg_block? Math.ceil(nb_payload / nb_msg_block) * nb_msg_block: nb_payload;
 
 		// pad the end with spaces
 		const atu8_padding = text_to_buffer(' '.repeat(nb_target - nb_payload));
@@ -125,8 +124,6 @@ export class SecretWasm {
 			atu8_pk,
 			atu8_ciphertext,
 		] = SecretWasm.parse(sb64_msg);
-
-		if(atu8_pk !== this.#_atu8_pk) throw new Error(`Cannot decrypt msg; wrong participant`);
 
 		const atu8_plaintext = await this.decrypt(atu8_ciphertext, atu8_nonce);
 

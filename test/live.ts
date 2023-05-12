@@ -1,32 +1,42 @@
 import type {SecretBech32} from '../src/types';
 
-import {buffer_to_base64, text_to_buffer} from '@solar-republic/belt';
+import {base64_to_buffer, buffer_to_base64, buffer_to_text, hex_to_buffer, text_to_buffer} from '@solar-republic/belt';
+
+import './helper';
 
 
-import {ent_to_sk} from '@solar-republic/secp256k1-js';
+
+import {executeContract, retry} from '../src/app-layer';
+
+import {bech32Encode} from '../src/bech32';
 
 import {queryClient} from '../src/lcd-query';
+import {decode_protobuf} from '../src/protobuf-reader';
+import {ent_to_sk, sk_to_pk} from '../src/secp256k1';
 
 import {secretContract} from '../src/secret-contract';
-import {wallet} from '../src/wallet';
+import {pubkey_to_bech32, wallet} from '../src/wallet';
 
-// polyfill crypto global for node.js env
-globalThis.crypto = globalThis.crypto || (await import('crypto')).webcrypto;
 
-const SA_SSCRT = 'secret1k0jntykt7e4g3y88ltc60czgjuqdy4c9e8fzek';
+const SI_CHAIN = process.env.NFP_CHAIN!;
+
+const P_LCD_ENDPOINT = process.env.NFP_LCD!;
+
+const SA_CONTRACT = process.env.NFP_CONTRACT as SecretBech32;
 
 const SA_GRANTER = process.env.NFP_GRANTER as SecretBech32 | undefined;
 
+
 (async function() {
 	// instantiate query client
-	const k_querier = queryClient('https://lcd.secret.express');
+	const k_querier = queryClient(P_LCD_ENDPOINT);
 
 
 	// create seed for query/execution session
 	const atu8_seed = new Uint8Array(32);
 
 	// prepare to interact with contract
-	const k_contract = await secretContract(k_querier, SA_SSCRT, atu8_seed);
+	const k_contract = await secretContract(k_querier, SA_CONTRACT, atu8_seed);
 
 	// query for token info
 	const g_result = await k_contract.query({
@@ -40,41 +50,46 @@ const SA_GRANTER = process.env.NFP_GRANTER as SecretBech32 | undefined;
 	const atu8_ent = new Uint8Array(await crypto.subtle.digest('SHA-384', text_to_buffer('nfp-test-account:0')));
 	const atu8_sk = ent_to_sk(atu8_ent.subarray(0, 40));
 
+	// const atu8_sk = base64_to_buffer('8Ke2frmnGdVPipv7+xh9jClrl5EaBb9cowSUgj5GvrY=');
+	// const atu8_pk33 = sk_to_pk(atu8_sk);
+
+	// // test public keys match
+	// const sb64_pk33_expect = 'A07oJJ9n4TYTnD7ZStYyiPbB3kXOZvqIMkchGmmPRAzf';
+	// const sb64_pk33_actual = buffer_to_base64(atu8_pk33);
+	// console.log(sb64_pk33_actual+'\n'+sb64_pk33_expect);
+
+	// const sa_expect = 'secret1ap26qrlp8mcq2pg6r47w43l0y8zkqm8a450s03';
+	// const sa_actual = await pubkey_to_bech32(atu8_pk33, 'secret');
+	// console.log('expect: '+sa_expect+'\nactual: '+sa_actual);
+	// debugger;
+
 	// instantiate wallet
-	const k_wallet = await wallet(k_querier, 'secret-4', atu8_sk);
+	const k_wallet = await wallet(k_querier, SI_CHAIN, atu8_sk);
 
-	// // check if account exists
-	// try {
-	// 	await k_querier.auth.accounts(k_wallet.bech32);
-	// }
-	// catch(e_auth) {
-	// 	const s_msg = (e_auth as Error).message;
-
-	// 	// some error other than account not found
-	// 	if(!/account .+ not found/.test(s_msg)) {
-	// 		throw e_auth;
-	// 	}
-
-	// 	// create account
-	// }
+	console.log(`Wallet account: ${k_wallet.bech32}`);
 
 
-	// construct execution message
-	const [atu8_msg] = await k_contract.exec({
-		set_viewing_key: 'password123',
-	}, k_wallet.bech32);
+	// find feegrants
+	const a_allowances = await k_querier.feegrant.allowances(k_wallet.bech32);
 
+	let sa_granter: SecretBech32 | '' = '';
+	for(const g_allowance of a_allowances) {
+		sa_granter = g_allowance.granter;
+	}
 
-	// sign in direct mode
-	const [atu8_tx_raw] = await k_wallet.signDirect([atu8_msg], [['2500', 'uscrt']], '25000', SA_GRANTER);
+	const [g_tx_res, sx_exec_res] = await retry(() => executeContract(k_contract, k_wallet, {
+		set_viewing_key: {
+			key: 'password123',
+		},
+	}, [['2500', 'uscrt']], '50000', sa_granter), (z_exec, c_attempts) => {
+		// retry-able
+		if(/timed out/.test(z_exec?.['message'] || '')) {
+			if(c_attempts < 5) {
+				return [6e3];
+			}
+		}
+	});
 
-	// const atu8_coin = coin(['2500', 'uscrt']);
-	// console.log(buffer_to_base64(atu8_coin));
-
-	// log
-	console.log(buffer_to_base64(atu8_tx_raw));
 	debugger;
-
-	// broadcast
-	await k_wallet.broadcast(atu8_tx_raw);
+	console.log(g_tx_res, sx_exec_res);
 })();

@@ -1,17 +1,16 @@
 import type {AccountResponse, LcdQueryClient} from './lcd-query';
 
-import type {ProtoWriter, SlimCoin} from './protobuf';
+import type {ProtoWriter, SlimCoin} from './protobuf-writer';
 import type {SecretBech32} from './types';
 
 import type {Coin} from '@cosmjs/amino';
 
-import {base64_to_buffer, buffer_to_base64, buffer_to_hex, sha256, type Nilable} from '@solar-republic/belt';
-
-import {gen_sk, sign, sk_to_pk} from '@solar-republic/secp256k1-js';
+import {buffer_to_base64, buffer_to_hex, sha256, type Nilable} from '@solar-republic/belt';
 
 import {bech32Encode} from './bech32';
-import {any, coin, protobuf} from './protobuf';
+import {any, coin, protobuf} from './protobuf-writer';
 import {ripemd160} from './ripemd160';
+import {gen_sk, sign, sk_to_pk} from './secp256k1';
 
 
 enum SignModeValue {
@@ -161,7 +160,7 @@ export interface TxResponse {
 	logs: [];
 	raw_log: string;
 	timestamp: string;
-	tx: {
+	tx: null | {
 		auth_info: {
 			fee: {
 				amount: Coin[];
@@ -199,8 +198,24 @@ export interface TxResponse {
 	txhash: Hexadecimal;
 }
 
+export type BroadcastResult = {
+	tx_response: TxResponse;
+} | {
+	code: 2;
+	message: string;
+	details: unknown[];
+};
+
 export interface Wallet {
+	/**
+	 * Bech32 account address
+	 */
 	bech32: SecretBech32;
+
+	/**
+	 * Secp256k1 Public Key in compressed 33-byte form
+	 */
+	pubkey: Uint8Array;
 
 	signDirect(
 		a_msgs: Uint8Array[],
@@ -214,7 +229,7 @@ export interface Wallet {
 		si_txn: string,
 	]>;
 
-	broadcast(atu8_raw: Uint8Array): Promise<TxResponse>;
+	broadcast(atu8_raw: Uint8Array): Promise<BroadcastResult>;
 }
 
 export const pubkey_to_bech32 = async<
@@ -239,6 +254,8 @@ export const wallet = async(k_querier: LcdQueryClient, si_chain: string, atu8_sk
 
 	return {
 		bech32: sa_account,
+
+		pubkey: atu8_pk33,
 
 		async signDirect(a_msgs, a_fees, sg_limit, sa_granter='') {
 			// fetch auth data
@@ -274,14 +291,15 @@ export const wallet = async(k_querier: LcdQueryClient, si_chain: string, atu8_sk
 			const atu8_body = encode_txbody(protobuf(), a_msgs).out();
 
 			// encode signdoc
-			const atu8_doc = encode_signdoc(protobuf(), any('/cosmos.tx.v1beta1.TxBody', atu8_body), atu8_auth, si_chain, sg_account).out();
+			const atu8_doc = encode_signdoc(protobuf(), atu8_body, atu8_auth, si_chain, sg_account).out();
 
 
 			// hash message
 			const atu8_hash = await sha256(atu8_doc);
 
 			// sign message hash
-			const [atu8_signature] = await sign(atu8_sk, atu8_hash);
+			const atu8_k = new Uint8Array(32).fill(127);
+			const [atu8_signature] = await sign(atu8_sk, atu8_hash, atu8_k);
 
 			// encode txraw
 			const atu8_raw = encode_txraw(protobuf(), atu8_body, atu8_auth, [atu8_signature]).out();
@@ -303,14 +321,7 @@ export const wallet = async(k_querier: LcdQueryClient, si_chain: string, atu8_sk
 
 			const s_res_text = await d_res.text();
 
-			console.log(s_res_text);
-
-			const g_response = JSON.parse(s_res_text);
-
-			debugger;
-			console.log(g_response);
-
-			return g_response as TxResponse;
+			return JSON.parse(s_res_text) as BroadcastResult;
 		},
 	};
 };
