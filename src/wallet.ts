@@ -1,4 +1,4 @@
-import type {AccountResponse, LcdQueryClient} from './lcd-query';
+import type {AccountResponse} from './lcd/_root';
 
 import type {ProtoWriter, SlimCoin} from './protobuf-writer';
 import type {SecretBech32} from './types';

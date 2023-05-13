@@ -22,6 +22,7 @@ export const query = lcd_query<
 	g => base64_to_buffer(g.data)
 );
 
+// eslint-disable-next-line @typescript-eslint/naming-convention
 export const codeHashByContractAddr = lcd_query<
 	[sa_contract: SecretBech32],
 	string
@@ -30,6 +31,7 @@ export const codeHashByContractAddr = lcd_query<
 	g => g.code_hash
 );
 
+// eslint-disable-next-line @typescript-eslint/naming-convention
 export const codeHashByCodeId = lcd_query<
 	[si_code: `${bigint}`],
 	string
@@ -38,6 +40,7 @@ export const codeHashByCodeId = lcd_query<
 	g => g.code_hash
 );
 
+// eslint-disable-next-line @typescript-eslint/naming-convention
 export const contractAddr = lcd_query<
 	[si_label: string],
 	SecretBech32

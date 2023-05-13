@@ -1,6 +1,5 @@
+import type {AllowanceResponse} from './_root';
 import type {SecretBech32} from '../types';
-
-import type {AllowanceResponse} from '#/lcd-query';
 
 import {SR_LCD_FEEGRANT, lcd_query} from './_root';
 
