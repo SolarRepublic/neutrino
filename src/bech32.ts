@@ -1,16 +1,11 @@
 const SX_ALPHABET = 'qpzry9x8gf2tvdw0s3jn54khce6mua7l';
 
-const polymod_step = (xb_pre: number): number => {
-	const xb_value = xb_pre >> 25;
-	return (
-		((xb_pre & 0x1ffffff) << 5)
-		^ (-((xb_value >> 0) & 1) & 0x3b6a57b2)
-		^ (-((xb_value >> 1) & 1) & 0x26508e6d)
-		^ (-((xb_value >> 2) & 1) & 0x1ea119fa)
-		^ (-((xb_value >> 3) & 1) & 0x3d4233dd)
-		^ (-((xb_value >> 4) & 1) & 0x2a1462b3)
-	);
-};
+const polymod_step = (xb_pre: number, xb_value=xb_pre >> 25): number => ((xb_pre & 0x1ffffff) << 5)
+	^ (-((xb_value >> 0) & 1) & 0x3b6a57b2)
+	^ (-((xb_value >> 1) & 1) & 0x26508e6d)
+	^ (-((xb_value >> 2) & 1) & 0x1ea119fa)
+	^ (-((xb_value >> 3) & 1) & 0x3d4233dd)
+	^ (-((xb_value >> 4) & 1) & 0x2a1462b3);
 
 const prefix_checksum = (s_prefix: string): number => {
 	let xb_checksum = 1;

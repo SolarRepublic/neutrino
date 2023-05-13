@@ -1,7 +1,9 @@
+import {buffer} from '@solar-republic/belt';
+
 /* eslint-disable @typescript-eslint/naming-convention */
 const NB_BLOCK = 64;
 
-const ATU8_0_16 = new Uint8Array(16).map((xb, i) => i);
+const ATU8_0_16 = buffer(16).map((xb, i) => i);
 const ATU8_PI = ATU8_0_16.map(i => ((9 * i) + 5) % 16);
 
 const ATU8_RHO = Uint8Array.from([7, 4, 13, 1, 10, 6, 15, 3, 12, 0, 9, 5, 2, 14, 11, 8]);
@@ -21,7 +23,7 @@ const A_SHIFTS = [
 	[13, 15, 14, 11, 7, 7, 6, 8, 13, 14, 13, 12, 5, 5, 6, 9],
 	[14, 11, 12, 14, 8, 6, 5, 5, 15, 12, 15, 14, 9, 9, 8, 6],
 	[15, 12, 13, 13, 9, 5, 8, 6, 14, 11, 12, 11, 8, 6, 5, 5],
-].map(a_words => new Uint8Array(a_words));
+].map(a_words => buffer(a_words));
 
 const A_SHIFTS_L = A_INDEXES_L.map((idx, i) => idx.map(j => A_SHIFTS[i][j]));
 const A_SHIFTS_R = A_INDEXES_R.map((idx, i) => idx.map(j => A_SHIFTS[i][j]));
@@ -57,7 +59,7 @@ export const ripemd160 = (atu8_data: Uint8Array): Uint8Array => {
 	let _a_words: number[] = [];
 	/* eslint-enable @typescript-eslint/naming-convention */
 
-	let atu8_block = new Uint8Array(NB_BLOCK);
+	let atu8_block = buffer(NB_BLOCK);
 	let dv_block = new DataView(atu8_block.buffer);
 
 	let ib_write = 0;
@@ -151,7 +153,7 @@ export const ripemd160 = (atu8_data: Uint8Array): Uint8Array => {
 
 
 	// produce result
-	let atu8_digest = new Uint8Array(20);
+	let atu8_digest = buffer(20);
 	let dv_digest = new DataView(atu8_digest.buffer);
 	_a_state.map((xn, i) => dv_digest.setUint32(i * 4, xn, true));
 

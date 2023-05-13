@@ -1,4 +1,4 @@
-import {concat2, type Nilable} from '@solar-republic/belt';
+import {buffer, concat2, type Nilable} from '@solar-republic/belt';
 
 
 const XG_2_POW_256 = 2n ** 256n;
@@ -24,7 +24,7 @@ const exceeds_half_order = (xg_n: bigint): boolean => xg_n > (XG_CURVE_ORDER >> 
 const buffer_to_bigint = (atu8_bytes: Uint8Array): bigint => atu8_bytes.reduce((xg_out, xb_value) => (xg_out << 8n) | BigInt(xb_value), 0n);
 
 const bigint_to_buffer = (xg_value: bigint): Uint8Array => {
-	let atu8_out = new Uint8Array(NB_FIELD);
+	let atu8_out = buffer(NB_FIELD);
 
 	let ib_write = NB_FIELD;
 
@@ -62,13 +62,13 @@ type AffinePoint = [
 
 interface EcPoint {
 	a: [xg_x: bigint, xg_y: bigint, xg_z: bigint];
-	equals(k_other: EcPoint): boolean;
-	negate(): EcPoint;
+	eq(k_other: EcPoint): boolean;
+	ng(): EcPoint;
 	add(k_other: EcPoint): EcPoint;
 	mul(xg_n: bigint, xc_safe?: boolean | 0 | 1): EcPoint;
 	aff(): AffinePoint;
 	ok(this: EcPoint): this;
-	export(this: EcPoint, xc_uncompressed: boolean | 0 | 1): Uint8Array;
+	out(this: EcPoint, xc_uncompressed: boolean | 0 | 1): Uint8Array;
 }
 
 // const ec_point_eq = (k_a: EcPoint, k_b: EcPoint) => {
@@ -81,13 +81,13 @@ interface EcPoint {
 const ec_point = ([xg_x, xg_y, xg_z]: [xg_x: bigint, xg_y: bigint, xg_z: bigint]): EcPoint => ({
 	a: [xg_x, xg_y, xg_z],
 
-	equals(k_other: EcPoint): boolean {
+	eq(k_other: EcPoint): boolean {
 		const [xg_x2, xg_y2, xg_z2] = k_other.a;
 
 		return mod(xg_x * xg_z2) === mod(xg_x2 * xg_z) && mod(xg_y * xg_z2) === mod(xg_y2 * xg_z);
 	},
 
-	negate: (): EcPoint => ec_point([xg_x, mod(-xg_y), xg_z]),
+	ng: (): EcPoint => ec_point([xg_x, mod(-xg_y), xg_z]),
 
 	add(k_other: EcPoint): EcPoint {
 		let [xg_x2, xg_y2, xg_z2] = k_other.a;
@@ -183,10 +183,10 @@ const ec_point = ([xg_x, xg_y, xg_z]: [xg_x: bigint, xg_y: bigint, xg_z: bigint]
 		return mod(xg_ay * xg_ay) === crv(xg_ax)? this: err('Invalid point');
 	},
 
-	export(xc_uncompressed: boolean | 0 | 1): Uint8Array {
+	out(xc_uncompressed: boolean | 0 | 1): Uint8Array {
 		const [xg_ax, xg_ay] = this.aff();
 
-		const atu8_out = new Uint8Array(1 + (((xc_uncompressed as number) + 1) * NB_FIELD));
+		const atu8_out = buffer(1 + (((xc_uncompressed as number) + 1) * NB_FIELD));
 
 		atu8_out[0] = xc_uncompressed? 0x04: 0n === (xg_ay & 1n) ? 0x02: 0x03;
 
@@ -289,9 +289,9 @@ const i2o = (xg_n: bigint): Uint8Array => bigint_to_buffer(xg_n);
 type Predicate<T> = (v: Uint8Array) => T | undefined;
 
 const hmac_drbg = async<T>(atu8_seed_root: Uint8Array, f_predicate: Predicate<T>): Promise<T> => {
-	let atu8_b = new Uint8Array(NB_FIELD);
+	let atu8_b = buffer(NB_FIELD);
 
-	let atu8_k = new Uint8Array(NB_FIELD);
+	let atu8_k = buffer(NB_FIELD);
 
 	let i_attempts = 0;
 	let f_reset = () => {
@@ -302,14 +302,14 @@ const hmac_drbg = async<T>(atu8_seed_root: Uint8Array, f_predicate: Predicate<T>
 
 
 	const f_reseed = async(atu8_seed: Uint8Array) => {
-		const atu8_expand_0 = new Uint8Array(1 + atu8_seed.length);
+		const atu8_expand_0 = buffer(1 + atu8_seed.length);
 		atu8_expand_0.set(atu8_seed, 1);
 		atu8_k = await hmac_sha256(atu8_k, concat2(atu8_b, atu8_expand_0));
 
 		atu8_b = await hmac_sha256(atu8_k, atu8_b);
 		if(0 === atu8_seed.length) return;
 
-		const atu8_expand_1 = new Uint8Array(1 + atu8_seed.length);
+		const atu8_expand_1 = buffer(1 + atu8_seed.length);
 		atu8_expand_1.set(atu8_seed, 1);
 		atu8_expand_1[0] = 0x01;
 		atu8_expand_1.set(atu8_seed, 1);
@@ -331,7 +331,7 @@ const hmac_drbg = async<T>(atu8_seed_root: Uint8Array, f_predicate: Predicate<T>
 
 	let res: T | undefined;
 	while(!(res = f_predicate(await f_gen()))) {
-		await f_reseed(new Uint8Array(0));
+		await f_reseed(buffer(0));
 	}
 
 	f_reset();
@@ -340,15 +340,15 @@ const hmac_drbg = async<T>(atu8_seed_root: Uint8Array, f_predicate: Predicate<T>
 };
 
 
-export const gen_sk = (): Uint8Array => ent_to_sk(crypto.getRandomValues(new Uint8Array(NB_FIELD + 8)));
+export const gen_sk = (): Uint8Array => ent_to_sk(crypto.getRandomValues(buffer(NB_FIELD + 8)));
 
 export const ent_to_sk = (atu8_entropy: Uint8Array): Uint8Array => atu8_entropy.length < NB_FIELD + 8 || atu8_entropy.length > 1024
 	? err('Invalid entropy')
 	: bigint_to_buffer(mod(buffer_to_bigint(atu8_entropy), XG_CURVE_ORDER - 1n) + 1n);
 
-export const sk_to_pk = (z_sk: Uint8Array | bigint, xc_uncompressed: boolean | 0 | 1=0 as const): Uint8Array => KP_BASE.mul(normalize_sk(z_sk)).export(xc_uncompressed);
+export const sk_to_pk = (z_sk: Uint8Array | bigint, xc_uncompressed: boolean | 0 | 1=0 as const): Uint8Array => KP_BASE.mul(normalize_sk(z_sk)).out(xc_uncompressed);
 
-export const ecdh = (atu8_sk: Uint8Array, atu8_pk: Uint8Array, b_uncompressed?: boolean): Uint8Array => import_ec_point(atu8_pk).mul(normalize_sk(atu8_sk)).export(b_uncompressed || 0);
+export const ecdh = (atu8_sk: Uint8Array, atu8_pk: Uint8Array, b_uncompressed?: boolean): Uint8Array => import_ec_point(atu8_pk).mul(normalize_sk(atu8_sk)).out(b_uncompressed || 0);
 
 
 export type Signature = [xg_r: bigint, xg_s: bigint];
@@ -360,7 +360,7 @@ export const sign = async(atu8_sk: Uint8Array, atu8_hash: Uint8Array, atu8_ent?:
 
 	const xg_d = normalize_sk(atu8_sk);
 
-	const atu8_seed = concat2(i2o(xg_d), concat2(atu8_h1o, atu8_ent || crypto.getRandomValues(new Uint8Array(NB_FIELD))));
+	const atu8_seed = concat2(i2o(xg_d), concat2(atu8_h1o, atu8_ent || crypto.getRandomValues(buffer(NB_FIELD))));
 
 	return hmac_drbg<SignatureAndRecovery>(atu8_seed, (atu8_k: Uint8Array): SignatureAndRecovery | undefined => {
 		const xg_k = bitsequence_to_uint(atu8_k);
@@ -388,7 +388,7 @@ export const sign = async(atu8_sk: Uint8Array, atu8_hash: Uint8Array, atu8_ent?:
 			xc_recovery ^= 1;
 		}
 
-		const atu8_out = new Uint8Array(2 * NB_FIELD);
+		const atu8_out = buffer(2 * NB_FIELD);
 		atu8_out.set(bigint_to_buffer(xg_r));
 		atu8_out.set(bigint_to_buffer(xg_s_normalized), NB_FIELD);
 
@@ -447,7 +447,7 @@ const hmac_sha256 = async(atu8_key: Uint8Array, atu8_data: Uint8Array) => {
 		hash: 'SHA-256',
 	}, false, ['sign']);
 
-	return new Uint8Array(await crypto.subtle.sign('HMAC', d_key, atu8_data));
+	return buffer(await crypto.subtle.sign('HMAC', d_key, atu8_data));
 };
 
 

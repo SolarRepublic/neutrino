@@ -54,7 +54,7 @@ export async function describe(s_group: string, f_group: (g_call: GroupCallback)
 				a_results.push({
 					type: 'fail',
 					name: s_test,
-					message: e_run.message,
+					message: e_run.stack,
 				});
 			}
 		},

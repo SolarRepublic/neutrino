@@ -13,7 +13,7 @@ The primary purpose of this library is to be able to:
  - query and execute Secret Contracts
  - sign and verify Secp256k1 messages (to enable hot hot wallets)
 
-Consequently, the following functions are also exposed:
+Consequently, the following features are implemented:
  - Bech32 encoding/decoding
  - Curve25519 scalar multiplication
  - RIPEMD-160 hashing
@@ -22,7 +22,7 @@ Consequently, the following functions are also exposed:
  - Schema-less Protobuf reading/writing
 
 
-### Tuples, Tuples, Tuples
+### API Usage
 
 Tuples (EC Arrays `[]`) are used in places you might normally expect a named struct, such as return values. Similarly, virtually all functions opt for ordered parameters instead of named structs.
 

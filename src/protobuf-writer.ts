@@ -1,6 +1,6 @@
 import type {L} from 'ts-toolbelt';
 
-import {text_to_buffer} from '@solar-republic/belt';
+import {buffer, text_to_buffer} from '@solar-republic/belt';
 
 type NodeValue = number | bigint | number[] | Uint8Array;
 
@@ -21,12 +21,12 @@ export type SlimCoin = [
 ];
 
 export interface ProtoWriter {
-	uint32(xn_value: number): this;
-	uint64(xg_value: bigint): this;
-	bytes(atu8_bytes: Uint8Array | number[]): this;
-	string(s_data: string): this;
-	nest<f_nester extends Nester>(f_call: f_nester, ...a_args: L.Tail<Parameters<f_nester>>): ProtoWriter;
-	out(): Uint8Array;
+	v(xn_value: number): this;
+	g(xg_value: bigint): this;
+	b(atu8_bytes: Uint8Array | number[]): this;
+	s(s_data: string): this;
+	n<f_nester extends Nester>(f_call: f_nester, ...a_args: L.Tail<Parameters<f_nester>>): ProtoWriter;
+	o(): Uint8Array;
 }
 
 const encode_varint32: Encoder = (atu8_out, ib_write, n_value: number) => {
@@ -74,7 +74,7 @@ export const protobuf = (): ProtoWriter => {
 	let cb_buffer = 0;
 
 	const g_self: ProtoWriter = {
-		uint32: xn_value => push([
+		v: xn_value => push([
 			encode_varint32,
 			xn_value,
 			xn_value < 0x80? 1
@@ -84,7 +84,7 @@ export const protobuf = (): ProtoWriter => {
 							: 5,
 		]),
 
-		uint64: (xg_value) => {
+		g: (xg_value) => {
 			// count how many bytes are needed to store this biguint
 			let nb_biguint = 1;
 			let xg_copy = xg_value;
@@ -100,10 +100,10 @@ export const protobuf = (): ProtoWriter => {
 			]);
 		},
 
-		bytes: (atu8_btyes) => {
+		b: (atu8_btyes) => {
 			const nb_bytes = atu8_btyes.length;
 
-			g_self.uint32(nb_bytes);
+			g_self.v(nb_bytes);
 
 			return push([
 				encode_bytes,
@@ -112,14 +112,14 @@ export const protobuf = (): ProtoWriter => {
 			]);
 		},
 
-		string: s_data => g_self.bytes(s_data? text_to_buffer(s_data): [0]),
+		s: s_data => g_self.b(s_data? text_to_buffer(s_data): [0]),
 
 		// eslint-disable-next-line @typescript-eslint/naming-convention
-		nest: (f_call, ...a_args) => g_self.bytes(f_call(protobuf(), ...a_args).out()),
+		n: (f_call, ...a_args) => g_self.b(f_call(protobuf(), ...a_args).o()),
 
-		out(): Uint8Array {
+		o(): Uint8Array {
 			// eslint-disable-next-line prefer-const
-			let atu8_out = new Uint8Array(cb_buffer);
+			let atu8_out = buffer(cb_buffer);
 
 			// write offset
 			let ib_write = 0;
@@ -149,11 +149,11 @@ export const protobuf = (): ProtoWriter => {
 };
 
 export const any = (si_type: string, atu8_value: Uint8Array): Uint8Array => protobuf()
-	.uint32(10).string(si_type)
-	.uint32(18).bytes(atu8_value)
-	.out();
+	.v(10).s(si_type)
+	.v(18).b(atu8_value)
+	.o();
 
 export const coin = (a_coin: SlimCoin): Uint8Array => protobuf()
-	.uint32(10).string(a_coin[1])
-	.uint32(18).string(a_coin[0])
-	.out();
+	.v(10).s(a_coin[1])
+	.v(18).s(a_coin[0])
+	.o();

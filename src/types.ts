@@ -7,3 +7,5 @@ export interface ContractInfo {
 	creator: SecretBech32;
 	label: string;
 }
+
+export type HttpsUrl = `https://${string}`;

@@ -1,10 +1,11 @@
-import type {LcdQueryClient} from './lcd-query';
-import type {ContractInfo, SecretBech32} from './types';
+import type {ContractInfo, SecretBech32, HttpsUrl as HttpsUrl} from './types';
 import type {JsonObject, Nilable} from '@solar-republic/belt';
 
 import {base64_to_buffer, buffer_to_text} from '@solar-republic/belt';
 
 import {bech32Decode} from './bech32';
+import {info, codeHashByCodeId, query} from './lcd/compute';
+import {txKey} from './lcd/registration';
 import {any, coin, protobuf, type SlimCoin} from './protobuf-writer';
 import {SecretWasm} from './secret-wasm';
 
@@ -19,7 +20,7 @@ const h_codes_cache: Record<ContractInfo['code_id'], string> = {};
 
 const h_contract_cache: Record<SecretBech32, ContractInfo> = {};
 
-const hm_networks = new Map<LcdQueryClient, SecretWasm>();
+const h_networks: Record<HttpsUrl, SecretWasm> = {};
 
 
 export interface SecretContract {
@@ -35,27 +36,27 @@ export interface SecretContract {
 
 
 // eslint-disable-next-line @typescript-eslint/naming-convention
-export const secretContract = async(k_querier: LcdQueryClient, sa_contract: SecretBech32, atu8_seed: Nilable<Uint8Array>=null): Promise<SecretContract> => {
+export const secretContract = async(p_endpoint: HttpsUrl, sa_contract: SecretBech32, atu8_seed: Nilable<Uint8Array>=null): Promise<SecretContract> => {
 	// try loading instance from cache
-	let k_wasm = hm_networks.get(k_querier)!;
+	let k_wasm = h_networks[p_endpoint];
 
 	// network not yet cached
 	if(!k_wasm) {
 		// fetch consensus io pubkey
-		const atu8_consensus_pk = await k_querier.registration.txKey();
+		const atu8_consensus_pk = await txKey(p_endpoint);
 
 		// instantiate secret wasm and save to cache
-		hm_networks.set(k_querier, k_wasm = new SecretWasm(atu8_consensus_pk, atu8_seed));
+		h_networks[p_endpoint] = k_wasm = new SecretWasm(atu8_consensus_pk, atu8_seed);
 	}
 
 	// refload contract info
-	const g_info = h_contract_cache[sa_contract] = h_contract_cache[sa_contract] || await k_querier.compute.info(sa_contract);
+	const g_info = h_contract_cache[sa_contract] = h_contract_cache[sa_contract] || await info(p_endpoint, sa_contract);
 
 	// ref code id
 	const si_code = g_info.code_id;
 
 	// refload code hash
-	const sb16_code_hash = h_codes_cache[si_code] = h_codes_cache[si_code] || await k_querier.compute.code_hash.by_code_id(si_code);
+	const sb16_code_hash = h_codes_cache[si_code] = h_codes_cache[si_code] || await codeHashByCodeId(p_endpoint, si_code);
 
 	// decode contract address
 	const atu8_contract = bech32Decode(sa_contract);
@@ -80,7 +81,7 @@ export const secretContract = async(k_querier: LcdQueryClient, sa_contract: Secr
 			const atu8_nonce = atu8_msg.slice(0, 32);
 
 			// submit query
-			const atu8_ciphertext = await k_querier.compute.query(sa_contract, atu8_msg);
+			const atu8_ciphertext = await query(p_endpoint, sa_contract, atu8_msg);
 
 			// decrypt response
 			const atu8_plaintext = await k_wasm.decrypt(atu8_ciphertext, atu8_nonce);
@@ -104,15 +105,15 @@ export const secretContract = async(k_querier: LcdQueryClient, sa_contract: Secr
 
 			// construct body
 			const kb_body = protobuf()
-				.uint32(10).bytes(bech32Decode(sa_sender))
-				.uint32(18).bytes(atu8_contract)
-				.uint32(26).bytes(atu8_exec);
+				.v(10).b(bech32Decode(sa_sender))
+				.v(18).b(atu8_contract)
+				.v(26).b(atu8_exec);
 
 			// encode sent funds
-			a_funds.map(a_coin => kb_body.uint32(42).bytes(coin(a_coin)));
+			a_funds.map(a_coin => kb_body.v(42).b(coin(a_coin)));
 
 			// construct as direct message
-			const atu8_msg = any('/secret.compute.v1beta1.MsgExecuteContract', kb_body.out());
+			const atu8_msg = any('/secret.compute.v1beta1.MsgExecuteContract', kb_body.o());
 
 			return [atu8_msg, atu8_nonce];
 		},

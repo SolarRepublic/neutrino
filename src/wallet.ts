@@ -5,45 +5,50 @@ import type {SecretBech32} from './types';
 
 import type {Coin} from '@cosmjs/amino';
 
-import {buffer_to_base64, buffer_to_hex, sha256, type Nilable} from '@solar-republic/belt';
+import {buffer_to_base64, buffer_to_hex, sha256, type Nilable, buffer} from '@solar-republic/belt';
 
 import {bech32Encode} from './bech32';
+import {accounts} from './lcd/auth';
 import {any, coin, protobuf} from './protobuf-writer';
 import {ripemd160} from './ripemd160';
-import {gen_sk, sign, sk_to_pk} from './secp256k1';
+import {sign, sk_to_pk} from './secp256k1';
 
+const XC_SIGN_MODE_DIRECT = 1 as const;
+const XC_SIGN_MODE_AMINO = 127 as const;
 
-enum SignModeValue {
-	UNSPECIFIED = 0,
-	DIRECT = 1,
-	TEXTUAL = 2,
-	DIRECT_AUX = 3,
-	LEGACY_AMINO_JSON = 127,
-	EIP_191 = 191,
-}
+type SignModeValue = typeof XC_SIGN_MODE_DIRECT | typeof XC_SIGN_MODE_AMINO;
+
+// enum SignModeValue {
+// 	// UNSPECIFIED = 0,
+// 	DIRECT = 1,
+// 	// TEXTUAL = 2,
+// 	// DIRECT_AUX = 3,
+// 	LEGACY_AMINO_JSON = 127,
+// 	// EIP_191 = 191,
+// }
 
 /**
  * ModeInfo.Single
  */
 const encode_modeinfo_single = (k_writer: ProtoWriter, xc_mode: SignModeValue) => k_writer
-	.uint32(8).uint32(xc_mode);
+	.v(8).v(xc_mode);
 
 /**
  * ModeInfo
  */
 const encode_modeinfo = (k_writer: ProtoWriter, xc_mode_single_arg: SignModeValue) => k_writer
-	.uint32(10).nest(encode_modeinfo_single, xc_mode_single_arg);
+	.v(10).n(encode_modeinfo_single, xc_mode_single_arg);
 
 /**
  * SignerInfo
  */
 const encode_signerinfo = (k_writer: ProtoWriter, atu8_pubkey: Uint8Array, sg_sequence: `${bigint}`) => {
 	k_writer
-		.uint32(10).bytes(atu8_pubkey)
-		.uint32(18).nest(encode_modeinfo, SignModeValue.DIRECT);
+		.v(10).b(atu8_pubkey)
+		.v(18).n(encode_modeinfo, XC_SIGN_MODE_DIRECT);
 
 	if('0' !== sg_sequence) {
-		k_writer.uint32(24).uint64(BigInt(sg_sequence));
+		k_writer.v(24).g(BigInt(sg_sequence));
 	}
 
 	return k_writer;
@@ -59,15 +64,15 @@ const encode_fee = (
 	sa_granter?: Nilable<SecretBech32> | '',
 	sa_payer?: Nilable<SecretBech32> | ''
 ) => {
-	a_amounts.map(a_coin => k_writer.uint32(10).bytes(coin(a_coin)));
+	a_amounts.map(a_coin => k_writer.v(10).b(coin(a_coin)));
 
-	if('0' !== sg_limit) k_writer.uint32(16).uint64(BigInt(sg_limit));
+	if('0' !== sg_limit) k_writer.v(16).g(BigInt(sg_limit));
 
 	// for multi-signer mode, not used in single-signer mode
-	if(sa_payer) k_writer.uint32(26).string(sa_payer);
+	if(sa_payer) k_writer.v(26).s(sa_payer);
 
 	// fee granter
-	if(sa_granter) k_writer.uint32(34).string(sa_granter);
+	if(sa_granter) k_writer.v(34).s(sa_granter);
 
 	return k_writer;
 };
@@ -76,9 +81,9 @@ const encode_fee = (
  * AuthInfo
  */
 const encode_authinfo = (k_writer: ProtoWriter, a_signers: Uint8Array[], atu8_fee: Uint8Array) => {
-	a_signers.map(atu8_signer => k_writer.uint32(10).bytes(atu8_signer));
+	a_signers.map(atu8_signer => k_writer.v(10).b(atu8_signer));
 
-	k_writer.uint32(18).bytes(atu8_fee);
+	k_writer.v(18).b(atu8_fee);
 
 	return k_writer;
 };
@@ -87,11 +92,11 @@ const encode_authinfo = (k_writer: ProtoWriter, a_signers: Uint8Array[], atu8_fe
  * TxBody
  */
 const encode_txbody = (k_writer: ProtoWriter, a_msgs: Uint8Array[], s_memo?: string, sg_timeout?: `${bigint}`) => {
-	a_msgs.map(atu8_msg => k_writer.uint32(10).bytes(atu8_msg));
+	a_msgs.map(atu8_msg => k_writer.v(10).b(atu8_msg));
 
-	if(s_memo) k_writer.uint32(18).string(s_memo);
+	if(s_memo) k_writer.v(18).s(s_memo);
 
-	if(sg_timeout) k_writer.uint32(24).uint64(BigInt(sg_timeout));
+	if(sg_timeout) k_writer.v(24).g(BigInt(sg_timeout));
 
 	return k_writer;
 };
@@ -107,11 +112,11 @@ const encode_signdoc = (
 	sg_account: Nilable<`${bigint}`>
 ) => {
 	k_writer
-		.uint32(10).bytes(atu8_body)
-		.uint32(18).bytes(atu8_auth)
-		.uint32(26).string(si_chain);
+		.v(10).b(atu8_body)
+		.v(18).b(atu8_auth)
+		.v(26).s(si_chain);
 
-	if(sg_account) k_writer.uint32(32).uint64(BigInt(sg_account));
+	if(sg_account) k_writer.v(32).g(BigInt(sg_account));
 
 	return k_writer;
 };
@@ -121,22 +126,23 @@ const encode_signdoc = (
  */
 const encode_txraw = (k_writer: ProtoWriter, atu8_body: Uint8Array, atu8_auth: Uint8Array, a_signatures: Uint8Array[]) => {
 	k_writer
-		.uint32(10).bytes(atu8_body)
-		.uint32(18).bytes(atu8_auth);
+		.v(10).b(atu8_body)
+		.v(18).b(atu8_auth);
 
-	a_signatures.map(atu8_sig => k_writer.uint32(26).bytes(atu8_sig));
+	a_signatures.map(atu8_sig => k_writer.v(26).b(atu8_sig));
 
 	return k_writer;
 };
 
-export enum SignModeName {
-	UNSPECIFIED = 'SIGN_MODE_UNSPECIFIED',
-	DIRECT = 'SIGN_MODE_DIRECT',
-	TEXTUAL = 'SIGN_MODE_TEXTUAL',
-	DIRECT_AUX = 'SIGN_MODE_DIRECT_AUX',
-	AMINO = 'SIGN_MODE_LEGACY_AMINO_JSON',
-	EIP_191 = 'SIGN_MODE_EIP_191',
-}
+
+// export enum SignModeName {
+// 	// UNSPECIFIED = 'SIGN_MODE_UNSPECIFIED',
+// 	DIRECT = 'SIGN_MODE_DIRECT',
+// 	// TEXTUAL = 'SIGN_MODE_TEXTUAL',
+// 	// DIRECT_AUX = 'SIGN_MODE_DIRECT_AUX',
+// 	AMINO = 'SIGN_MODE_LEGACY_AMINO_JSON',
+// 	// EIP_191 = 'SIGN_MODE_EIP_191',
+// }
 
 export type Base64 = string;
 export type Hexadecimal = string;
@@ -171,7 +177,7 @@ export interface TxResponse {
 			signer_infos: {
 				mode_info: {
 					single: {
-						mode: SignModeName;
+						mode: `SIGN_MODE_${'UNSPECIFIED' | 'DIRECT' | 'TEXTUAL' | 'DIRECT_AUX' | 'LEGACY_AMINO_JSON' | 'EIP_191'}`;
 					};
 				} | {
 					multi: unknown;
@@ -245,7 +251,7 @@ export const pubkey_to_bech32 = async<
 	return bech32Encode(s_hrp, atu8_ripemd160) as SecretBech32<s_hrp>;
 };
 
-export const wallet = async(k_querier: LcdQueryClient, si_chain: string, atu8_sk: Uint8Array): Promise<Wallet> => {
+export const wallet = async(p_endpoint: string, si_chain: string, atu8_sk: Uint8Array): Promise<Wallet> => {
 	// obtain public key
 	const atu8_pk33 = sk_to_pk(atu8_sk);
 
@@ -261,7 +267,7 @@ export const wallet = async(k_querier: LcdQueryClient, si_chain: string, atu8_sk
 			// fetch auth data
 			let g_account!: AccountResponse | undefined;
 			try {
-				g_account = (await k_querier.auth.accounts(sa_account))[0];
+				g_account = (await accounts(p_endpoint, sa_account))[0];
 			}
 			catch(e_auth) {}
 
@@ -272,37 +278,37 @@ export const wallet = async(k_querier: LcdQueryClient, si_chain: string, atu8_sk
 			// encode pubkey
 			const atu8_pubkey = any(
 				'/cosmos.crypto.secp256k1.PubKey',
-				protobuf().uint32(10).bytes(atu8_pk33).out()
+				protobuf().v(10).b(atu8_pk33).o()
 			);
 
 			// encode signer info
-			const atu8_signer = encode_signerinfo(protobuf(), atu8_pubkey, sg_sequence || '0').out();
+			const atu8_signer = encode_signerinfo(protobuf(), atu8_pubkey, sg_sequence || '0').o();
 
 
 			// encode fee
-			const atu8_fee = encode_fee(protobuf(), a_fees, sg_limit, sa_granter).out();
+			const atu8_fee = encode_fee(protobuf(), a_fees, sg_limit, sa_granter).o();
 
 
 			// encode auth info
-			const atu8_auth = encode_authinfo(protobuf(), [atu8_signer], atu8_fee).out();
+			const atu8_auth = encode_authinfo(protobuf(), [atu8_signer], atu8_fee).o();
 
 
 			// encode tx body bytes
-			const atu8_body = encode_txbody(protobuf(), a_msgs).out();
+			const atu8_body = encode_txbody(protobuf(), a_msgs).o();
 
 			// encode signdoc
-			const atu8_doc = encode_signdoc(protobuf(), atu8_body, atu8_auth, si_chain, sg_account).out();
+			const atu8_doc = encode_signdoc(protobuf(), atu8_body, atu8_auth, si_chain, sg_account).o();
 
 
 			// hash message
 			const atu8_hash = await sha256(atu8_doc);
 
 			// sign message hash
-			const atu8_k = new Uint8Array(32).fill(127);
+			const atu8_k = buffer(32).fill(127);
 			const [atu8_signature] = await sign(atu8_sk, atu8_hash, atu8_k);
 
 			// encode txraw
-			const atu8_raw = encode_txraw(protobuf(), atu8_body, atu8_auth, [atu8_signature]).out();
+			const atu8_raw = encode_txraw(protobuf(), atu8_body, atu8_auth, [atu8_signature]).o();
 
 			// compute transaction hash id
 			const si_tx = buffer_to_hex(await sha256(atu8_raw)).toUpperCase();
@@ -311,7 +317,7 @@ export const wallet = async(k_querier: LcdQueryClient, si_chain: string, atu8_sk
 		},
 
 		async broadcast(atu8_raw) {
-			const d_res = await fetch(k_querier._p_origin+'/cosmos/tx/v1beta1/txs', {
+			const d_res = await fetch(p_endpoint+'/cosmos/tx/v1beta1/txs', {
 				method: 'POST',
 				body: JSON.stringify({
 					mode: 'BROADCAST_MODE_BLOCK',

@@ -1,26 +1,19 @@
-import type {SecretBech32} from '../src/types';
+import type {SecretBech32, HttpsUrl} from '../src/types';
 
-import {base64_to_buffer, buffer_to_base64, buffer_to_text, hex_to_buffer, text_to_buffer} from '@solar-republic/belt';
+import {text_to_buffer} from '@solar-republic/belt';
 
 import './helper';
 
-
-
 import {executeContract, retry} from '../src/app-layer';
-
-import {bech32Encode} from '../src/bech32';
-
-import {queryClient} from '../src/lcd-query';
-import {decode_protobuf} from '../src/protobuf-reader';
-import {ent_to_sk, sk_to_pk} from '../src/secp256k1';
-
+import {allowances} from '../src/lcd/feegrant';
+import {ent_to_sk} from '../src/secp256k1';
 import {secretContract} from '../src/secret-contract';
-import {pubkey_to_bech32, wallet} from '../src/wallet';
+import {wallet} from '../src/wallet';
 
 
 const SI_CHAIN = process.env.NFP_CHAIN!;
 
-const P_LCD_ENDPOINT = process.env.NFP_LCD!;
+const P_LCD_ENDPOINT = process.env.NFP_LCD as HttpsUrl;
 
 const SA_CONTRACT = process.env.NFP_CONTRACT as SecretBech32;
 
@@ -28,15 +21,15 @@ const SA_GRANTER = process.env.NFP_GRANTER as SecretBech32 | undefined;
 
 
 (async function() {
-	// instantiate query client
-	const k_querier = queryClient(P_LCD_ENDPOINT);
+	// // instantiate query client
+	// const k_querier = queryClient(P_LCD_ENDPOINT);
 
 
 	// create seed for query/execution session
 	const atu8_seed = new Uint8Array(32);
 
 	// prepare to interact with contract
-	const k_contract = await secretContract(k_querier, SA_CONTRACT, atu8_seed);
+	const k_contract = await secretContract(P_LCD_ENDPOINT, SA_CONTRACT, atu8_seed);
 
 	// query for token info
 	const g_result = await k_contract.query({
@@ -64,13 +57,13 @@ const SA_GRANTER = process.env.NFP_GRANTER as SecretBech32 | undefined;
 	// debugger;
 
 	// instantiate wallet
-	const k_wallet = await wallet(k_querier, SI_CHAIN, atu8_sk);
+	const k_wallet = await wallet(P_LCD_ENDPOINT, SI_CHAIN, atu8_sk);
 
 	console.log(`Wallet account: ${k_wallet.bech32}`);
 
 
 	// find feegrants
-	const a_allowances = await k_querier.feegrant.allowances(k_wallet.bech32);
+	const a_allowances = await allowances(P_LCD_ENDPOINT, k_wallet.bech32);
 
 	let sa_granter: SecretBech32 | '' = '';
 	for(const g_allowance of a_allowances) {

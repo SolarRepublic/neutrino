@@ -1,28 +1,28 @@
 import type {JsonValue, Nilable} from '@solar-republic/belt';
 
 import {aes128SivDecrypt, aes128SivEncrypt} from '@solar-republic/aes-128-siv-js';
-import {buffer_to_base58, buffer_to_base64, ATU8_NIL,
+import {
+	buffer,
+	ATU8_NIL,
 	base64_to_buffer,
 	buffer_to_text,
 	text_to_buffer,
 } from '@solar-republic/belt';
 
 
-
-import {crypto_scalarmult, crypto_scalarmult_base} from './ed25519';
-
+import {crypto_scalarmult, crypto_scalarmult_base} from './x25519';
 
 const ATU8_SALT_HKDF = base64_to_buffer('AAAAAAAAAAAAAkvq2N9pmQhSwgLbDgCXwaEupjfX6W0=');
 
-const NB_MSG_BLOCK = 32;
-
 
 const concat2 = (atu8_a: Uint8Array, atu8_b: Uint8Array) => {
-	const atu8_out = new Uint8Array(atu8_a.length + atu8_b.length);
+	const atu8_out = buffer(atu8_a.length + atu8_b.length);
 	atu8_out.set(atu8_a);
 	atu8_out.set(atu8_b, atu8_a.length);
 	return atu8_out;
 };
+
+const random = () => crypto.getRandomValues(buffer(32));
 
 
 export class SecretWasm {
@@ -45,7 +45,7 @@ export class SecretWasm {
 	#_atu8_tx_ikm: Uint8Array;
 
 	constructor(atu8_consensus_pk: Uint8Array, atu8_seed?: Nilable<Uint8Array>) {
-		atu8_seed = atu8_seed || crypto.getRandomValues(new Uint8Array(32));
+		atu8_seed = atu8_seed || random();
 
 		if(32 !== atu8_consensus_pk.byteLength) throw new Error(`Invalid consensus key length`);
 		if(32 !== atu8_seed.byteLength) throw new Error(`Invalid seed length`);
@@ -68,7 +68,7 @@ export class SecretWasm {
 		this.#_atu8_tx_ikm = crypto_scalarmult(atu8_sk, atu8_consensus_pk);
 	}
 
-	async txKey(atu8_nonce=crypto.getRandomValues(new Uint8Array(32))): Promise<Uint8Array> {
+	async txKey(atu8_nonce=random()): Promise<Uint8Array> {
 		const atu8_input = concat2(this.#_atu8_tx_ikm, atu8_nonce);
 
 		const dk_input = await crypto.subtle.importKey('raw', atu8_input, 'HKDF', false, ['deriveBits']);
@@ -80,7 +80,7 @@ export class SecretWasm {
 			info: ATU8_NIL,
 		}, dk_input, 256);
 
-		return new Uint8Array(ab_encryption);
+		return buffer(ab_encryption);
 	}
 
 	async encodeMsg(sb16_code_hash: string, g_msg: JsonValue, nb_msg_block?: number): Promise<Uint8Array> {
@@ -98,7 +98,7 @@ export class SecretWasm {
 		const atu8_plaintext = concat2(atu8_payload, atu8_padding);
 
 		// generate nonce
-		const atu8_nonce = crypto.getRandomValues(new Uint8Array(32));
+		const atu8_nonce = random();
 
 		// derive transaction encryption key
 		const atu8_txk = await this.txKey(atu8_nonce);
