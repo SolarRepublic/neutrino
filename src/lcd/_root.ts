@@ -1,6 +1,7 @@
 import type {SecretBech32} from '../types';
+import type {Dict, JsonObject} from '@blake.regalia/belt';
 import type {Coin} from '@cosmjs/amino';
-import type {Dict} from '@solar-republic/belt';
+import { safe_json } from 'src/util';
 
 
 export interface AccountResponse {
@@ -52,6 +53,18 @@ export const SR_LCD_FEEGRANT = '/cosmos/feegrant/v1beta1/';
 
 export const F_RPC_REQ_NO_ARGS: RpcRequest = () => [''];
 
+export type NetworkErrorDetails = [
+	d_res: Response,
+	sx_res: string,
+	g_res?: JsonObject,
+];
+
+// export const query_error = (a_details: NetworkErrorDetails) => {
+// 	Object.assign(Error('Query'), {
+// 		d: a_details,
+// 	});
+// };
+
 export const lcd_query = <
 	a_args extends any[],
 	w_parsed,
@@ -72,12 +85,15 @@ export const lcd_query = <
 	const sx_res = await d_res.text();
 
 	// parse json
-	const g_res = JSON.parse(sx_res);
+	const g_res = safe_json<JsonObject>(sx_res);
 
-	// error
-	if(g_res.code) {
-		throw new Error(`Error ${g_res.code}: ${g_res.message}`);
-	}
+	// not json
+	// eslint-disable-next-line no-throw-literal
+	if(!g_res) throw [d_res, sx_res] as NetworkErrorDetails;
+
+	// response error or network error
+	// eslint-disable-next-line no-throw-literal
+	if(!d_res.ok || g_res['code']) throw [d_res, sx_res, g_res] as NetworkErrorDetails;
 
 	// process response
 	return f_res(g_res);

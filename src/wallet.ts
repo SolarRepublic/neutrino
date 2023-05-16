@@ -1,11 +1,11 @@
 import type {AccountResponse} from './lcd/_root';
 
 import type {ProtoWriter, SlimCoin} from './protobuf-writer';
-import type {SecretBech32} from './types';
+import type {Base64, Hexadecimal, SecretBech32} from './types';
 
 import type {Coin} from '@cosmjs/amino';
 
-import {buffer_to_base64, buffer_to_hex, sha256, type Nilable, buffer} from '@solar-republic/belt';
+import {buffer_to_base64, buffer_to_hex, sha256, type Nilable, buffer} from '@blake.regalia/belt';
 
 import {bech32Encode} from './bech32';
 import {accounts} from './lcd/auth';
@@ -144,8 +144,6 @@ const encode_txraw = (k_writer: ProtoWriter, atu8_body: Uint8Array, atu8_auth: U
 // 	// EIP_191 = 'SIGN_MODE_EIP_191',
 // }
 
-export type Base64 = string;
-export type Hexadecimal = string;
 
 export interface TxResponse {
 	code: number;
@@ -204,13 +202,18 @@ export interface TxResponse {
 	txhash: Hexadecimal;
 }
 
-export type BroadcastResult = {
-	tx_response: TxResponse;
-} | {
+
+export interface BroadcastResultOk {
+	tx_response?: TxResponse;
+}
+
+export interface BroadcastResultErr {
 	code: 2;
 	message: string;
 	details: unknown[];
-};
+}
+
+export type BroadcastResult = BroadcastResultOk | BroadcastResultErr;
 
 export interface Wallet {
 	/**
@@ -235,7 +238,7 @@ export interface Wallet {
 		si_txn: string,
 	]>;
 
-	broadcast(atu8_raw: Uint8Array): Promise<BroadcastResult>;
+	broadcast(atu8_raw: Uint8Array): Promise<[string, Response]>;
 }
 
 export const pubkey_to_bech32 = async<
@@ -325,9 +328,7 @@ export const wallet = async(p_endpoint: string, si_chain: string, atu8_sk: Uint8
 				}),
 			});
 
-			const s_res_text = await d_res.text();
-
-			return JSON.parse(s_res_text) as BroadcastResult;
+			return [await d_res.text(), d_res];
 		},
 	};
 };

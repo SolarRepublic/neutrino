@@ -1,13 +1,15 @@
 import type {L} from 'ts-toolbelt';
 
-import {buffer, text_to_buffer} from '@solar-republic/belt';
+import {buffer, text_to_buffer} from '@blake.regalia/belt';
 
 type NodeValue = number | bigint | number[] | Uint8Array;
 
-type Encoder = (atu8_out: Uint8Array, ib_write: number, w_value: NodeValue) => any;
+type Encoder<
+	w_node extends NodeValue=NodeValue,
+> = (atu8_out: Uint8Array, ib_write: number, w_value: w_node) => any;
 
 type BufNode = [
-	write: Encoder,
+	write: Encoder<any>,
 	value: NodeValue,
 	length: number,
 	next?: BufNode | null,
@@ -29,7 +31,7 @@ export interface ProtoWriter {
 	o(): Uint8Array;
 }
 
-const encode_varint32: Encoder = (atu8_out, ib_write, n_value: number) => {
+const encode_varint32: Encoder<number> = (atu8_out, ib_write, n_value) => {
 	while(n_value > 127) {
 		atu8_out[ib_write++] = (n_value & 127) | 128;
 		n_value >>>= 7;
@@ -38,7 +40,7 @@ const encode_varint32: Encoder = (atu8_out, ib_write, n_value: number) => {
 	atu8_out[ib_write] = n_value;
 };
 
-const encode_biguint: Encoder = (atu8_out, ib_write, xg_value: bigint) => {
+const encode_biguint: Encoder<bigint> = (atu8_out, ib_write, xg_value) => {
 	while(xg_value > 127n) {
 		atu8_out[ib_write++] = Number(xg_value & 127n) | 128;
 		xg_value >>= 7n;
@@ -47,7 +49,7 @@ const encode_biguint: Encoder = (atu8_out, ib_write, xg_value: bigint) => {
 	atu8_out[ib_write] = Number(xg_value);
 };
 
-const encode_bytes: Encoder = (atu8_out, ib_write, atu8_data: Uint8Array) => atu8_out.set(atu8_data, ib_write);
+const encode_bytes: Encoder<Uint8Array> = (atu8_out, ib_write, atu8_data) => atu8_out.set(atu8_data, ib_write);
 
 export const protobuf = (): ProtoWriter => {
 	// @ts-expect-error low-opt

@@ -1,4 +1,4 @@
-import type {Promisable} from '@solar-republic/belt';
+import type {Promisable} from '@blake.regalia/belt';
 
 /* eslint-disable @typescript-eslint/naming-convention */
 const SX_ANSI_GREEN = '\x1b[32m';
@@ -54,7 +54,7 @@ export async function describe(s_group: string, f_group: (g_call: GroupCallback)
 				a_results.push({
 					type: 'fail',
 					name: s_test,
-					message: e_run.stack,
+					message: (e_run as Error).stack || '',
 				});
 			}
 		},

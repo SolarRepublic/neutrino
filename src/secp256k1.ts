@@ -1,4 +1,4 @@
-import {buffer, concat2, type Nilable} from '@solar-republic/belt';
+import {buffer, concat2, type Nilable} from '@blake.regalia/belt';
 
 
 const XG_2_POW_256 = 2n ** 256n;
@@ -145,7 +145,7 @@ const ec_point = ([xg_x, xg_y, xg_z]: [xg_x: bigint, xg_y: bigint, xg_z: bigint]
 
 		if(!is_group_element(xg_n)) err('Invalid scalar');
 
-		// if(this.equals(KP_BASE)) return pre_base_mul(xg_n).p;
+		// if(this.eq(KP_BASE)) return pre_base_mul(xg_n).p;
 
 		let kp_p = KP_ZERO;
 		let kp_f = KP_BASE;
@@ -163,7 +163,7 @@ const ec_point = ([xg_x, xg_y, xg_z]: [xg_x: bigint, xg_y: bigint, xg_z: bigint]
 	},
 
 	aff(): AffinePoint {
-		if(this.equals(KP_ZERO)) return [0n, 0n];
+		if(this.eq(KP_ZERO)) return [0n, 0n];
 		// if(ec_point_eq(this, KP_ZERO)) return [0n, 0n];
 
 		if(1n === xg_z) return [xg_x, xg_y];

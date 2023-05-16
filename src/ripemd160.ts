@@ -1,4 +1,4 @@
-import {buffer} from '@solar-republic/belt';
+import {buffer} from '@blake.regalia/belt';
 
 /* eslint-disable @typescript-eslint/naming-convention */
 const NB_BLOCK = 64;

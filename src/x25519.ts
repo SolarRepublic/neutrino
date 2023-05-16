@@ -1,4 +1,4 @@
-import {buffer} from '@solar-republic/belt';
+import {buffer} from '@blake.regalia/belt';
 
 const float = (nl_size=16) => new Float64Array(nl_size);
 

@@ -1,6 +1,6 @@
 import type {ContractInfo, SecretBech32} from '../types';
 
-import {base64_to_buffer, buffer_to_base64} from '@solar-republic/belt';
+import {base64_to_buffer, buffer_to_base64} from '@blake.regalia/belt';
 
 import {SR_LCD_COMPUTE, lcd_query} from './_root';
 

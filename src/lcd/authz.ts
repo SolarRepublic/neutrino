@@ -1,6 +1,6 @@
 import type {SecretBech32} from '../types';
 
-import type {Dict} from '@solar-republic/belt';
+import type {Dict} from '@blake.regalia/belt';
 
 import {lcd_query} from './_root';
 

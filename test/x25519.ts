@@ -1,7 +1,7 @@
 import {
 	hex_to_buffer,
 	base64_to_buffer,
-} from '@solar-republic/belt';
+} from '@blake.regalia/belt';
 
 import chai, {expect} from 'chai';
 

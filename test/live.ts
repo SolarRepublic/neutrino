@@ -1,23 +1,25 @@
 import type {SecretBech32, HttpsUrl} from '../src/types';
 
-import {text_to_buffer} from '@solar-republic/belt';
+import type {Dict} from '@blake.regalia/belt';
+import {text_to_buffer} from '@blake.regalia/belt';
 
 import './helper';
 
-import {executeContract, retry} from '../src/app-layer';
+import {execContract, retry} from '../src/app-layer';
 import {allowances} from '../src/lcd/feegrant';
 import {ent_to_sk} from '../src/secp256k1';
 import {secretContract} from '../src/secret-contract';
 import {wallet} from '../src/wallet';
 
+const h_env = process.env;
 
-const SI_CHAIN = process.env.NFP_CHAIN!;
+const SI_CHAIN = h_env['NFP_CHAIN']!;
 
-const P_LCD_ENDPOINT = process.env.NFP_LCD as HttpsUrl;
+const P_LCD_ENDPOINT = h_env['NFP_LCD'] as HttpsUrl;
 
-const SA_CONTRACT = process.env.NFP_CONTRACT as SecretBech32;
+const SA_CONTRACT = h_env['NFP_CONTRACT'] as SecretBech32;
 
-const SA_GRANTER = process.env.NFP_GRANTER as SecretBech32 | undefined;
+const SA_GRANTER = h_env['NFP_GRANTER'] as SecretBech32 | undefined;
 
 
 (async function() {
@@ -43,7 +45,6 @@ const SA_GRANTER = process.env.NFP_GRANTER as SecretBech32 | undefined;
 	const atu8_ent = new Uint8Array(await crypto.subtle.digest('SHA-384', text_to_buffer('nfp-test-account:0')));
 	const atu8_sk = ent_to_sk(atu8_ent.subarray(0, 40));
 
-	// const atu8_sk = base64_to_buffer('8Ke2frmnGdVPipv7+xh9jClrl5EaBb9cowSUgj5GvrY=');
 	// const atu8_pk33 = sk_to_pk(atu8_sk);
 
 	// // test public keys match
@@ -70,13 +71,13 @@ const SA_GRANTER = process.env.NFP_GRANTER as SecretBech32 | undefined;
 		sa_granter = g_allowance.granter;
 	}
 
-	const [g_tx_res, sx_exec_res] = await retry(() => executeContract(k_contract, k_wallet, {
+	const [g_tx_res, sx_exec_res] = await retry(() => execContract(k_contract, k_wallet, {
 		set_viewing_key: {
 			key: 'password123',
 		},
 	}, [['2500', 'uscrt']], '50000', sa_granter), (z_exec, c_attempts) => {
 		// retry-able
-		if(/timed out/.test(z_exec?.['message'] || '')) {
+		if(/timed out/.test((z_exec as Dict)?.['message'] || '')) {
 			if(c_attempts < 5) {
 				return [6e3];
 			}

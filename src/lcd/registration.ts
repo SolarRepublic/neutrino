@@ -1,4 +1,4 @@
-import {base64_to_buffer} from '@solar-republic/belt';
+import {base64_to_buffer} from '@blake.regalia/belt';
 
 import {lcd_query} from './_root';
 

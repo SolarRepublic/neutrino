@@ -2,9 +2,9 @@ import type {SecretBech32} from '../types';
 
 import type {Coin} from '@cosmjs/amino';
 
-import type {Dict} from '@solar-republic/belt';
+import type {Dict} from '@blake.regalia/belt';
 
-import {F_IDENTITY} from '@solar-republic/belt';
+import {F_IDENTITY} from '@blake.regalia/belt';
 
 import {F_RPC_REQ_NO_ARGS, SR_LCD_BANK, lcd_query} from './_root';
 

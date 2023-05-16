@@ -1,65 +1,23 @@
 {
-	// custom options for this project
+	"extends": "@blake.regalia/tsconfig/tsconfig.web.json",
+
 	"compilerOptions": {
-		// downleveling ES features can have very nasty side effects
-		"target": "es2022",
-		"module": "es2022",
-		"lib": ["ES2022", "WebWorker", "DOM"],
-		"moduleResolution": "node",
-		"sourceMap": true,
+		"baseUrl": ".",
+		"outDir": "dist",
 
-		// for explicit posterity, this is true anyway with "es2022
-		"useDefineForClassFields": true,
-
-		// ensure certain coding styles are not mishandled by compiler
-		"exactOptionalPropertyTypes": true,
-		"noPropertyAccessFromIndexSignature": false,
-
-		// type checking and type safety
-		"noImplicitOverride": true,
-		"strictNullChecks": true,
-		// "suppressExcessPropertyErrors": true,
-		// "noStrictGenericChecks": true,
-
-		// ensure consistent build outputs for code hashes
-		"newLine": "lf",
-		"removeComments": true,
-
- 		// convenient preferences for development sake
-		"allowSyntheticDefaultImports": true,
-		"resolveJsonModule": true,
-
-		// for svelte
-		"isolatedModules": false,
-		"strict": false,
-		"esModuleInterop": true,
-		"skipLibCheck": true,
-		"forceConsistentCasingInFileNames": true,
-
-		// define convenient "home" path alias to src directory
-		"baseUrl": "./",
-		"paths": {
-			"#/*": ["./src/*"],
-			"~/*": ["./*"],
-		}
-	},
-
-	"ts-node": {
-		"require": ["tsconfig-paths/register"],
-		"experimentalSpecifierResolution": "node"
+		"declaration": true,
+		"declarationDir": "dist"
 	},
 
 	"include": [
 		"src/**/*.d.ts",
 		"src/**/*.ts",
 		"test/**/*.ts",
-		"rollup.config.ts",
-		".eslintrc.cjs",
+		"rollup.config.ts"
 	],
 
-	"exclude": [
-		"node_modules/*",
-		"public/*",
-		"dist/*",
-	],
+	"ts-node": {
+		"require": ["tsconfig-paths/register"],
+		"experimentalSpecifierResolution": "node"
+	},
 }

@@ -42,11 +42,11 @@ export const decode_protobuf = (atu8_data: Uint8Array): DecodedProtobuf => {
 			varint,
 
 			// i64
+			// @ts-expect-error paren-less param
 			_ => 'i64',
 
 			// len (string, bytes, embedded, etc.)
-			// eslint-disable-next-line @typescript-eslint/no-loop-func
-			(_) => {
+			() => {
 				let nb_read = varint();
 				let ib_start = ib_read;
 				ib_read += nb_read;

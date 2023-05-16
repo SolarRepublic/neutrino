@@ -1,4 +1,4 @@
-import {buffer_to_base64, buffer_to_hex, text_to_buffer} from '@solar-republic/belt';
+import {buffer_to_base64, buffer_to_hex, text_to_buffer} from '@blake.regalia/belt';
 
 import {ripemd160} from '../src/ripemd160';
 
