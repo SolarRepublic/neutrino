@@ -10,10 +10,14 @@
     "email": "blake.regalia@gmail.com",
     "url": "https://blake-regalia.com/"
   },
-  "type": "commonjs",
-  "main": "dist/cjs/main.js",
-  "module": "dist/mjs/main.js",
-  "types": "dist/mjs/main.d.ts",
+	"type": "commonjs",
+	"main": "dist/cjs/main.js",
+	"module": "dist/mjs/main.js",
+	"types": "dist/mjs/main.d.ts",
+	"exports": {
+		"require": "./dist/cjs/main.js",
+		"import": "./dist/mjs/main.js"
+	},
   "files": [
     "dist/*"
   ],
