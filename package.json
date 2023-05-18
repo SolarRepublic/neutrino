@@ -1,6 +1,6 @@
 {
   "name": "@solar-republic/neutrino",
-  "version": "0.0.3",
+  "version": "0.1.0",
   "description": "Ultra light-weight client library for Secret Network",
   "homepage": "https://starshell.net/",
   "repository": "github:SolarRepublic/neutrino",
@@ -19,9 +19,9 @@
   ],
   "scripts": {
     "clean": "rm -rf dist/*",
-		"build:cjs": "tsc -p tsconfig.cjs.json",
-		"build:mjs": "tsc -p tsconfig.mjs.json",
-		"build": "yarn build:cjs && yarn build:mjs",
+    "build:cjs": "tsc -p tsconfig.cjs.json",
+    "build:mjs": "tsc -p tsconfig.mjs.json",
+    "build": "yarn build:cjs && yarn build:mjs",
     "preview": "js-beautify dist/main.mjs > dist/main-pretty.mjs",
     "test": "node --loader ts-node/esm",
     "test:all": "yarn test test/**.ts",
