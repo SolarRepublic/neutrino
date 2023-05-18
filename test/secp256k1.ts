@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/require-await */
 /* eslint-disable @typescript-eslint/no-unused-expressions */
+import {buffer_to_hex, hex_to_buffer, sha256, text_to_buffer} from '@blake.regalia/belt';
 
 import {
 	signAsync as noble_sign,
@@ -9,7 +10,6 @@ import {
 	getSharedSecret as noble_ecdh,
 } from '@noble/secp256k1';
 
-import {buffer_to_hex, hex_to_buffer, sha256, text_to_buffer} from '@blake.regalia/belt';
 import chai, {expect} from 'chai';
 import chai_bites from 'chai-bites';
 chai.use(chai_bites);

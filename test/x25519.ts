@@ -13,7 +13,7 @@ import {
 import {describe} from './helper';
 
 import {
-	crypto_scalarmult,
+	ecs_mul,
 } from '../src/x25519';
 
 
@@ -29,7 +29,7 @@ const A_VECTORS = [
 for(const [i_vector, g_vector] of A_VECTORS.entries()) {
 	void describe(`Vector #${i_vector + 1}`, ({it}) => {
 		void it('shared key', () => {
-			const atu8_x25519_actual = crypto_scalarmult(g_vector.sk, g_vector.iopk);
+			const atu8_x25519_actual = ecs_mul(g_vector.sk, g_vector.iopk);
 			const atu8_x25519_expect = sharedKey(g_vector.sk, g_vector.iopk);
 
 			expect(atu8_x25519_actual).to.equalBytes(atu8_x25519_expect);

@@ -13,16 +13,6 @@ const ATU8_RHO = /*#__PURE__*/Uint8Array.from([7, 4, 13, 1, 10, 6, 15, 3, 12, 0,
 const A_INDEXES_L = [ATU8_0_16];
 const A_INDEXES_R = [ATU8_PI];
 
-const init = () => {
-	if(c_inits++) return;
-
-	for(let i_index=0; i_index<4; i_index++) {
-		for(const a_indexes of [A_INDEXES_L, A_INDEXES_R]) {
-			a_indexes.push(a_indexes[i_index].map(xb => ATU8_RHO[xb]));
-		}
-	}
-};
-
 const A_SHIFTS = /*#__PURE__*/[
 	[11, 14, 15, 12, 5, 8, 7, 9, 11, 13, 14, 15, 6, 7, 9, 8],
 	[12, 13, 11, 15, 6, 9, 9, 7, 12, 15, 11, 13, 7, 8, 7, 7],
@@ -31,8 +21,25 @@ const A_SHIFTS = /*#__PURE__*/[
 	[15, 12, 13, 13, 9, 5, 8, 6, 14, 11, 12, 11, 8, 6, 5, 5],
 ].map(a_words => buffer(a_words));
 
-const A_SHIFTS_L = /*#__PURE__*/A_INDEXES_L.map((idx, i) => idx.map(j => A_SHIFTS[i][j]));
-const A_SHIFTS_R = /*#__PURE__*/A_INDEXES_R.map((idx, i) => idx.map(j => A_SHIFTS[i][j]));
+// const A_SHIFTS_L = /*#__PURE__*/A_INDEXES_L.map((idx, i) => idx.map(j => A_SHIFTS[i][j]));
+// const A_SHIFTS_R = /*#__PURE__*/A_INDEXES_R.map((idx, i) => idx.map(j => A_SHIFTS[i][j]));
+
+let A_SHIFTS_L: Uint8Array[];
+let A_SHIFTS_R: Uint8Array[];
+
+const init = () => {
+	if(c_inits++) return;
+
+	for(let i_index=0; i_index<4; i_index++) {
+		for(const a_indexes of [A_INDEXES_L, A_INDEXES_R]) {
+			a_indexes.push(a_indexes[i_index].map(xb => ATU8_RHO[xb]));
+		}
+	}
+
+	A_SHIFTS_L = A_INDEXES_L.map((idx, i) => idx.map(j => A_SHIFTS[i][j]));
+	A_SHIFTS_R = A_INDEXES_R.map((idx, i) => idx.map(j => A_SHIFTS[i][j]));
+};
+
 
 const ATU8_KL = new Uint32Array([0x00000000, 0x5a827999, 0x6ed9eba1, 0x8f1bbcdc, 0xa953fd4e]);
 const ATU8_KR = new Uint32Array([0x50a28be6, 0x5c4dd124, 0x6d703ef3, 0x7a6d76e9, 0x00000000]);

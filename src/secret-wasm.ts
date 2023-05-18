@@ -1,6 +1,5 @@
 import type {JsonValue, Nilable} from '@blake.regalia/belt';
 
-import {aes128SivDecrypt, aes128SivEncrypt} from '@solar-republic/aes-128-siv-js';
 import {
 	buffer,
 	ATU8_NIL,
@@ -10,8 +9,8 @@ import {
 	text_to_buffer,
 } from '@blake.regalia/belt';
 
-
-import {crypto_scalarmult, crypto_scalarmult_base} from './x25519';
+import {aes128SivDecrypt, aes128SivEncrypt} from './aes-128-siv';
+import {ecs_mul, ecs_mul_base} from './x25519';
 
 const random = () => crypto.getRandomValues(buffer(32));
 
@@ -32,7 +31,7 @@ export const secretWasm = (atu8_consensus_pk: Uint8Array, atu8_seed?: Nilable<Ui
 	const atu8_sk = atu8_seed.slice();
 
 	// derive curve25119 public key
-	const _atu8_pk = crypto_scalarmult_base(atu8_sk);
+	const _atu8_pk = ecs_mul_base(atu8_sk);
 
 	// turn secret key into correct format
 	atu8_sk[0] &= 0xf8;
@@ -43,7 +42,7 @@ export const secretWasm = (atu8_consensus_pk: Uint8Array, atu8_seed?: Nilable<Ui
 	_atu8_pk[31] &= 0x7f;
 
 	// produce tx ikm
-	const _atu8_tx_ikm = crypto_scalarmult(atu8_sk, atu8_consensus_pk);
+	const _atu8_tx_ikm = ecs_mul(atu8_sk, atu8_consensus_pk);
 
 	return {
 		async txKey(atu8_nonce=random()) {

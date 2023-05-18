@@ -67,7 +67,7 @@ export const queryContract = async<
 	h_query: JsonObject
 ): Promise<[xc_code: number, s_error: string, h_msg?: w_out]> => {
 	// output intermediates
-	let g_out: QueryIntermediates = {};
+	const g_out: QueryIntermediates = {};
 
 	// attempt query as usual
 	try {
@@ -157,7 +157,7 @@ export const execContract = async(  // eslint-disable-line @typescript-eslint/na
 	if(!g_tx_res) return [(g_res as BroadcastResultErr).code, (g_res as BroadcastResultErr).message];
 
 	// destructure tx response
-	let {
+	const {
 		code: xc_error,
 		codespace: si_codespace,
 		raw_log: s_rawlog,
@@ -183,7 +183,7 @@ export const execContract = async(  // eslint-disable-line @typescript-eslint/na
 		] = decode_protobuf(hex_to_buffer(g_tx_res.data));
 
 		// decrypt ciphertext
-		const atu8_plaintext = await k_contract.wasm.decrypt(atu8_ciphertext, atu8_nonce);
+		const atu8_plaintext = await k_contract.wasm.decrypt(atu8_ciphertext as Uint8Array, atu8_nonce);
 
 		// decode plaintext
 		s_plaintext = buffer_to_text(base64_to_buffer(buffer_to_text(atu8_plaintext)));
