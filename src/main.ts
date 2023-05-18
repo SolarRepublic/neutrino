@@ -2,7 +2,7 @@ export type * from './types';
 export * from './lcd/_all';
 export * from './app-layer';
 export * from './bech32';
-export * from './comc';
+// export * from './comc';
 export * from './protobuf-reader';
 export * from './protobuf-writer';
 export * from './ripemd160';

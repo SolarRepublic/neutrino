@@ -10,6 +10,7 @@ const float = (nl_size=16) => new Float64Array(nl_size);
 
 // /*@__PURE__*/ATF64_121665.set([0xdb41, 1]);
 
+// eslint-disable-next-line @typescript-eslint/naming-convention
 let ATU8_BASE: Uint8Array;
 
 const init_base = () => {
@@ -87,7 +88,7 @@ const mul = (atf64_out: Float64Array, atf64_a: Float64Array, atf64_b: Float64Arr
 const square = (atu8_out: Float64Array, atu8_a: Float64Array) => mul(atu8_out, atu8_a, atu8_a);
 
 export const crypto_scalarmult = (atu8_n: Uint8Array, atu8_p: Uint8Array): Uint8Array => {
-	init();
+	init_base();
 
 	let atu8_q = buffer(32);
 	let atu8_z = atu8_n.map(x => x);

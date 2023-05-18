@@ -197,9 +197,9 @@ const ec_point = ([xg_x, xg_y, xg_z]: [xg_x: bigint, xg_y: bigint, xg_z: bigint]
 	},
 });
 
-const KP_ZERO = ec_point([0n, 1n, 0n]);
+const KP_ZERO = /*#__PURE__*/ec_point([0n, 1n, 0n]);
 
-const KP_BASE = ec_point([
+const KP_BASE = /*#__PURE__*/ec_point([
 	0x79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798n,
 	0x483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d08ffb10d4b8n,
 	1n,

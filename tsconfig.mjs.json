@@ -1,0 +1,16 @@
+{
+	"extends": "@blake.regalia/tsconfig/tsconfig.node.json",
+
+	"compilerOptions": {
+		"baseUrl": ".",
+		"outDir": "dist/mjs",
+
+		"declaration": true,
+		"declarationDir": "dist/mjs"
+	},
+
+	"include": [
+		"src/**/*.d.ts",
+		"src/**/*.ts",
+	]
+}

@@ -1,0 +1,16 @@
+{
+	"extends": "@blake.regalia/tsconfig/tsconfig.node-cjs.json",
+
+	"compilerOptions": {
+		"baseUrl": ".",
+		"outDir": "dist/cjs",
+
+		"declaration": true,
+		"declarationDir": "dist/cjs"
+	},
+
+	"include": [
+		"src/**/*.d.ts",
+		"src/**/*.ts",
+	]
+}
