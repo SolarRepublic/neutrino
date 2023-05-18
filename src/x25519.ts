@@ -2,13 +2,13 @@ import {buffer} from '@blake.regalia/belt';
 
 const float = (nl_size=16) => new Float64Array(nl_size);
 
-// const ATU8_BASE = /*@__PURE__*/buffer(32);
+// const ATU8_BASE = /*#__PURE__*/buffer(32);
 
-// const ATF64_121665 = /*@__PURE__*/float();
+// const ATF64_121665 = /*#__PURE__*/float();
 
 // ATU8_BASE[0] = 9;
 
-// /*@__PURE__*/ATF64_121665.set([0xdb41, 1]);
+// /*#__PURE__*/ATF64_121665.set([0xdb41, 1]);
 
 // eslint-disable-next-line @typescript-eslint/naming-convention
 let ATU8_BASE: Uint8Array;
