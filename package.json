@@ -32,11 +32,11 @@
     "debug": "node --inspect-brk --loader ts-node/esm"
   },
   "devDependencies": {
-    "@blake.regalia/belt": "^0.6.1",
-    "@blake.regalia/eslint-config-elite": "^0.2.6",
+    "@blake.regalia/belt": "^0.6.2",
+    "@blake.regalia/eslint-config-elite": "^0.2.7",
     "@blake.regalia/tsconfig": "^0.1.2",
     "@cosmjs/amino": "^0.30.1",
-    "@nfps.dev/rollup-plugin-microweb": "^0.3.0",
+    "@nfps.dev/rollup-plugin-microweb": "^0.3.2",
     "@noble/secp256k1": "^2.0.0",
     "@rollup/plugin-commonjs": "^25.0.0",
     "@rollup/plugin-replace": "^5.0.2",
@@ -58,7 +58,7 @@
     "typescript": "^5.0.4"
   },
   "dependencies": {
-    "@blake.regalia/belt": "^0.6.1",
+    "@blake.regalia/belt": "^0.6.2",
     "@solar-republic/aes-128-siv-js": "^0.1.8"
   },
   "publishConfig": {
