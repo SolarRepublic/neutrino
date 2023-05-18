@@ -1,7 +1,8 @@
 import type {SecretBech32} from '../types';
 import type {Dict, JsonObject} from '@blake.regalia/belt';
 import type {Coin} from '@cosmjs/amino';
-import { safe_json } from 'src/util';
+
+import {safe_json} from '../util';
 
 
 export interface AccountResponse {

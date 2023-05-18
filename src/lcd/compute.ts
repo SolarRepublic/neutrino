@@ -19,7 +19,7 @@ export const query = lcd_query<
 	(sa_contract, atu8_query) => [SR_LCD_COMPUTE+'query/'+sa_contract, {
 		query: buffer_to_base64(atu8_query),
 	}],
-	g => base64_to_buffer(g.data)
+	g => base64_to_buffer(g.data as string)
 );
 
 // eslint-disable-next-line @typescript-eslint/naming-convention

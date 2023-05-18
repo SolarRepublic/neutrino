@@ -1,8 +1,7 @@
 import type {SecretBech32} from '../types';
 
-import type {Coin} from '@cosmjs/amino';
-
 import type {Dict} from '@blake.regalia/belt';
+import type {Coin} from '@cosmjs/amino';
 
 import {F_IDENTITY} from '@blake.regalia/belt';
 
