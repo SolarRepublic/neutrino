@@ -13,26 +13,7 @@ import {
 
 import {crypto_scalarmult, crypto_scalarmult_base} from './x25519';
 
-const ATU8_SALT_HKDF = base64_to_buffer('AAAAAAAAAAAAAkvq2N9pmQhSwgLbDgCXwaEupjfX6W0=');
-
-
 const random = () => crypto.getRandomValues(buffer(32));
-
-
-// const parse = (sb64_msg: string): [Uint8Array, Uint8Array, Uint8Array] => {
-// 	const atu8_msg = base64_to_buffer(sb64_msg);
-
-// 	return [
-// 		// nonce
-// 		atu8_msg.subarray(0, 32),
-
-// 		// public key
-// 		atu8_msg.subarray(32, 64),
-
-// 		// ciphertext
-// 		atu8_msg.subarray(64),
-// 	];
-// }
 
 export interface SecretWasm {
 	txKey(atu8_nonce?: Uint8Array): Promise<Uint8Array>;
@@ -73,7 +54,7 @@ export const secretWasm = (atu8_consensus_pk: Uint8Array, atu8_seed?: Nilable<Ui
 			const ab_encryption = await crypto.subtle.deriveBits({
 				name: 'HKDF',
 				hash: 'SHA-256',
-				salt: ATU8_SALT_HKDF,
+				salt: base64_to_buffer('AAAAAAAAAAAAAkvq2N9pmQhSwgLbDgCXwaEupjfX6W0='),
 				info: ATU8_NIL,
 			}, dk_input, 256);
 
