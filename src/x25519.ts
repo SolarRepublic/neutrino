@@ -2,13 +2,21 @@ import {buffer} from '@blake.regalia/belt';
 
 const float = (nl_size=16) => new Float64Array(nl_size);
 
-const ATU8_BASE = /*@__PURE__*/buffer(32);
+// const ATU8_BASE = /*@__PURE__*/buffer(32);
 
-const ATF64_121665 = /*@__PURE__*/float();
+// const ATF64_121665 = /*@__PURE__*/float();
 
-ATU8_BASE[0] = 9;
+// ATU8_BASE[0] = 9;
 
-/*@__PURE__*/ATF64_121665.set([0xdb41, 1]);
+// /*@__PURE__*/ATF64_121665.set([0xdb41, 1]);
+
+let ATU8_BASE: Uint8Array;
+
+const init_base = () => {
+	ATU8_BASE = buffer(32);
+	ATU8_BASE[0] = 9;
+	return ATU8_BASE;
+};
 
 const car25519 = (atf64_out: Float64Array) => {
 	let i_f: number;
@@ -79,6 +87,8 @@ const mul = (atf64_out: Float64Array, atf64_a: Float64Array, atf64_b: Float64Arr
 const square = (atu8_out: Float64Array, atu8_a: Float64Array) => mul(atu8_out, atu8_a, atu8_a);
 
 export const crypto_scalarmult = (atu8_n: Uint8Array, atu8_p: Uint8Array): Uint8Array => {
+	init();
+
 	let atu8_q = buffer(32);
 	let atu8_z = atu8_n.map(x => x);
 	let atf64_x = float(80);
@@ -136,7 +146,10 @@ export const crypto_scalarmult = (atu8_n: Uint8Array, atu8_p: Uint8Array): Uint8
 		// M(atf64_b, atf64_a, atf64_a);
 
 		sub(atf64_c, atf64_d, atf64_f);
-		mul(atf64_a, atf64_c, ATF64_121665);
+
+		let atf64_121665 = float();
+		atf64_121665.set([0xdb41, 1]);
+		mul(atf64_a, atf64_c, atf64_121665);
 		add(atf64_a, atf64_a, atf64_d);
 		mul(atf64_c, atf64_c, atf64_a);
 		mul(atf64_a, atf64_d, atf64_f);
@@ -198,5 +211,5 @@ export const crypto_scalarmult = (atu8_n: Uint8Array, atu8_p: Uint8Array): Uint8
 	return atu8_q;
 };
 
-export const crypto_scalarmult_base = (atu8_n: Uint8Array): Uint8Array => crypto_scalarmult(atu8_n, ATU8_BASE);
+export const crypto_scalarmult_base = (atu8_n: Uint8Array): Uint8Array => crypto_scalarmult(atu8_n, ATU8_BASE || init_base());
 
