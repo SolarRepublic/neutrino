@@ -1,15 +1,15 @@
 {
   "name": "@solar-republic/neutrino",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Ultra light-weight client library for Secret Network",
   "homepage": "https://starshell.net/",
   "repository": "github:SolarRepublic/neutrino",
   "license": "MIT",
-	"author": {
-		"name": "Blake Regalia",
-		"email": "blake.regalia@gmail.com",
-		"url": "https://blake-regalia.com/"
-	},
+  "author": {
+    "name": "Blake Regalia",
+    "email": "blake.regalia@gmail.com",
+    "url": "https://blake-regalia.com/"
+  },
   "type": "module",
   "main": "dist/main.mjs",
   "module": "dist/main.mjs",
