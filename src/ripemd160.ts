@@ -1,5 +1,7 @@
 import {buffer} from '@blake.regalia/belt';
 
+let c_inits = 0;
+
 /* eslint-disable @typescript-eslint/naming-convention */
 const NB_BLOCK = 64;
 
@@ -11,11 +13,15 @@ const ATU8_RHO = /*#__PURE__*/Uint8Array.from([7, 4, 13, 1, 10, 6, 15, 3, 12, 0,
 const A_INDEXES_L = [ATU8_0_16];
 const A_INDEXES_R = [ATU8_PI];
 
-for(let i_index=0; i_index<4; i_index++) {
-	for(const a_indexes of [A_INDEXES_L, A_INDEXES_R]) {
-		a_indexes.push(a_indexes[i_index].map(xb => ATU8_RHO[xb]));
+const init = () => {
+	if(c_inits++) return;
+
+	for(let i_index=0; i_index<4; i_index++) {
+		for(const a_indexes of [A_INDEXES_L, A_INDEXES_R]) {
+			a_indexes.push(a_indexes[i_index].map(xb => ATU8_RHO[xb]));
+		}
 	}
-}
+};
 
 const A_SHIFTS = /*#__PURE__*/[
 	[11, 14, 15, 12, 5, 8, 7, 9, 11, 13, 14, 15, 6, 7, 9, 8],
@@ -44,6 +50,8 @@ const twid = (i_group: number, xn_x: number, xn_y: number, xn_z: number): number
 
 /* eslint-disable prefer-const */
 export const ripemd160 = (atu8_data: Uint8Array): Uint8Array => {
+	init();
+
 	/* eslint-disable @typescript-eslint/naming-convention */
 	let _nb_data = atu8_data.length;
 	let _dv_data = new DataView(atu8_data.buffer, atu8_data.byteOffset, _nb_data);
