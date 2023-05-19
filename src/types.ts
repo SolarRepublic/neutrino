@@ -73,7 +73,7 @@ export interface TypedStdSignDoc<
  * 2. Query Permits - indicated here by `Record<string, string>`
  * 3. ViewerInfo struts - indicated here by `[viewing_key: string, addr: 'secret1${string}']`
  */
-export type AuthSecret = string | QueryPermit | [sh_viewing_key: string, sa_address: SecretBech32];
+export type AuthSecret = string | QueryPermit | [sh_viewing_key: string, sa_address?: SecretBech32];
 
 
 export type SlimAuthInfo = [acc_num: Nilable<Uint128>, sequence: Nilable<Uint128>];

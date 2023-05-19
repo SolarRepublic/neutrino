@@ -2,9 +2,10 @@ import type {NetworkErrorDetails} from './lcd/_root';
 import type {QueryIntermediates, SecretContract} from './secret-contract';
 import type {AuthSecret, MsgQueryPermit, QueryPermit, SecretBech32, SlimCoin} from './types';
 
-import {__UNDEFINED, type Dict, type JsonObject, type Nilable, type Promisable, type Uint128} from '@blake.regalia/belt';
+import type {JsonObject, Nilable, Promisable, Uint128} from '@blake.regalia/belt';
 
-import {buffer_to_base64, hex_to_buffer, timeout, base64_to_buffer, buffer_to_text} from '@blake.regalia/belt';
+import {__UNDEFINED, oda, buffer_to_base64, hex_to_buffer, timeout, base64_to_buffer, buffer_to_text} from '@blake.regalia/belt';
+
 
 import {decode_protobuf} from './protobuf-reader';
 import {safe_json} from './util';
@@ -24,7 +25,7 @@ export type RetryParams = [
 	xt_wait: number,
 ];
 
-export const err = (s_msg: string, w_data: unknown): Error => Object.assign(new Error(s_msg), {data:w_data});
+export const err = (s_msg: string, w_data: unknown): Error => oda(new Error(s_msg), {data:w_data});
 
 export const retry = async<w_out>(
 	f_broadcast: (c_attempts: number) => Promise<w_out>,

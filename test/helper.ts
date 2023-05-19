@@ -1,5 +1,7 @@
 import type {Promisable} from '@blake.regalia/belt';
 
+import {ode} from '@blake.regalia/belt';
+
 /* eslint-disable @typescript-eslint/naming-convention */
 const SX_ANSI_GREEN = '\x1b[32m';
 const SX_ANSI_RESET = '\x1b[0m';
@@ -14,7 +16,7 @@ export function pass(s_test: string): void {
 }
 
 function error(s_test: string, ...a_args: Array<string | object>) {
-	const a_rest = a_args.map(z => 'string' === typeof z? z: Object.entries(z).map(([si, w]) => `\n\t${si}: ${w}`).join('\n'));
+	const a_rest = a_args.map(z => 'string' === typeof z? z: ode(z).map(([si, w]) => `\n\t${si}: ${w}`).join('\n'));
 	console.error(`${s_test}: ${a_rest.join('; ')}`);
 }
 
