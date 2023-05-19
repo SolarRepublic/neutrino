@@ -2,7 +2,7 @@ import type {NetworkErrorDetails} from './lcd/_root';
 import type {QueryIntermediates, SecretContract} from './secret-contract';
 import type {AuthSecret, MsgQueryPermit, QueryPermit, SecretBech32, SlimCoin} from './types';
 
-import type {JsonObject, Nilable, Promisable, Uint128} from '@blake.regalia/belt';
+import {__UNDEFINED, type Dict, type JsonObject, type Nilable, type Promisable, type Uint128} from '@blake.regalia/belt';
 
 import {buffer_to_base64, hex_to_buffer, timeout, base64_to_buffer, buffer_to_text} from '@blake.regalia/belt';
 
@@ -165,23 +165,35 @@ export const format_query = (
 
 /**
  * Query a Secret Contract method and automatically apply an auth secret if one is provided.
+ * Additionally, unwrap the success response if one was returned.
  * 
  * @param k_contract 
  * @param h_query 
  * @returns tuple of `[number, string, JsonObject?]` where:
- *  - [0]: `xc_code: number` - error code from chain, or non-OK HTTP status code from the LCD server.
+ *  - [0]: `h_data?: JsonObject` - unwrapped contract response JSON object on success
+ *  - [1]: `xc_code: number` - error code from chain, or non-OK HTTP status code from the LCD server.
  * 		A value of `0` indicates success.
- *  - [1]: `s_error: string` - error message from chain or HTTP response body
- *  - [2]: `h_msg?: JsonObject` - contract response as JSON object on success
+ *  - [2]: `s_error: string` - error message from chain or HTTP response body
+ *  - [3]: `h_msg?: JsonObject` - contract response as JSON object on success
  */
-export const query_contract_auto = async<
+export const query_contract_infer = async<
 	w_out extends object=JsonObject,
 >(
 	k_contract: SecretContract,
 	si_method: string,
 	h_args?: Nilable<object>,
 	z_auth?: Nilable<AuthSecret>
-): Promise<[xc_code: number, s_error: string, h_msg?: w_out]> => await query_contract(k_contract, format_query(si_method, h_args || {}, z_auth));
+): Promise<[g_data: w_out | undefined, xc_code: number, s_error: string, h_msg?: w_out]> => {
+	const a_response = await query_contract<w_out>(k_contract, format_query(si_method, h_args || {}, z_auth));
+
+	// no errors; push unwrapped response to front
+	return [
+		a_response[0]
+			? (a_response[2] as any)?.[si_method] as w_out
+			: __UNDEFINED,
+		...a_response,
+	];
+};
 
 
 /**
