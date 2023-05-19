@@ -8,7 +8,7 @@ import './helper';
 
 
 
-import {exec_contract, query_contract, query_contract_infer, retry, sign_query_permit} from '../src/app-layer';
+import {exec_contract, query_contract, query_contract_auto, retry, sign_query_permit} from '../src/app-layer';
 import {allowances} from '../src/lcd/feegrant';
 import {spendable_balances} from '../src/main';
 import {ent_to_sk} from '../src/secp256k1';
@@ -92,7 +92,7 @@ const SA_GRANTER = h_env['NFP_GRANTER'] as SecretBech32 | undefined;
 
 	// query contract
 	{
-		const a_response = await query_contract_infer(k_contract, 'balance', {}, g_permit);
+		const a_response = await query_contract_auto(k_contract, 'balance', {}, g_permit);
 
 		console.log(`Authenticated token balance query response with permit: `, ...a_response);
 	}

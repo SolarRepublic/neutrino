@@ -164,12 +164,8 @@ export const format_query = (
 
 
 /**
- * Query a Secret Contract method (optionally an authenticated one) and unwrap the response.
+ * Query a Secret Contract method and automatically apply an auth secret if one is provided.
  * 
- * Unwrapping means the response object in the returned tuple will be `response[method]`
- * 
- * For example, a SNIP-2x response to `token_info` will look like `{amount:Uint128}` instead of
- * `{token_info:{}}`
  * @param k_contract 
  * @param h_query 
  * @returns tuple of `[number, string, JsonObject?]` where:
@@ -178,34 +174,14 @@ export const format_query = (
  *  - [1]: `s_error: string` - error message from chain or HTTP response body
  *  - [2]: `h_msg?: JsonObject` - contract response as JSON object on success
  */
-export const query_contract_infer = async<
-	w_response extends object=object,
-	si_method extends string=string,
+export const query_contract_auto = async<
+	w_out extends object=JsonObject,
 >(
 	k_contract: SecretContract,
-	si_method: si_method,
+	si_method: string,
 	h_args?: Nilable<object>,
 	z_auth?: Nilable<AuthSecret>
-): Promise<ReturnType<typeof query_contract>> => {
-	// submit query
-	const a_response = await query_contract<{
-		[si_key in si_method]?: w_response;
-	} & {
-		with_permit?: {
-			[si_key in si_method]?: w_response;
-		};
-	}>(k_contract, format_query(si_method, h_args || {}, z_auth));
-
-	const [xc_code,, h_response] = a_response;
-
-	// query success
-	if(!xc_code) {
-		// unwrap with_permit and method
-		return [0, '', (h_response as Record<si_method, w_response>)[si_method]];
-	}
-
-	return a_response;
-};
+): Promise<[xc_code: number, s_error: string, h_msg?: w_out]> => await query_contract(k_contract, format_query(si_method, h_args || {}, z_auth));
 
 
 /**
