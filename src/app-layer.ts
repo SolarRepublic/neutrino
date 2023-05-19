@@ -178,13 +178,15 @@ export const format_query = (
  */
 export const query_contract_infer = async<
 	w_out extends object=JsonObject,
+	si_method extends string=string,
+	h_msg extends object=Record<si_method, w_out>,
 >(
 	k_contract: SecretContract,
-	si_method: string,
+	si_method: si_method,
 	h_args?: Nilable<object>,
 	z_auth?: Nilable<AuthSecret>
-): Promise<[g_data: w_out | undefined, xc_code: number, s_error: string, h_msg?: w_out]> => {
-	const a_response = await query_contract<w_out>(k_contract, format_query(si_method, h_args || {}, z_auth));
+): Promise<[g_data: w_out | undefined, xc_code: number, s_error: string, h_msg?: h_msg]> => {
+	const a_response = await query_contract<h_msg>(k_contract, format_query(si_method, h_args || {}, z_auth));
 
 	// no errors; push unwrapped response to front
 	return [
