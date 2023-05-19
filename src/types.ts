@@ -1,5 +1,5 @@
-import type {AsJson, Base64, JsonObject, Nilable, RemoveJsonInterfaces, Uint128} from '@blake.regalia/belt';
-import type {AminoMsg, Coin, StdFee, StdSignDoc} from '@cosmjs/amino';
+import type {Base64, JsonObject, Nilable, Uint128} from '@blake.regalia/belt';
+import type {AminoMsg, Coin, StdSignDoc} from '@cosmjs/amino';
 
 export type SecretBech32<
 	si_hrp extends `secret${string}`='secret',

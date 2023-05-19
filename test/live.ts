@@ -92,7 +92,7 @@ const SA_GRANTER = h_env['NFP_GRANTER'] as SecretBech32 | undefined;
 
 	// query contract
 	{
-		const a_response = await query_contract_infer(k_contract, g_permit, 'balance');
+		const a_response = await query_contract_infer(k_contract, 'balance', {}, g_permit);
 
 		console.log(`Authenticated token balance query response with permit: `, ...a_response);
 	}

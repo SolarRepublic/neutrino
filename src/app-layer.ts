@@ -164,7 +164,7 @@ export const format_query = (
 
 
 /**
- * Query an authenticated Secret Contract method and unwrap the response
+ * Query a Secret Contract method (optionally an authenticated one) and unwrap the response.
  * 
  * Unwrapping means the response object in the returned tuple will be `response[method]`
  * 
@@ -183,9 +183,9 @@ export const query_contract_infer = async<
 	si_method extends string=string,
 >(
 	k_contract: SecretContract,
-	z_auth: AuthSecret,
 	si_method: si_method,
-	h_args?: Nilable<object>
+	h_args?: Nilable<object>,
+	z_auth?: Nilable<AuthSecret>
 ): Promise<ReturnType<typeof query_contract>> => {
 	// submit query
 	const a_response = await query_contract<{
