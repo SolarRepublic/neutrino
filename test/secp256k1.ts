@@ -23,6 +23,7 @@ import {
 	sign,
 	verify,
 } from '../src/secp256k1';
+import {random_32} from '../src/util';
 
 
 const A_VECTORS = [
@@ -42,7 +43,7 @@ await Promise.all(A_VECTORS.map(async(g_vector, i_vector) => {
 		const atu8_sk = g_vector.sk;
 		const atu8_msg = g_vector.msg;
 
-		const atu8_k = crypto.getRandomValues(new Uint8Array(32));
+		const atu8_k = random_32();
 
 		const atu8_pk_actual = sk_to_pk(atu8_sk);
 

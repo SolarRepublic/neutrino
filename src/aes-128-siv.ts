@@ -32,7 +32,7 @@ const zero_iv = (atu8_iv: Uint8Array) => {
  * @returns ciphertext output
  */
 // eslint-disable-next-line @typescript-eslint/naming-convention
-export const aes128SivEncrypt = async(atu8_key: Uint8Array, atu8_plaintext: Uint8Array, a_ad=[ATU8_NIL]): Promise<Uint8Array> => {
+export const aes_128_siv_encrypt = async(atu8_key: Uint8Array, atu8_plaintext: Uint8Array, a_ad=[ATU8_NIL]): Promise<Uint8Array> => {
 	// construct aes keys
 	const [d_key_cbc, d_key_ctr] = await split_siv_key(atu8_key);
 
@@ -63,7 +63,7 @@ export const aes128SivEncrypt = async(atu8_key: Uint8Array, atu8_plaintext: Uint
  * @returns plaintext output
  */
 // eslint-disable-next-line @typescript-eslint/naming-convention
-export const aes128SivDecrypt = async(atu8_key: Uint8Array, atu8_payload: Uint8Array, a_ad=[ATU8_NIL]): Promise<Uint8Array> => {
+export const aes_128_siv_decrypt = async(atu8_key: Uint8Array, atu8_payload: Uint8Array, a_ad=[ATU8_NIL]): Promise<Uint8Array> => {
 	const [d_key_cbc, d_key_ctr] = await split_siv_key(atu8_key);
 
 	if(atu8_payload.byteLength < NB_AES_BLOCK) throw new Error(`SIV payload < ${NB_AES_BLOCK} bytes`);

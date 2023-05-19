@@ -1,16 +1,16 @@
-import type {queryContract, execContract} from './app-layer';
-import type {SecretWasm} from './secret-wasm';
-import type {ContractInfo, SecretBech32, HttpsUrl as HttpsUrl} from './types';
+import type {query_contract, exec_contract} from './app-layer';
 
-import {base64_to_text, type JsonObject, type Nilable} from '@blake.regalia/belt';
+import type {ContractInfo, SecretBech32, HttpsUrl as HttpsUrl, SlimCoin} from './types';
+
+import {base64_to_text, type HexLower, type JsonObject, type Nilable} from '@blake.regalia/belt';
 
 import {buffer_to_text} from '@blake.regalia/belt';
 
-import {bech32Decode} from './bech32';
-import {info, codeHashByCodeId, query} from './lcd/compute';
-import {txKey} from './lcd/registration';
-import {any, coin, protobuf, type SlimCoin} from './protobuf-writer';
-import {secretWasm} from './secret-wasm';
+import {bech32_decode} from './bech32';
+import {info, code_hash_by_code_id, query} from './lcd/compute';
+import {tx_key} from './lcd/registration';
+import {any, coin, Protobuf} from './protobuf-writer';
+import {SecretWasm} from './secret-wasm';
 
 
 // pads all query messages to be multiples of this many bytes
@@ -19,7 +19,7 @@ const NB_QUERY_BLOCK = 64;
 // pads all execution messages to be multiples of this many bytes
 const NB_EXEC_BLOCK = 0;
 
-const h_codes_cache: Record<ContractInfo['code_id'], string> = {};
+const h_codes_cache: Record<ContractInfo['code_id'], HexLower> = {};
 
 const h_contract_cache: Record<SecretBech32, ContractInfo> = {};
 
@@ -43,7 +43,7 @@ export interface SecretContract {
 	/**
 	 * Contract address
 	 */
-	bech32: SecretBech32;
+	addr: SecretBech32;
 
 	/**
 	 * Contract's label, code id, and creator
@@ -90,24 +90,24 @@ export interface SecretContract {
  * and info unless already cached.
  * 
  * The `query` and `exec` methods are not intended for general application use; projects should instead use
- * {@link queryContract} and {@link execContract}.
+ * {@link query_contract} and {@link exec_contract}.
  * @param p_lcd 
  * @param sa_contract 
  * @param atu8_seed 
  * @returns 
  */
 // eslint-disable-next-line @typescript-eslint/naming-convention
-export const secretContract = async(p_lcd: HttpsUrl, sa_contract: SecretBech32, atu8_seed: Nilable<Uint8Array>=null): Promise<SecretContract> => {
+export const SecretContract = async(p_lcd: HttpsUrl, sa_contract: SecretBech32, atu8_seed: Nilable<Uint8Array>=null): Promise<SecretContract> => {
 	// try loading instance from cache
 	let k_wasm = h_networks[p_lcd];
 
 	// network not yet cached
 	if(!k_wasm) {
 		// fetch consensus io pubkey
-		const atu8_consensus_pk = await txKey(p_lcd);
+		const atu8_consensus_pk = await tx_key(p_lcd);
 
 		// instantiate secret wasm and save to cache
-		h_networks[p_lcd] = k_wasm = secretWasm(atu8_consensus_pk, atu8_seed);
+		h_networks[p_lcd] = k_wasm = SecretWasm(atu8_consensus_pk, atu8_seed);
 	}
 
 	// refload contract info
@@ -117,10 +117,10 @@ export const secretContract = async(p_lcd: HttpsUrl, sa_contract: SecretBech32, 
 	const si_code = g_info.code_id;
 
 	// refload code hash
-	const sb16_code_hash = h_codes_cache[si_code] = h_codes_cache[si_code] || await codeHashByCodeId(p_lcd, si_code);
+	const sb16_code_hash = h_codes_cache[si_code] = h_codes_cache[si_code] || await code_hash_by_code_id(p_lcd, si_code);
 
 	// decode contract address
-	const atu8_contract = bech32Decode(sa_contract);
+	const atu8_contract = bech32_decode(sa_contract);
 
 	// methods
 	return {
@@ -128,7 +128,7 @@ export const secretContract = async(p_lcd: HttpsUrl, sa_contract: SecretBech32, 
 		lcd: p_lcd,
 
 		// contract address
-		bech32: sa_contract,
+		addr: sa_contract,
 
 		// expose info
 		info: g_info,
@@ -170,8 +170,8 @@ export const secretContract = async(p_lcd: HttpsUrl, sa_contract: SecretBech32, 
 			const atu8_nonce = atu8_exec.slice(0, 32);
 
 			// construct body
-			const kb_body = protobuf()
-				.v(10).b(bech32Decode(sa_sender))
+			const kb_body = Protobuf()
+				.v(10).b(bech32_decode(sa_sender))
 				.v(18).b(atu8_contract)
 				.v(26).b(atu8_exec);
 

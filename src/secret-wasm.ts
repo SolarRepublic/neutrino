@@ -1,4 +1,4 @@
-import type {JsonValue, Nilable} from '@blake.regalia/belt';
+import type {Base64, HexLower, HexMixed, JsonValue, Nilable} from '@blake.regalia/belt';
 
 import {
 	buffer,
@@ -9,20 +9,19 @@ import {
 	text_to_buffer,
 } from '@blake.regalia/belt';
 
-import {aes128SivDecrypt, aes128SivEncrypt} from './aes-128-siv';
+import {aes_128_siv_decrypt, aes_128_siv_encrypt} from './aes-128-siv';
+import {random_32} from './util';
 import {ecs_mul, ecs_mul_base} from './x25519';
-
-const random = () => crypto.getRandomValues(buffer(32));
 
 export interface SecretWasm {
 	txKey(atu8_nonce?: Uint8Array): Promise<Uint8Array>;
-	encodeMsg(sb16_code_hash: string, g_msg: JsonValue, nb_msg_block?: number): Promise<Uint8Array>;
+	encodeMsg(sb16_code_hash: HexMixed, g_msg: JsonValue, nb_msg_block?: number): Promise<Uint8Array>;
 	decrypt(atu8_ciphertext: Uint8Array, atu8_nonce: Uint8Array): Promise<Uint8Array>;
-	decodeMsg(sb64_msg: string): Promise<[string, string, Uint8Array]>;
+	decodeMsg(sb64_msg: Base64): Promise<[string, HexLower, Uint8Array]>;
 }
 
-export const secretWasm = (atu8_consensus_pk: Uint8Array, atu8_seed?: Nilable<Uint8Array>): SecretWasm => {
-	atu8_seed = atu8_seed || random();
+export const SecretWasm = (atu8_consensus_pk: Uint8Array, atu8_seed?: Nilable<Uint8Array>): SecretWasm => {
+	atu8_seed = atu8_seed || random_32();
 
 	if(32 !== atu8_consensus_pk.byteLength) throw new Error(`Invalid consensus key length`);
 	if(32 !== atu8_seed.byteLength) throw new Error(`Invalid seed length`);
@@ -45,7 +44,7 @@ export const secretWasm = (atu8_consensus_pk: Uint8Array, atu8_seed?: Nilable<Ui
 	const _atu8_tx_ikm = ecs_mul(atu8_sk, atu8_consensus_pk);
 
 	return {
-		async txKey(atu8_nonce=random()) {
+		async txKey(atu8_nonce=random_32()) {
 			const atu8_input = concat2(_atu8_tx_ikm, atu8_nonce);
 
 			const dk_input = await crypto.subtle.importKey('raw', atu8_input, 'HKDF', false, ['deriveBits']);
@@ -75,13 +74,13 @@ export const secretWasm = (atu8_consensus_pk: Uint8Array, atu8_seed?: Nilable<Ui
 			const atu8_plaintext = concat2(atu8_payload, atu8_padding);
 
 			// generate nonce
-			const atu8_nonce = random();
+			const atu8_nonce = random_32();
 
 			// derive transaction encryption key
 			const atu8_txk = await this.txKey(atu8_nonce);
 
 			// encrypt
-			const atu8_ciphertext = await aes128SivEncrypt(atu8_txk, atu8_plaintext);
+			const atu8_ciphertext = await aes_128_siv_encrypt(atu8_txk, atu8_plaintext);
 
 			// produce final output bytes
 			return concat2(atu8_nonce, concat2(_atu8_pk, atu8_ciphertext));
@@ -92,7 +91,7 @@ export const secretWasm = (atu8_consensus_pk: Uint8Array, atu8_seed?: Nilable<Ui
 			const atu8_txk = await this.txKey(atu8_nonce);
 
 			// decrypt ciphertext
-			return await aes128SivDecrypt(atu8_txk, atu8_ciphertext);
+			return await aes_128_siv_decrypt(atu8_txk, atu8_ciphertext);
 		},
 
 		async decodeMsg(sb64_msg) {
@@ -117,7 +116,7 @@ export const secretWasm = (atu8_consensus_pk: Uint8Array, atu8_seed?: Nilable<Ui
 				sx_exec.slice(64),
 
 				// code hash
-				sx_exec.slice(0, 64),
+				sx_exec.slice(0, 64) as HexLower,
 
 				// nonce
 				atu8_nonce,

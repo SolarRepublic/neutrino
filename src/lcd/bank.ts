@@ -21,7 +21,7 @@ export const balances = lcd_query<
 	g => g.balances ?? [g.balance]
 );
 
-export const spendableBalances = lcd_query<
+export const spendable_balances = lcd_query<
 	[sa_account: SecretBech32],
 	Coin[]
 >(

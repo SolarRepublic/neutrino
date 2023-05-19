@@ -1,10 +1,10 @@
-import type {Base64} from '../types';
+import type {Base64} from '@blake.regalia/belt';
 
 import {base64_to_buffer} from '@blake.regalia/belt';
 
 import {lcd_query} from './_root';
 
-export const txKey = lcd_query<
+export const tx_key = lcd_query<
 	[],
 	Uint8Array
 >(

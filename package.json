@@ -32,11 +32,11 @@
     "debug": "node --inspect-brk --loader ts-node/esm"
   },
   "devDependencies": {
-    "@blake.regalia/belt": "^0.6.3",
-    "@blake.regalia/eslint-config-elite": "^0.2.7",
+    "@blake.regalia/belt": "^0.9.0",
+    "@blake.regalia/eslint-config-elite": "^0.2.8",
     "@blake.regalia/tsconfig": "^0.1.2",
     "@cosmjs/amino": "^0.30.1",
-    "@nfps.dev/rollup-plugin-microweb": "^0.3.2",
+    "@nfps.dev/rollup-plugin-microweb": "^0.3.5",
     "@noble/secp256k1": "^2.0.0",
     "@rollup/plugin-commonjs": "^25.0.0",
     "@rollup/plugin-replace": "^5.0.2",
@@ -48,18 +48,18 @@
     "chai-bites": "^0.1.2",
     "curve25519-js": "^0.0.4",
     "esformatter": "^0.11.3",
-    "eslint": "^8.40.0",
+    "eslint": "^8.41.0",
     "js-beautify": "^1.14.7",
     "rollup": "^3.22.0",
     "rollup-plugin-ignore": "^1.0.10",
     "ts-node": "^10.9.1",
     "ts-toolbelt": "^9.6.0",
     "tsconfig-paths": "^4.2.0",
-    "tslib": "^2.5.1",
+    "tslib": "^2.5.2",
     "typescript": "^5.0.4"
   },
   "dependencies": {
-    "@blake.regalia/belt": "^0.6.3"
+    "@blake.regalia/belt": "^0.9.0"
   },
   "publishConfig": {
     "access": "public"

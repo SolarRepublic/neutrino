@@ -1,5 +1,7 @@
 import type {ContractInfo, SecretBech32} from '../types';
 
+import type {HexLower, Uint128} from '@blake.regalia/belt';
+
 import {base64_to_buffer, buffer_to_base64} from '@blake.regalia/belt';
 
 import {SR_LCD_COMPUTE, lcd_query} from './_root';
@@ -22,26 +24,23 @@ export const query = lcd_query<
 	g => base64_to_buffer(g.data as string)
 );
 
-// eslint-disable-next-line @typescript-eslint/naming-convention
-export const codeHashByContractAddr = lcd_query<
+export const code_hash_by_contract_addr = lcd_query<
 	[sa_contract: SecretBech32],
-	string
+	HexLower
 >(
 	sa_contract => [SR_LCD_COMPUTE+'code_hash/by_contract_address/'+sa_contract],
 	g => g.code_hash
 );
 
-// eslint-disable-next-line @typescript-eslint/naming-convention
-export const codeHashByCodeId = lcd_query<
-	[si_code: `${bigint}`],
-	string
+export const code_hash_by_code_id = lcd_query<
+	[si_code: Uint128],
+	HexLower
 >(
 	si_code => [SR_LCD_COMPUTE+'code_hash/by_code_id/'+si_code],
 	g => g.code_hash
 );
 
-// eslint-disable-next-line @typescript-eslint/naming-convention
-export const contractAddr = lcd_query<
+export const contract_addr = lcd_query<
 	[si_label: string],
 	SecretBech32
 >(

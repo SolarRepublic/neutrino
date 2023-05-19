@@ -5,7 +5,7 @@ import chai_bites from 'chai-bites';
 
 import {describe} from './helper';
 
-import {aes128SivEncrypt, aes128SivDecrypt} from '../src/aes-128-siv';
+import {aes_128_siv_encrypt, aes_128_siv_decrypt} from '../src/aes-128-siv';
 
 chai.use(chai_bites);
 
@@ -55,13 +55,13 @@ for(const [i_vector, g_vector] of A_VECTORS.entries()) {
 		const a_ad = g_vector.ad.map(hex_to_buffer);
 
 		await it('decryption', async() => {
-			const atu8_plaintext_actual = await aes128SivDecrypt(atu8_key, atu8_ciphertext_expect, a_ad);
+			const atu8_plaintext_actual = await aes_128_siv_decrypt(atu8_key, atu8_ciphertext_expect, a_ad);
 
 			expect(atu8_plaintext_actual).to.equalBytes(atu8_plaintext_expect);
 		});
 
 		await it('encryption', async() => {
-			const atu8_ciphertext_actual = await aes128SivEncrypt(atu8_key, atu8_plaintext_expect, a_ad);
+			const atu8_ciphertext_actual = await aes_128_siv_encrypt(atu8_key, atu8_plaintext_expect, a_ad);
 
 			expect(atu8_ciphertext_actual).to.equalBytes(atu8_ciphertext_expect);
 		});

@@ -1,5 +1,7 @@
 import {buffer, concat2, type Nilable} from '@blake.regalia/belt';
 
+import {random_32} from './util';
+
 
 const XG_2_POW_256 = 2n ** 256n;
 
@@ -24,7 +26,7 @@ const exceeds_half_order = (xg_n: bigint): boolean => xg_n > (XG_CURVE_ORDER >> 
 const buffer_to_bigint = (atu8_bytes: Uint8Array): bigint => atu8_bytes.reduce((xg_out, xb_value) => (xg_out << 8n) | BigInt(xb_value), 0n);
 
 const bigint_to_buffer = (xg_value: bigint): Uint8Array => {
-	let atu8_out = buffer(NB_FIELD);
+	const atu8_out = buffer(NB_FIELD);
 
 	let ib_write = NB_FIELD;
 
@@ -90,11 +92,11 @@ const ec_point = ([xg_x, xg_y, xg_z]: [xg_x: bigint, xg_y: bigint, xg_z: bigint]
 	ng: (): EcPoint => ec_point([xg_x, mod(-xg_y), xg_z]),
 
 	add(k_other: EcPoint): EcPoint {
-		let [xg_x2, xg_y2, xg_z2] = k_other.a;
+		const [xg_x2, xg_y2, xg_z2] = k_other.a;
 
 		let xg_t0 = mod(xg_x * xg_x2);
 		let xg_t1 = mod(xg_y * xg_y2);
-		let xg_t2 = mod(xg_z * xg_z2);
+		const xg_t2 = mod(xg_z * xg_z2);
 		let xg_t3 = mod(xg_x + xg_y);
 		let xg_t4 = mod(xg_x2 + xg_y2);
 		let xg_t5 = mod(xg_x2 + xg_z2);
@@ -219,9 +221,9 @@ const import_ec_point = (atu8_data: Uint8Array): EcPoint => {
 
 		let xg_y = sqrt(crv(xg_x));
 
-		let b_y_odd = 1n === (xg_y & 1n);
+		const b_y_odd = 1n === (xg_y & 1n);
 
-		let b_head_odd = 1 === (xb_head & 1);
+		const b_head_odd = 1 === (xb_head & 1);
 
 		if(b_head_odd !== b_y_odd) xg_y = mod(-xg_y);
 
@@ -247,10 +249,10 @@ const invert = (xg_value: bigint, xg_md=XG_FIELD_PRIME): bigint => {
 	let xg_v = 0n;
 
 	while(0n !== xg_a) {
-		let xg_q = xg_b / xg_a;
-		let xg_r = xg_b % xg_a;
-		let xg_m = xg_x - (xg_u * xg_q);
-		let xg_n = xg_y - (xg_v * xg_q);
+		const xg_q = xg_b / xg_a;
+		const xg_r = xg_b % xg_a;
+		const xg_m = xg_x - (xg_u * xg_q);
+		const xg_n = xg_y - (xg_v * xg_q);
 
 		xg_b = xg_a;
 		xg_a = xg_r;
@@ -271,7 +273,7 @@ const normalize_sk = (z_sk: Uint8Array | bigint): bigint => {
 
 export type RecoveryValue = 0 | 1 | 2 | 3;
 
-type SignatureAndRecovery = [
+export type SignatureAndRecovery = [
 	atu8_signature: Uint8Array,
 	xc_recovery: RecoveryValue,
 ];
@@ -294,7 +296,7 @@ const hmac_drbg = async<T>(atu8_seed_root: Uint8Array, f_predicate: Predicate<T>
 	let atu8_k = buffer(NB_FIELD);
 
 	let i_attempts = 0;
-	let f_reset = () => {
+	const f_reset = () => {
 		atu8_b.fill(1);
 		atu8_k.fill(0);
 		i_attempts = 0;
@@ -360,7 +362,7 @@ export const sign = async(atu8_sk: Uint8Array, atu8_hash: Uint8Array, atu8_ent?:
 
 	const xg_d = normalize_sk(atu8_sk);
 
-	const atu8_seed = concat2(i2o(xg_d), concat2(atu8_h1o, atu8_ent || crypto.getRandomValues(buffer(NB_FIELD))));
+	const atu8_seed = concat2(i2o(xg_d), concat2(atu8_h1o, atu8_ent || random_32()));
 
 	return hmac_drbg<SignatureAndRecovery>(atu8_seed, (atu8_k: Uint8Array): SignatureAndRecovery | undefined => {
 		const xg_k = bitsequence_to_uint(atu8_k);

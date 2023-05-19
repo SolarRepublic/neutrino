@@ -6,7 +6,9 @@
 		"outDir": "dist/nil",
 
 		"declaration": true,
-		"declarationDir": "dist/nil"
+		"declarationDir": "dist/nil",
+
+		"noImplicitReturns": false
 	},
 
 	"include": [

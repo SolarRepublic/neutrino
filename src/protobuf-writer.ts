@@ -1,5 +1,7 @@
 import type {L} from 'ts-toolbelt';
 
+import type {SlimCoin} from './types';
+
 import {buffer, text_to_buffer} from '@blake.regalia/belt';
 
 type NodeValue = number | bigint | number[] | Uint8Array;
@@ -17,10 +19,6 @@ type BufNode = [
 
 type Nester = (k_writer: ProtoWriter, ...a_args: any[]) => ProtoWriter;
 
-export type SlimCoin = [
-	sg_amount: `${bigint}`,
-	s_denom: 'uscrt',
-];
 
 export interface ProtoWriter {
 	v(xn_value: number): this;
@@ -51,7 +49,8 @@ const encode_biguint: Encoder<bigint> = (atu8_out, ib_write, xg_value) => {
 
 const encode_bytes: Encoder<Uint8Array> = (atu8_out, ib_write, atu8_data) => atu8_out.set(atu8_data, ib_write);
 
-export const protobuf = (): ProtoWriter => {
+// eslint-disable-next-line @typescript-eslint/naming-convention
+export const Protobuf = (): ProtoWriter => {
 	// @ts-expect-error low-opt
 	// eslint-disable-next-line prefer-const
 	let a_head: BufNode = [];
@@ -117,7 +116,7 @@ export const protobuf = (): ProtoWriter => {
 		s: s_data => g_self.b(s_data? text_to_buffer(s_data): [0]),
 
 		// eslint-disable-next-line @typescript-eslint/naming-convention
-		n: (f_call, ...a_args) => g_self.b(f_call(protobuf(), ...a_args).o()),
+		n: (f_call, ...a_args) => g_self.b(f_call(Protobuf(), ...a_args).o()),
 
 		o(): Uint8Array {
 			// eslint-disable-next-line prefer-const
@@ -150,12 +149,12 @@ export const protobuf = (): ProtoWriter => {
 	return g_self;
 };
 
-export const any = (si_type: string, atu8_value: Uint8Array): Uint8Array => protobuf()
+export const any = (si_type: string, atu8_value: Uint8Array): Uint8Array => Protobuf()
 	.v(10).s(si_type)
 	.v(18).b(atu8_value)
 	.o();
 
-export const coin = (a_coin: SlimCoin): Uint8Array => protobuf()
+export const coin = (a_coin: SlimCoin): Uint8Array => Protobuf()
 	.v(10).s(a_coin[1])
 	.v(18).s(a_coin[0])
 	.o();
