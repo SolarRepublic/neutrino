@@ -171,7 +171,7 @@ export const format_query = (
  * @param k_contract 
  * @param h_query 
  * @returns tuple of `[number, string, JsonObject?]` where:
- *  - [0]: `h_data?: JsonObject` - unwrapped contract response JSON object on success
+ *  - [0]: `w_result?: JsonObject` - unwrapped contract result on success
  *  - [1]: `xc_code: number` - error code from chain, or non-OK HTTP status code from the LCD server.
  * 		A value of `0` indicates success.
  *  - [2]: `s_error: string` - error message from chain or HTTP response body
@@ -186,14 +186,14 @@ export const query_contract_infer = async<
 	si_method: si_method,
 	h_args?: Nilable<object>,
 	z_auth?: Nilable<AuthSecret>
-): Promise<[g_data: w_out | undefined, xc_code: number, s_error: string, h_msg?: h_msg]> => {
+): Promise<[w_result: w_out | undefined, xc_code: number, s_error: string, h_msg?: h_msg]> => {
 	const a_response = await query_contract<h_msg>(k_contract, format_query(si_method, h_args || {}, z_auth));
 
-	// no errors; push unwrapped response to front
+	// put unwrapped result in front
 	return [
 		a_response[0]
-			? (a_response[2] as any)?.[si_method] as w_out
-			: __UNDEFINED,
+			? __UNDEFINED
+			: (a_response[2] as any)?.[si_method] as w_out,
 		...a_response,
 	];
 };
