@@ -18,6 +18,7 @@ import {
 	type BroadcastResult,
 	create_and_sign_tx_direct,
 	sign_amino,
+	broadcast,
 } from './wallet';
 
 
@@ -233,7 +234,7 @@ export const exec_contract = async(
 	const [atu8_tx_raw] = await create_and_sign_tx_direct(k_wallet, [atu8_msg], a_fees, sg_limit, 0, s_memo, sa_granter);
 
 	// broadcast to chain
-	const [sx_res, d_res] = await k_wallet.broadcast(atu8_tx_raw);
+	const [sx_res, d_res] = await broadcast(k_wallet.lcd, atu8_tx_raw);
 
 	// parse response
 	const g_res = safe_json(sx_res) as BroadcastResult;

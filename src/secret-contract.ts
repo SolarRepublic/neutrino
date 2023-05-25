@@ -7,8 +7,8 @@ import {base64_to_text, type HexLower, type JsonObject, type Nilable} from '@bla
 import {buffer_to_text} from '@blake.regalia/belt';
 
 import {bech32_decode} from './bech32';
-import {info, code_hash_by_code_id, query} from './lcd/compute';
-import {tx_key} from './lcd/registration';
+import {queryComputeInfo, queryComputeCodeHashByCodeId, queryComputeQuery} from './lcd/compute';
+import {queryRegistrationTxKey} from './lcd/registration';
 import {any, coin, Protobuf} from './protobuf-writer';
 import {SecretWasm} from './secret-wasm';
 
@@ -104,20 +104,20 @@ export const SecretContract = async(p_lcd: HttpsUrl, sa_contract: SecretBech32, 
 	// network not yet cached
 	if(!k_wasm) {
 		// fetch consensus io pubkey
-		const atu8_consensus_pk = await tx_key(p_lcd);
+		const atu8_consensus_pk = await queryRegistrationTxKey(p_lcd);
 
 		// instantiate secret wasm and save to cache
 		h_networks[p_lcd] = k_wasm = SecretWasm(atu8_consensus_pk, atu8_seed);
 	}
 
 	// refload contract info
-	const g_info = h_contract_cache[sa_contract] = h_contract_cache[sa_contract] || await info(p_lcd, sa_contract);
+	const g_info = h_contract_cache[sa_contract] = h_contract_cache[sa_contract] || await queryComputeInfo(p_lcd, sa_contract);
 
 	// ref code id
 	const si_code = g_info.code_id;
 
 	// refload code hash
-	const sb16_code_hash = h_codes_cache[si_code] = h_codes_cache[si_code] || await code_hash_by_code_id(p_lcd, si_code);
+	const sb16_code_hash = h_codes_cache[si_code] = h_codes_cache[si_code] || await queryComputeCodeHashByCodeId(p_lcd, si_code);
 
 	// decode contract address
 	const atu8_contract = bech32_decode(sa_contract);
@@ -148,7 +148,7 @@ export const SecretContract = async(p_lcd: HttpsUrl, sa_contract: SecretBech32, 
 			const atu8_nonce = g_out.n = atu8_msg.slice(0, 32);
 
 			// submit query
-			const atu8_ciphertext = await query(p_lcd, sa_contract, atu8_msg);
+			const atu8_ciphertext = await queryComputeQuery(p_lcd, sa_contract, atu8_msg);
 
 			// decrypt response
 			const atu8_plaintext = await k_wasm.decrypt(atu8_ciphertext, atu8_nonce);

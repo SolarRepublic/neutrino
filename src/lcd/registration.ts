@@ -4,7 +4,7 @@ import {base64_to_buffer} from '@blake.regalia/belt';
 
 import {lcd_query} from './_root';
 
-export const tx_key = lcd_query<
+export const queryRegistrationTxKey = lcd_query<
 	[],
 	Uint8Array
 >(

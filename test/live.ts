@@ -9,8 +9,8 @@ import './helper';
 
 
 import {exec_contract, query_contract, query_contract_infer, retry, sign_query_permit} from '../src/app-layer';
-import {allowances} from '../src/lcd/feegrant';
-import {spendable_balances} from '../src/main';
+import {queryFeegrantAllowances} from '../src/lcd/feegrant';
+import {queryBankSpendableBalances} from '../src/main';
 import {ent_to_sk} from '../src/secp256k1';
 import {SecretContract} from '../src/secret-contract';
 import {random_32} from '../src/util';
@@ -42,7 +42,7 @@ const SA_GRANTER = h_env['NFP_GRANTER'] as SecretBech32 | undefined;
 
 	// account balance
 	{
-		console.log('Spendable balance: ', ...await spendable_balances(P_LCD_ENDPOINT, k_wallet.addr));
+		console.log('Spendable balance: ', ...await queryBankSpendableBalances(P_LCD_ENDPOINT, k_wallet.addr));
 	}
 
 
@@ -60,7 +60,7 @@ const SA_GRANTER = h_env['NFP_GRANTER'] as SecretBech32 | undefined;
 
 
 	// find feegrants
-	const a_allowances = await allowances(P_LCD_ENDPOINT, k_wallet.addr);
+	const a_allowances = await queryFeegrantAllowances(P_LCD_ENDPOINT, k_wallet.addr);
 
 	let sa_granter: SecretBech32 | '' = '';
 	for(const g_allowance of a_allowances) {

@@ -7,7 +7,7 @@ import {F_IDENTITY} from '@blake.regalia/belt';
 
 import {F_RPC_REQ_NO_ARGS, SR_LCD_BANK, lcd_query} from './_root';
 
-export const balances = lcd_query<
+export const queryBankBalances = lcd_query<
 	[sa_account: SecretBech32, si_denom?: string],
 	Coin[]
 >(
@@ -21,7 +21,7 @@ export const balances = lcd_query<
 	g => g.balances ?? [g.balance]
 );
 
-export const spendable_balances = lcd_query<
+export const queryBankSpendableBalances = lcd_query<
 	[sa_account: SecretBech32],
 	Coin[]
 >(
@@ -29,7 +29,7 @@ export const spendable_balances = lcd_query<
 	g => g.balances
 );
 
-export const params = lcd_query<
+export const queryBankParams = lcd_query<
 	[],
 	Dict
 >(

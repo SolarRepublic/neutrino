@@ -10,7 +10,7 @@ import {text_to_buffer, buffer_to_base64, buffer_to_hex, sha256, canonicalize_js
 
 
 import {bech32_encode} from './bech32';
-import {accounts} from './lcd/auth';
+import {queryAuthAccounts} from './lcd/auth';
 import {any, coin, Protobuf} from './protobuf-writer';
 import {ripemd160} from './ripemd160';
 import {sign, sk_to_pk, type SignatureAndRecovery} from './secp256k1';
@@ -240,19 +240,11 @@ export interface Wallet {
 	pk33: Uint8Array;
 
 	/**
-	 * Fetches auth info for the account (account_number and sequence)
-	 * @param a_auth 
-	 */
-	auth(a_auth?: Nilable<SlimAuthInfo> | 0): Promise<SlimAuthInfo>;
-
-	/**
 	 * Signs a 32-byte message digest
 	 * @param atu8_hash - the message digest to sign
 	 * @param atu8_k - optional entropy to use (defaults to secure random 32 bytes)
 	 */
 	sign(atu8_hash: Uint8Array, atu8_k?: Uint8Array): Promise<SignatureAndRecovery>;
-
-	broadcast(atu8_raw: Uint8Array): Promise<[string, Response]>;
 }
 
 export const pubkey_to_bech32 = async<
@@ -287,36 +279,48 @@ export const Wallet = async(atu8_sk: Uint8Array, si_chain: string, p_endpoint: H
 		lcd: p_endpoint,
 
 		sign: (atu8_hash: Uint8Array, atu8_k=random_32()) => sign(atu8_sk, atu8_hash, atu8_k),
-
-		// eslint-disable-next-line @typescript-eslint/naming-convention
-		async auth(a_auth) {
-			// resolve auth data
-			if(!a_auth) {
-				let g_account!: AccountResponse | undefined;
-				try {
-					g_account = (await accounts(p_endpoint, sa_account))[0];
-				}
-				catch(e_auth) {}
-
-				// destructure auth data
-				a_auth = [g_account?.account_number, g_account?.sequence];
-			}
-
-			return a_auth;
-		},
-
-		async broadcast(atu8_raw) {
-			const d_res = await fetch(p_endpoint+'/cosmos/tx/v1beta1/txs', {
-				method: 'POST',
-				body: JSON.stringify({
-					mode: 'BROADCAST_MODE_BLOCK',
-					txBytes: buffer_to_base64(atu8_raw),
-				}),
-			});
-
-			return [await d_res.text(), d_res];
-		},
 	};
+};
+
+
+/**
+ * Fetches auth info for the account (account_number and sequence)
+ * @param a_auth 
+ */
+// eslint-disable-next-line @typescript-eslint/naming-convention
+export const auth = async(g_wallet: Pick<Wallet, 'lcd' | 'addr'>, a_auth?: Nilable<SlimAuthInfo> | 0): Promise<SlimAuthInfo> => {
+	// resolve auth data
+	if(!a_auth) {
+		let g_account!: AccountResponse | undefined;
+		try {
+			g_account = (await queryAuthAccounts(g_wallet.lcd, g_wallet.addr))[0];
+		}
+		catch(e_auth) {}
+
+		// destructure auth data
+		a_auth = [g_account?.account_number, g_account?.sequence];
+	}
+
+	return a_auth;
+};
+
+
+/**
+ * Broadcast a transaction to the network
+ * @param p_lcd 
+ * @param atu8_raw 
+ * @returns 
+ */
+export const broadcast = async(p_lcd: HttpsUrl, atu8_raw: Uint8Array): Promise<[string, Response]> => {
+	const d_res = await fetch(p_lcd+'/cosmos/tx/v1beta1/txs', {
+		method: 'POST',
+		body: JSON.stringify({
+			mode: 'BROADCAST_MODE_BLOCK',
+			txBytes: buffer_to_base64(atu8_raw),
+		}),
+	});
+
+	return [await d_res.text(), d_res];
 };
 
 
@@ -419,13 +423,13 @@ export const sign_amino = async<
 	g_signed: g_signed,
 ]> => {
 	// resolve auth data
-	const [sg_account, sg_sequence] = await k_wallet.auth(a_auth);
+	const [sg_account, sg_sequence] = await auth(k_wallet, a_auth);
 
 	// produce sign doc
 	const g_signdoc = canonicalize_json({
 		chain_id: k_wallet.ref,
-		account_number: sg_account!,
-		sequence: sg_sequence!,
+		account_number: sg_account,
+		sequence: sg_sequence,
 		msgs: a_msgs,
 		fee: {
 			amount: a_fees.map(a_coin => ({
@@ -521,7 +525,7 @@ export const create_tx = async(
 	sg_account: Nilable<Uint128>,
 ]> => {
 	// resolve auth data
-	const [sg_account, sg_sequence] = await k_wallet.auth(a_auth);
+	const [sg_account, sg_sequence] = await auth(k_wallet, a_auth);
 
 	// encode pubkey
 	const atu8_pubkey = any(

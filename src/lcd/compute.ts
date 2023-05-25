@@ -6,7 +6,7 @@ import {base64_to_buffer, buffer_to_base64} from '@blake.regalia/belt';
 
 import {SR_LCD_COMPUTE, lcd_query} from './_root';
 
-export const info = lcd_query<
+export const queryComputeInfo = lcd_query<
 	[sa_contract: SecretBech32],
 	ContractInfo
 >(
@@ -14,7 +14,7 @@ export const info = lcd_query<
 	g => g.ContractInfo
 );
 
-export const query = lcd_query<
+export const queryComputeQuery = lcd_query<
 	[sa_contract: SecretBech32, atu8_query: Uint8Array],
 	Uint8Array
 >(
@@ -24,7 +24,7 @@ export const query = lcd_query<
 	g => base64_to_buffer(g.data as string)
 );
 
-export const code_hash_by_contract_addr = lcd_query<
+export const queryComputeCodeHashByContractAddr = lcd_query<
 	[sa_contract: SecretBech32],
 	HexLower
 >(
@@ -32,7 +32,7 @@ export const code_hash_by_contract_addr = lcd_query<
 	g => g.code_hash
 );
 
-export const code_hash_by_code_id = lcd_query<
+export const queryComputeCodeHashByCodeId = lcd_query<
 	[si_code: Uint128],
 	HexLower
 >(
@@ -40,7 +40,7 @@ export const code_hash_by_code_id = lcd_query<
 	g => g.code_hash
 );
 
-export const contract_addr = lcd_query<
+export const queryComputeContractAddr = lcd_query<
 	[si_label: string],
 	SecretBech32
 >(

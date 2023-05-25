@@ -3,7 +3,7 @@ import type {SecretBech32} from '../types';
 
 import {lcd_query} from './_root';
 
-export const accounts = lcd_query<
+export const queryAuthAccounts = lcd_query<
 	[sa_contract?: SecretBech32 | ''],
 	AccountResponse[]
 >(
