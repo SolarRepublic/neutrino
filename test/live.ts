@@ -9,8 +9,8 @@ import './helper';
 
 
 import {exec_contract, query_contract, query_contract_infer, retry, sign_query_permit} from '../src/app-layer';
-import {queryFeegrantAllowances} from '../src/lcd/feegrant';
 import {queryBankSpendableBalances} from '../src/main';
+import {queryFeegrantAllowances} from '../src/query/feegrant';
 import {ent_to_sk} from '../src/secp256k1';
 import {SecretContract} from '../src/secret-contract';
 import {random_32} from '../src/util';

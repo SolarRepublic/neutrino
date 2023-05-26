@@ -1,4 +1,4 @@
-import type {NetworkErrorDetails} from './lcd/_root';
+import type {NetworkErrorDetails} from './query/_root';
 import type {QueryIntermediates, SecretContract} from './secret-contract';
 import type {AuthSecret, MsgQueryPermit, QueryPermit, SecretBech32, SlimCoin} from './types';
 

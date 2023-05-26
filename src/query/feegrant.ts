@@ -1,10 +1,13 @@
 import type {AllowanceResponse} from './_root';
 import type {SecretBech32} from '../types';
 
-import {Protobuf, any} from 'src/protobuf-writer';
 
 import {SR_LCD_FEEGRANT, lcd_query} from './_root';
 
+
+/**
+ * Query specific feegrant allowance by granter & grantee pair
+ */
 export const queryFeegrantAllowance = lcd_query<
 	[sa_granter: SecretBech32, sa_grantee: SecretBech32],
 	AllowanceResponse
@@ -13,6 +16,10 @@ export const queryFeegrantAllowance = lcd_query<
 	g => g.allowance
 );
 
+
+/**
+ * Query feegrant allowances by grantee
+ */
 export const queryFeegrantAllowances = lcd_query<
 	[sa_grantee: SecretBech32],
 	AllowanceResponse[]
@@ -21,17 +28,14 @@ export const queryFeegrantAllowances = lcd_query<
 	g => g.allowances
 );
 
-export const msgGrantAllowance = (
-	sa_granter: SecretBech32,
-	sa_grantee: SecretBech32,
-	atu8_allowance: Uint8Array
-): Uint8Array => {
-	// construct body
-	const kb_body = Protobuf()
-		.v(10).s(sa_granter)
-		.v(18).s(sa_grantee)
-		.v(26).b(atu8_allowance);
 
-	// construct as direct message
-	return any('/cosmos.feegrant.v1beta1.MsgGrantAllowance', kb_body.o());
-};
+/**
+ * Query feegrant allowances by granter
+ */
+export const queryFeegrantIssued = lcd_query<
+	[sa_granter: SecretBech32],
+	AllowanceResponse[]
+>(
+	sa_granter => [SR_LCD_FEEGRANT+'issued/'+sa_granter],
+	g => g.allowances
+);

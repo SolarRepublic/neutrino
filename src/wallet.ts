@@ -1,6 +1,6 @@
-import type {AccountResponse} from './lcd/_root';
-
 import type {ProtoWriter} from './protobuf-writer';
+import type {AccountResponse} from './query/_root';
+
 import type {HttpsUrl, SecretBech32, SlimAuthInfo, SlimCoin, TypedAminoMsg, TypedStdSignDoc} from './types';
 
 import type {Uint128, HexUpper, Nilable, Base64} from '@blake.regalia/belt';
@@ -10,8 +10,8 @@ import {text_to_buffer, buffer_to_base64, buffer_to_hex, sha256, canonicalize_js
 
 
 import {bech32_encode} from './bech32';
-import {queryAuthAccounts} from './lcd/auth';
 import {any, coin, Protobuf} from './protobuf-writer';
+import {queryAuthAccounts} from './query/auth';
 import {ripemd160} from './ripemd160';
 import {sign, sk_to_pk, type SignatureAndRecovery} from './secp256k1';
 import {random_32} from './util';

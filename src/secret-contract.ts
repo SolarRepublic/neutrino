@@ -7,9 +7,9 @@ import {base64_to_text, type HexLower, type JsonObject, type Nilable} from '@bla
 import {buffer_to_text} from '@blake.regalia/belt';
 
 import {bech32_decode} from './bech32';
-import {queryComputeInfo, queryComputeCodeHashByCodeId, queryComputeQuery} from './lcd/compute';
-import {queryRegistrationTxKey} from './lcd/registration';
 import {any, coin, Protobuf} from './protobuf-writer';
+import {queryComputeInfo, queryComputeCodeHashByCodeId, queryComputeQuery} from './query/compute';
+import {queryRegistrationTxKey} from './query/registration';
 import {SecretWasm} from './secret-wasm';
 
 
