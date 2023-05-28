@@ -15,8 +15,11 @@
   "module": "dist/mjs/main.js",
   "types": "dist/mjs/main.d.ts",
   "exports": {
-    "require": "./dist/cjs/main.js",
-    "import": "./dist/mjs/main.js"
+    ".": {
+      "require": "./dist/cjs/main.js",
+      "import": "./dist/mjs/main.js"
+    },
+    "./package.json": "./package.json"
   },
   "files": [
     "dist/*"
@@ -32,8 +35,8 @@
     "debug": "node --inspect-brk --loader ts-node/esm"
   },
   "devDependencies": {
-    "@blake.regalia/belt": "^0.11.0",
-    "@blake.regalia/eslint-config-elite": "^0.2.8",
+    "@blake.regalia/belt": "^0.13.4",
+    "@blake.regalia/eslint-config-elite": "^0.2.10",
     "@blake.regalia/tsconfig": "^0.1.2",
     "@cosmjs/amino": "^0.30.1",
     "@nfps.dev/rollup-plugin-microweb": "^0.3.5",
@@ -41,16 +44,16 @@
     "@rollup/plugin-commonjs": "^25.0.0",
     "@rollup/plugin-replace": "^5.0.2",
     "@types/chai": "^4.3.5",
-    "@types/node": "^20.2.1",
+    "@types/node": "^20.2.5",
     "@types/web": "^0.0.99",
-    "@typescript-eslint/parser": "^5.59.6",
+    "@typescript-eslint/parser": "^5.59.7",
     "chai": "^4.3.7",
     "chai-bites": "^0.1.2",
     "curve25519-js": "^0.0.4",
     "esformatter": "^0.11.3",
     "eslint": "^8.41.0",
     "js-beautify": "^1.14.7",
-    "rollup": "^3.22.0",
+    "rollup": "^3.23.0",
     "rollup-plugin-ignore": "^1.0.10",
     "ts-node": "^10.9.1",
     "ts-toolbelt": "^9.6.0",
@@ -59,7 +62,7 @@
     "typescript": "^5.0.4"
   },
   "dependencies": {
-    "@blake.regalia/belt": "^0.11.0"
+    "@blake.regalia/belt": "^0.13.4"
   },
   "publishConfig": {
     "access": "public"

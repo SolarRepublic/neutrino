@@ -60,7 +60,7 @@ const encode_signerinfo = (k_writer: ProtoWriter, xc_sign_mode: SignModeValue, a
 /**
  * Fee
  */
-const encode_fee = (
+export const encode_fee = (
 	k_writer: ProtoWriter,
 	a_amounts: SlimCoin[],
 	sg_limit: Uint128,
@@ -83,7 +83,7 @@ const encode_fee = (
 /**
  * AuthInfo
  */
-const encode_authinfo = (k_writer: ProtoWriter, a_signers: Uint8Array[], atu8_fee: Uint8Array) => {
+export const encode_authinfo = (k_writer: ProtoWriter, a_signers: Uint8Array[], atu8_fee: Uint8Array) => {
 	a_signers.map(atu8_signer => k_writer.v(10).b(atu8_signer));
 
 	k_writer.v(18).b(atu8_fee);
@@ -94,7 +94,7 @@ const encode_authinfo = (k_writer: ProtoWriter, a_signers: Uint8Array[], atu8_fe
 /**
  * TxBody
  */
-const encode_txbody = (k_writer: ProtoWriter, a_msgs: Uint8Array[], s_memo?: string, sg_timeout?: Uint128) => {
+export const encode_txbody = (k_writer: ProtoWriter, a_msgs: Uint8Array[], s_memo?: string, sg_timeout?: Uint128) => {
 	a_msgs.map(atu8_msg => k_writer.v(10).b(atu8_msg));
 
 	if(s_memo) k_writer.v(18).s(s_memo);
@@ -107,7 +107,7 @@ const encode_txbody = (k_writer: ProtoWriter, a_msgs: Uint8Array[], s_memo?: str
 /**
  * SignDoc
  */
-const encode_signdoc = (
+export const encode_signdoc = (
 	k_writer: ProtoWriter,
 	atu8_body: Uint8Array,
 	atu8_auth: Uint8Array,
@@ -127,7 +127,7 @@ const encode_signdoc = (
 /**
  * TxRaw
  */
-const encode_txraw = (k_writer: ProtoWriter, atu8_body: Uint8Array, atu8_auth: Uint8Array, a_signatures: Uint8Array[]) => {
+export const encode_txraw = (k_writer: ProtoWriter, atu8_body: Uint8Array, atu8_auth: Uint8Array, a_signatures: Uint8Array[]) => {
 	k_writer
 		.v(10).b(atu8_body)
 		.v(18).b(atu8_auth);
@@ -309,7 +309,9 @@ export const auth = async(g_wallet: Pick<Wallet, 'lcd' | 'addr'>, a_auth?: Nilab
  * Broadcast a transaction to the network
  * @param p_lcd 
  * @param atu8_raw 
- * @returns 
+ * @returns tuple of `[string, Response]` where:
+ *  - [0]: `s_res: string` - the result of `await response.text()`
+ *  - [1]: `d_res: Response` - the {@link Response} object
  */
 export const broadcast = async(p_lcd: HttpsUrl, atu8_raw: Uint8Array): Promise<[string, Response]> => {
 	const d_res = await fetch(p_lcd+'/cosmos/tx/v1beta1/txs', {
@@ -511,7 +513,7 @@ export const sign_direct = async(
  */
 export const create_tx = async(
 	xc_sign_mode: SignModeValue,
-	k_wallet: Wallet,
+	k_wallet: Parameters<typeof auth>[0] & Pick<Wallet, 'pk33'>,
 	a_msgs: Uint8Array[],
 	a_fees: SlimCoin[],
 	sg_limit: Uint128,

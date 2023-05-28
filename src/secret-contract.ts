@@ -140,6 +140,7 @@ export const SecretContract = async(p_lcd: HttpsUrl, sa_contract: SecretBech32, 
 		wasm: k_wasm,
 
 		// query contract
+		// @ts-expect-error typed in interface
 		async query(h_query, g_out={}) {
 			// encrypt and encode query msg
 			const atu8_msg = await k_wasm.encodeMsg(sb16_code_hash, h_query, NB_QUERY_BLOCK);

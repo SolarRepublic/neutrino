@@ -1,6 +1,18 @@
-import type {SecretBech32} from 'src/types';
+import type {SecretBech32, SlimCoin} from 'src/types';
 
-import {Protobuf, any} from '../protobuf-writer.js';
+import {Protobuf, any, coin, timestamp} from '../protobuf-writer.js';
+
+export const anyBasicAllowance = (a_limits: SlimCoin[], xt_expiration?: number): Uint8Array => {
+	const k_writer = Protobuf();
+
+	a_limits.map(a_coin => k_writer.v(10).b(coin(a_coin)));
+
+	if(xt_expiration) {
+		k_writer.b(timestamp(xt_expiration));
+	}
+
+	return any('/cosmos.feegrant.v1beta1.BasicAllowance', k_writer.o());
+};
 
 export const msgGrantAllowance = (
 	sa_granter: SecretBech32,

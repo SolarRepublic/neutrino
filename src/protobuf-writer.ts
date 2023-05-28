@@ -158,3 +158,7 @@ export const coin = (a_coin: SlimCoin): Uint8Array => Protobuf()
 	.v(10).s(a_coin[1])
 	.v(18).s(a_coin[0])
 	.o();
+
+export const timestamp = (xt_timestamp: number) => Protobuf()
+	.v(8).v(xt_timestamp)
+	.o();

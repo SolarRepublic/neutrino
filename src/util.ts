@@ -6,7 +6,7 @@ export const safe_json = <
 	w_out extends JsonValue=JsonValue,
 >(sx_json: string): w_out | undefined => {
 	try {
-		return JSON.parse(sx_json);
+		return JSON.parse(sx_json) as w_out;
 	}
 	catch(e_parse) {}
 };
