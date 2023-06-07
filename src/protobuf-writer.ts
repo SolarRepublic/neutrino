@@ -31,7 +31,7 @@ export interface ProtoWriter {
 
 const encode_varint32: Encoder<number> = (atu8_out, ib_write, n_value) => {
 	while(n_value > 127) {
-		atu8_out[ib_write++] = (n_value & 127) | 128;
+		atu8_out[ib_write++] = (n_value & 0x7f) | 0x80;
 		n_value >>>= 7;
 	}
 
@@ -40,7 +40,7 @@ const encode_varint32: Encoder<number> = (atu8_out, ib_write, n_value) => {
 
 const encode_biguint: Encoder<bigint> = (atu8_out, ib_write, xg_value) => {
 	while(xg_value > 127n) {
-		atu8_out[ib_write++] = Number(xg_value & 127n) | 128;
+		atu8_out[ib_write++] = Number(xg_value & 0x7fn) | 0x80;
 		xg_value >>= 7n;
 	}
 
@@ -79,9 +79,9 @@ export const Protobuf = (): ProtoWriter => {
 			encode_varint32,
 			xn_value,
 			xn_value < 0x80? 1
-				: xn_value < 0x8000? 2
-					: xn_value < 0x800000? 3
-						: xn_value < 0x80000000? 4
+				: xn_value < 0x4000? 2
+					: xn_value < 0x200000? 3
+						: xn_value < 0x10000000? 4
 							: 5,
 		]),
 
@@ -101,14 +101,14 @@ export const Protobuf = (): ProtoWriter => {
 			]);
 		},
 
-		b: (atu8_btyes) => {
-			const nb_bytes = atu8_btyes.length;
+		b: (atu8_bytes) => {
+			const nb_bytes = atu8_bytes.length;
 
 			g_self.v(nb_bytes);
 
 			return push([
 				encode_bytes,
-				atu8_btyes,
+				atu8_bytes,
 				nb_bytes,
 			]);
 		},
