@@ -5,33 +5,11 @@ import {XN_16} from './constants';
 
 // xn_a: number, xn_b: number, xn_c: number, xn_d: number
 const quarterround = (atu32_d: Uint32Array, i_a: number, i_b: number, i_c: number, i_d: number) => {
-	// // option A
-	// atu32_d[i_d] = rotl(atu32_d[i_d] ^ (atu32_d[i_a] += atu32_d[i_b]), 16);
-	// atu32_d[i_b] = rotl(atu32_d[i_b] ^ (atu32_d[i_c] += atu32_d[i_d]), 12);
-	// atu32_d[i_d] = rotl(atu32_d[i_d] ^ (atu32_d[i_a] += atu32_d[i_b]), 8);
-	// atu32_d[i_b] = rotl(atu32_d[i_b] ^ (atu32_d[i_c] += atu32_d[i_d]), 7);
-
-	// // option B
-	// let xn_a = atu32_d[i_a];
-	// let xn_b = atu32_d[i_b];
-	// let xn_c = atu32_d[i_c];
-	// let xn_d = atu32_d[i_d];
-
-	// xn_d = rotl(xn_d ^ (xn_a += xn_b), 16);
-	// xn_b = rotl(xn_b ^ (xn_c += xn_d), 12);
-	// xn_d = rotl(xn_d ^ (xn_a += xn_b), 8);
-	// xn_b = rotl(xn_b ^ (xn_c += xn_d), 7);
-
-	// atu32_d[i_a] = xn_a;
-	// atu32_d[i_b] = xn_b;
-	// atu32_d[i_c] = xn_c;
-	// atu32_d[i_d] = xn_d;
-
-	// option C
-	for(let i_each=0; i_each<2; i_each++) {
-		atu32_d[i_d] = rotl(atu32_d[i_d] ^ (atu32_d[i_a] += atu32_d[i_b]), 16 - (i_each * 8));
-		atu32_d[i_b] = rotl(atu32_d[i_b] ^ (atu32_d[i_c] += atu32_d[i_d]), 12 - (i_each * 5));
-	}
+	// best gzip option
+	atu32_d[i_d] = rotl(atu32_d[i_d] ^ (atu32_d[i_a] += atu32_d[i_b]), 16);
+	atu32_d[i_b] = rotl(atu32_d[i_b] ^ (atu32_d[i_c] += atu32_d[i_d]), 12);
+	atu32_d[i_d] = rotl(atu32_d[i_d] ^ (atu32_d[i_a] += atu32_d[i_b]), 8);
+	atu32_d[i_b] = rotl(atu32_d[i_b] ^ (atu32_d[i_c] += atu32_d[i_d]), 7);
 };
 
 /**

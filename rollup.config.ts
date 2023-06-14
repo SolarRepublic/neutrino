@@ -6,7 +6,7 @@ import ignore from 'rollup-plugin-ignore';
 export default defineConfig({
 	input: 'src/main.ts',
 	output: {
-		dir: 'dist',
+		dir: 'dist/nil',
 		format: 'esm',
 		entryFileNames: '[name].mjs',
 		sourcemap: true,

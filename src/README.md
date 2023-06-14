@@ -1,3 +1,10 @@
+<p align="center">
+  <a href="https://starshell.net/">
+    <img src="https://github.com/SolarRepublic/neutrino/assets/1456400/9f854305-a47a-4074-a5d0-bab5ac4b3764" alt="Neutrino logo" width="144">
+  </a>
+</p>
+
+
 # Neutrino
 
 An ultra-lightweight Secret Network client and wallet for the Web.
@@ -21,9 +28,13 @@ Consequently, the following features are implemented:
  - AES-128-SIV encryption/decryption
  - Schema-less Protobuf reading/writing
 
+Additionally, some dApp-enhancing features are also included:
+ - ChaCha20 + Poly1305 AEAD
+ - SNIP-52 notification client
+
 
 ### API Usage
 
 Tuples (EC Arrays `[]`) are used in places you might normally expect a named struct, such as return values. Similarly, virtually all functions opt for ordered parameters instead of named structs.
 
-This practice helps achieve much lower bundle sizes, but at the expense of API simplicity. However, developing in a TypeScript IDE should make this neglible as rich type information makes it clear what the type of purpose of every parameter and return value are.
+This practice allows for much smaller bundle sizes, but comes at the cost of less destructuring verbosity. However, a TypeScript IDE should make this drawback neglible since types and documentation explain every parameter and return value.

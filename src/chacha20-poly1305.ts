@@ -4,6 +4,7 @@ import {buffer, buffer_to_base64, dataview} from '@blake.regalia/belt';
 import {chacha20} from './chacha20';
 import {poly1305} from './poly1305';
 
+// encrypt/decrypt data and generate the poly1305 key
 const transcrypt = (atu8_key: Uint8Array, atu8_nonce: Uint8Array, atu8_data: Uint8Array): [Uint8Array, Uint8Array] => [
 	// poly1305 key generation
 	chacha20(atu8_key, atu8_nonce, buffer(32), 0),
@@ -12,7 +13,7 @@ const transcrypt = (atu8_key: Uint8Array, atu8_nonce: Uint8Array, atu8_data: Uin
 	chacha20(atu8_key, atu8_nonce, atu8_data, 1),
 ];
 
-
+// construct the poly1305 tag
 const poly1305_auth = (atu8_poly1305_key: Uint8Array, atu8_ciphertext: Uint8Array, atu8_aad: Uint8Array | undefined) => {
 	// normalize aad
 	atu8_aad ||= buffer(0);
