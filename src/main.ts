@@ -4,6 +4,7 @@ export * from './query/_all';
 export * from './app-layer';
 export * from './bech32';
 export * from './chacha20';
+export * from './chacha20-poly1305';
 // export * from './comc';
 export * from './poly1305';
 export * from './protobuf-reader';

@@ -47,7 +47,6 @@
     "@types/node": "^20.3.1",
     "@types/web": "^0.0.99",
     "@typescript-eslint/parser": "^5.59.11",
-    "chacha-native": "^2.0.3",
     "chai": "^4.3.7",
     "chai-bites": "^0.1.2",
     "curve25519-js": "^0.0.4",
