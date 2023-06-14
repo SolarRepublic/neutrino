@@ -1,12 +1,15 @@
-import {buffer} from '@blake.regalia/belt';
+import {buffer, dataview} from '@blake.regalia/belt';
+
+import {rotl} from './bitwise';
+import {XN_16} from './constants';
 
 let c_inits = 0;
 
 /* eslint-disable @typescript-eslint/naming-convention */
 const NB_BLOCK = 64;
 
-const ATU8_0_16 = /*#__PURE__*/buffer(16).map((xb, i) => i);
-const ATU8_PI = /*#__PURE__*/ATU8_0_16.map(i => ((9 * i) + 5) % 16);
+const ATU8_0_16 = /*#__PURE__*/buffer(XN_16).map((xb, i) => i);
+const ATU8_PI = /*#__PURE__*/ATU8_0_16.map(i => ((9 * i) + 5) % XN_16);
 
 const ATU8_RHO = /*#__PURE__*/Uint8Array.from([7, 4, 13, 1, 10, 6, 15, 3, 12, 0, 9, 5, 2, 14, 11, 8]);
 
@@ -45,8 +48,6 @@ const ATU8_KL = new Uint32Array([0x00000000, 0x5a827999, 0x6ed9eba1, 0x8f1bbcdc,
 const ATU8_KR = new Uint32Array([0x50a28be6, 0x5c4dd124, 0x6d703ef3, 0x7a6d76e9, 0x00000000]);
 /* eslint-enable */
 
-const rotl = (xn_word: number, n_shift: number) => (xn_word << n_shift) | (xn_word >>> (32 - n_shift));
-
 const twid = (i_group: number, xn_x: number, xn_y: number, xn_z: number): number => {
 	if(0 === i_group) return xn_x ^ xn_y ^ xn_z;
 	else if(1 === i_group) return (xn_x & xn_y) | (~xn_x & xn_z);
@@ -61,7 +62,7 @@ export const ripemd160 = (atu8_data: Uint8Array): Uint8Array => {
 
 	/* eslint-disable @typescript-eslint/naming-convention */
 	let _nb_data = atu8_data.length;
-	let _dv_data = new DataView(atu8_data.buffer, atu8_data.byteOffset, _nb_data);
+	let _dv_data = dataview(atu8_data.buffer, atu8_data.byteOffset, _nb_data);
 
 	let _a_state = [
 		0x67452301,
@@ -75,12 +76,12 @@ export const ripemd160 = (atu8_data: Uint8Array): Uint8Array => {
 	/* eslint-enable @typescript-eslint/naming-convention */
 
 	let atu8_block = buffer(NB_BLOCK);
-	let dv_block = new DataView(atu8_block.buffer);
+	let dv_block = dataview(atu8_block.buffer);
 
 	let ib_write = 0;
 
 	const f_round = (dv_read: DataView, ib_offset: number) => {
-		for(let i_word=0; i_word<16; i_word++) {
+		for(let i_word=0; i_word<XN_16; i_word++) {
 			_a_words[i_word] = dv_read.getUint32(ib_offset + (i_word * 4), true);
 		}
 
@@ -102,7 +103,7 @@ export const ripemd160 = (atu8_data: Uint8Array): Uint8Array => {
 				Uint8Array, Uint8Array,
 			];
 
-			for(let i_round=0; i_round<16; i_round++) {
+			for(let i_round=0; i_round<XN_16; i_round++) {
 				let xn_tl = rotl(xn_al + twid(i_group, xn_bl, xn_cl, xn_dl) + _a_words[atu8_rl[i_round]] + xn_hbl, atu8_sl[i_round]) + xn_el;
 				xn_al = xn_el;
 				xn_el = xn_dl;
@@ -111,7 +112,7 @@ export const ripemd160 = (atu8_data: Uint8Array): Uint8Array => {
 				xn_bl = xn_tl;
 			}
 
-			for(let i_round=0; i_round<16; i_round++) {
+			for(let i_round=0; i_round<XN_16; i_round++) {
 				let xn_tr = rotl(xn_ar + twid(4-i_group, xn_br, xn_cr, xn_dr) + _a_words[atu8_rr[i_round]] + xn_hbr, atu8_sr[i_round]) + xn_er;
 				xn_ar = xn_er;
 				xn_er = xn_dr;
@@ -169,7 +170,7 @@ export const ripemd160 = (atu8_data: Uint8Array): Uint8Array => {
 
 	// produce result
 	let atu8_digest = buffer(20);
-	let dv_digest = new DataView(atu8_digest.buffer);
+	let dv_digest = dataview(atu8_digest.buffer);
 	_a_state.map((xn, i) => dv_digest.setUint32(i * 4, xn, true));
 
 	return atu8_digest;

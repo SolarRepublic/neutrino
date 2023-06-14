@@ -1,9 +1,11 @@
 import {ATU8_NIL, buffer} from '@blake.regalia/belt';
 
-export const NB_AES_BLOCK = 16;
+import {XN_16} from './constants';
+
+export const NB_AES_BLOCK = XN_16;
 
 // zero block
-const ATU8_ZERO_BLOCK = /*#__PURE__*/buffer(16);
+const ATU8_ZERO_BLOCK = /*#__PURE__*/buffer(XN_16);
 
 // import aes key
 export const aes_key = (atu8_key: Uint8Array, si_algo: string): Promise<CryptoKey> => crypto.subtle.importKey('raw', atu8_key, si_algo, false, ['encrypt']);

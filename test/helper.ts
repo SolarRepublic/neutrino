@@ -8,7 +8,7 @@ const SX_ANSI_RESET = '\x1b[0m';
 /* eslint-enable */
 
 // polyfill crypto global for node.js env
-globalThis.crypto = globalThis.crypto || (await import('crypto')).webcrypto;
+if(!globalThis.crypto) globalThis.crypto = (await import('crypto')).webcrypto;
 
 export function pass(s_test: string): void {
 	// eslint-disable-next-line no-console

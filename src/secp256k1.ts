@@ -1,5 +1,6 @@
 import {buffer, concat2, type Nilable} from '@blake.regalia/belt';
 
+import {XG_8} from './constants';
 import {random_32} from './util';
 
 
@@ -23,7 +24,7 @@ const is_group_element = (xg_value: bigint) => xg_value > 0n && xg_value < XG_CU
 
 const exceeds_half_order = (xg_n: bigint): boolean => xg_n > (XG_CURVE_ORDER >> 1n);
 
-const buffer_to_bigint = (atu8_bytes: Uint8Array): bigint => atu8_bytes.reduce((xg_out, xb_value) => (xg_out << 8n) | BigInt(xb_value), 0n);
+const buffer_to_bigint = (atu8_bytes: Uint8Array): bigint => atu8_bytes.reduce((xg_out, xb_value) => (xg_out << XG_8) | BigInt(xb_value), 0n);
 
 const bigint_to_buffer = (xg_value: bigint): Uint8Array => {
 	const atu8_out = buffer(NB_FIELD);
@@ -32,7 +33,7 @@ const bigint_to_buffer = (xg_value: bigint): Uint8Array => {
 
 	while(xg_value > 0n) {
 		atu8_out[--ib_write] = Number(xg_value & 0xffn);
-		xg_value >>= 8n;
+		xg_value >>= XG_8;
 	}
 
 	return atu8_out;
