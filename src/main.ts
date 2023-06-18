@@ -13,6 +13,7 @@ export * from './ripemd160';
 export * from './secp256k1';
 export * from './secret-contract';
 export * from './secret-wasm';
+export * from './snip-52';
 export * from './terse-property-access';
 export * from './util';
 export * from './wallet';

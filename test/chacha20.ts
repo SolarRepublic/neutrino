@@ -5,7 +5,7 @@ import chai_bites from 'chai-bites';
 chai.use(chai_bites);
 
 import {describe} from './helper';
-import {chacha20_poly1305_decrypt, chacha20_poly1305_encrypt} from '../src/chacha20-poly1305';
+import {chacha20_poly1305_open, chacha20_poly1305_seal} from '../src/chacha20-poly1305';
 
 [
 	{
@@ -38,10 +38,10 @@ import {chacha20_poly1305_decrypt, chacha20_poly1305_encrypt} from '../src/chach
 		const [
 			atu8_ciphertext_actual,
 			atu8_tag_actual,
-		] = chacha20_poly1305_encrypt(atu8_key, atu8_nonce, atu8_plaintext_expect, atu8_aad);
+		] = chacha20_poly1305_seal(atu8_key, atu8_nonce, atu8_plaintext_expect, atu8_aad);
 
 		void it('decrypt', () => {
-			const atu8_plaintext_actual = chacha20_poly1305_decrypt(atu8_key, atu8_nonce, atu8_ciphertext_expect, atu8_tag_expect, atu8_aad);
+			const atu8_plaintext_actual = chacha20_poly1305_open(atu8_key, atu8_nonce, atu8_tag_expect, atu8_ciphertext_expect, atu8_aad);
 			expect(atu8_plaintext_actual).to.equalBytes(atu8_plaintext_expect);
 		});
 

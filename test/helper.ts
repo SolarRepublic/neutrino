@@ -8,7 +8,10 @@ const SX_ANSI_RESET = '\x1b[0m';
 /* eslint-enable */
 
 // polyfill crypto global for node.js env
-if(!globalThis.crypto) globalThis.crypto = (await import('crypto')).webcrypto;
+globalThis.crypto ||= (await import('crypto')).webcrypto as Crypto;
+
+// polyfill WebSocket
+globalThis.WebSocket ||= (await import('isomorphic-ws')).default;
 
 export function pass(s_test: string): void {
 	// eslint-disable-next-line no-console

@@ -9,18 +9,17 @@
 
 An ultra-lightweight Secret Network client and wallet for the Web.
 
+Engineered to produce the smallest possible javascript bundle sizes after gzip, with even greater savings when tree-shaking is used.
 
 ### Description
 
-The goal of this project is to provide the minimum set of features required to run a self-contained Secret Web dApp and an optionaly embedded hot hot wallet.
-
-The primary purpose of this library is to be able to:
+The goal of this project is to provide the necessary tools to run a self-contained Secret Web dApp and an optionaly embedded hot hot wallet. Users are able to:
  - query the Secret Network chain
  - construct and broadcast transactions to the chain
  - query and execute Secret Contracts
  - sign and verify Secp256k1 messages (to enable hot hot wallets)
 
-Consequently, the following features are implemented:
+Consequently, the following prerequisite tools are also available to users:
  - Bech32 encoding/decoding
  - Curve25519 scalar multiplication
  - RIPEMD-160 hashing
@@ -30,7 +29,7 @@ Consequently, the following features are implemented:
 
 Additionally, some dApp-enhancing features are also included:
  - ChaCha20 + Poly1305 AEAD
- - SNIP-52 notification client
+ - SNIP-52 WebSocket notification client
 
 
 ### API Usage

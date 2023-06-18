@@ -74,7 +74,7 @@ export const chacha20 = (atu8_key: Uint8Array, atu8_nonce: Uint8Array, atu8_data
 			const atu32_d = atu32_init.slice();
 
 			// rounds
-			for(i_each=0; i_each<20; i_each+=2) {
+			for(i_each=0; i_each<10; i_each++) {
 				// column round
 				for(let i_sub=0; i_sub<4; i_sub++) {
 					quarterround(atu32_d, i_sub, i_sub+4, i_sub+8, i_sub+12);

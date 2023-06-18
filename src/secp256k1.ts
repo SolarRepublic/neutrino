@@ -1,7 +1,6 @@
 import {buffer, concat2, type Nilable} from '@blake.regalia/belt';
 
-import {XG_8} from './constants';
-import {random_32} from './util';
+import {bigint_to_buffer_be, buffer_to_bigint_be, die, random_32} from './util';
 
 
 const XG_2_POW_256 = 2n ** 256n;
@@ -12,9 +11,6 @@ const XG_CURVE_ORDER = XG_2_POW_256 - 0x14551231950b75fc4402da1732fc9bebfn;
 
 const NB_FIELD = 32;
 
-const err = (s_msg=''): never => {
-	throw new Error(s_msg);
-};
 
 const crv = (xg_x: bigint) => mod((mod(xg_x * xg_x) * xg_x) + 7n);
 
@@ -24,22 +20,7 @@ const is_group_element = (xg_value: bigint) => xg_value > 0n && xg_value < XG_CU
 
 const exceeds_half_order = (xg_n: bigint): boolean => xg_n > (XG_CURVE_ORDER >> 1n);
 
-const buffer_to_bigint = (atu8_bytes: Uint8Array): bigint => atu8_bytes.reduce((xg_out, xb_value) => (xg_out << XG_8) | BigInt(xb_value), 0n);
-
-const bigint_to_buffer = (xg_value: bigint): Uint8Array => {
-	const atu8_out = buffer(NB_FIELD);
-
-	let ib_write = NB_FIELD;
-
-	while(xg_value > 0n) {
-		atu8_out[--ib_write] = Number(xg_value & 0xffn);
-		xg_value >>= XG_8;
-	}
-
-	return atu8_out;
-};
-
-const extract_bigint_from_buffer = (atu8: Uint8Array, ib_lo: number, ib_hi: number): bigint => buffer_to_bigint(atu8.subarray(ib_lo, ib_hi));
+const extract_bigint_from_buffer = (atu8: Uint8Array, ib_lo: number, ib_hi: number): bigint => buffer_to_bigint_be(atu8.subarray(ib_lo, ib_hi));
 
 const mod = (xg_value: bigint, xg_mod=XG_FIELD_PRIME): bigint => {
 	const xg_result = xg_value % xg_mod;
@@ -55,7 +36,7 @@ const sqrt = (xg_n: bigint) => {
 		xg_value = (xg_value * xg_value) % XG_FIELD_PRIME;
 	}
 
-	return mod(xg_r * xg_r) === xg_n? xg_r: err('Invalid sqrt');
+	return mod(xg_r * xg_r) === xg_n? xg_r: die('Invalid sqrt');
 };
 
 type AffinePoint = [
@@ -146,7 +127,7 @@ const ec_point = ([xg_x, xg_y, xg_z]: [xg_x: bigint, xg_y: bigint, xg_z: bigint]
 	mul(xg_n: bigint, xc_safe=1): EcPoint {
 		if(!xc_safe && 0n === xg_n) return KP_ZERO;
 
-		if(!is_group_element(xg_n)) err('Invalid scalar');
+		if(!is_group_element(xg_n)) die('Invalid scalar');
 
 		// if(this.eq(KP_BASE)) return pre_base_mul(xg_n).p;
 
@@ -173,7 +154,7 @@ const ec_point = ([xg_x, xg_y, xg_z]: [xg_x: bigint, xg_y: bigint, xg_z: bigint]
 
 		const xg_iz = invert(xg_z);
 
-		if(1n !== mod(xg_z * xg_iz)) err('Invalid inverse');
+		if(1n !== mod(xg_z * xg_iz)) die('Invalid inverse');
 
 		return [mod(xg_x * xg_iz), mod(xg_y * xg_iz)];
 	},
@@ -181,9 +162,9 @@ const ec_point = ([xg_x, xg_y, xg_z]: [xg_x: bigint, xg_y: bigint, xg_z: bigint]
 	ok(): EcPoint {
 		const [xg_ax, xg_ay] = this.aff();
 
-		if(!is_field_element(xg_ax) || !is_field_element(xg_ay)) err('Invalid point');
+		if(!is_field_element(xg_ax) || !is_field_element(xg_ay)) die('Invalid point');
 
-		return mod(xg_ay * xg_ay) === crv(xg_ax)? this: err('Invalid point');
+		return mod(xg_ay * xg_ay) === crv(xg_ax)? this: die('Invalid point');
 	},
 
 	out(xc_uncompressed: boolean | 0 | 1): Uint8Array {
@@ -193,8 +174,8 @@ const ec_point = ([xg_x, xg_y, xg_z]: [xg_x: bigint, xg_y: bigint, xg_z: bigint]
 
 		atu8_out[0] = xc_uncompressed? 0x04: 0n === (xg_ay & 1n) ? 0x02: 0x03;
 
-		atu8_out.set(bigint_to_buffer(xg_ax), 1);
-		if(xc_uncompressed) atu8_out.set(bigint_to_buffer(xg_ay), 1 + NB_FIELD);
+		atu8_out.set(bigint_to_buffer_be(xg_ax), 1);
+		if(xc_uncompressed) atu8_out.set(bigint_to_buffer_be(xg_ay), 1 + NB_FIELD);
 
 		return atu8_out;
 	},
@@ -218,7 +199,7 @@ const import_ec_point = (atu8_data: Uint8Array): EcPoint => {
 	const nb_data = atu8_data.length;
 
 	if(33 === nb_data && [0x02, 0x03].includes(xb_head)) {
-		if(!is_field_element(xg_x)) err('Invalid point');
+		if(!is_field_element(xg_x)) die('Invalid point');
 
 		let xg_y = sqrt(crv(xg_x));
 
@@ -234,13 +215,13 @@ const import_ec_point = (atu8_data: Uint8Array): EcPoint => {
 		yp_new = ec_point([xg_x, extract_bigint_from_buffer(atu8_tail, NB_FIELD, 2 * NB_FIELD), 1n]);
 	}
 
-	if(!yp_new) return err('Invalid point data');
+	if(!yp_new) return die('Invalid point data');
 
 	return yp_new.ok();
 };
 
 const invert = (xg_value: bigint, xg_md=XG_FIELD_PRIME): bigint => {
-	if(0n === xg_value || xg_md <= 0n) err('No inverse');
+	if(0n === xg_value || xg_md <= 0n) die('No inverse');
 
 	let xg_a = mod(xg_value, xg_md);
 	let xg_b = xg_md;
@@ -263,13 +244,13 @@ const invert = (xg_value: bigint, xg_md=XG_FIELD_PRIME): bigint => {
 		xg_v = xg_n;
 	}
 
-	return 1n === xg_b? mod(xg_x, xg_md): err('No inverse');
+	return 1n === xg_b? mod(xg_x, xg_md): die('No inverse');
 };
 
 const normalize_sk = (z_sk: Uint8Array | bigint): bigint => {
-	if('bigint' !== typeof z_sk) z_sk = buffer_to_bigint(z_sk);
+	if('bigint' !== typeof z_sk) z_sk = buffer_to_bigint_be(z_sk);
 
-	return is_group_element(z_sk)? z_sk: err('Invalid private key');
+	return is_group_element(z_sk)? z_sk: die('Invalid private key');
 };
 
 export type RecoveryValue = 0 | 1 | 2 | 3;
@@ -282,12 +263,12 @@ export type SignatureAndRecovery = [
 const bitsequence_to_uint = (atu8_data: Uint8Array): bigint => {
 	const n_delta = (atu8_data.length * 8) - 256;
 
-	const xg_value = buffer_to_bigint(atu8_data);
+	const xg_value = buffer_to_bigint_be(atu8_data);
 
 	return n_delta > 0? xg_value >> BigInt(n_delta): xg_value;
 };
 
-const i2o = (xg_n: bigint): Uint8Array => bigint_to_buffer(xg_n);
+const i2o = (xg_n: bigint): Uint8Array => bigint_to_buffer_be(xg_n);
 
 type Predicate<T> = (v: Uint8Array) => T | undefined;
 
@@ -322,7 +303,7 @@ const hmac_drbg = async<T>(atu8_seed_root: Uint8Array, f_predicate: Predicate<T>
 	};
 
 	const f_gen: () => Promise<Uint8Array> = async() => {
-		if(i_attempts++ >= 1000) err('Made 1k attempts');
+		if(i_attempts++ >= 1000) die('Made 1k attempts');
 
 		atu8_b = await hmac_sha256(atu8_k, atu8_b);
 		return atu8_b;
@@ -346,8 +327,8 @@ const hmac_drbg = async<T>(atu8_seed_root: Uint8Array, f_predicate: Predicate<T>
 export const gen_sk = (): Uint8Array => ent_to_sk(crypto.getRandomValues(buffer(NB_FIELD + 8)));
 
 export const ent_to_sk = (atu8_entropy: Uint8Array): Uint8Array => atu8_entropy.length < NB_FIELD + 8 || atu8_entropy.length > 1024
-	? err('Invalid entropy')
-	: bigint_to_buffer(mod(buffer_to_bigint(atu8_entropy), XG_CURVE_ORDER - 1n) + 1n);
+	? die('Invalid entropy')
+	: bigint_to_buffer_be(mod(buffer_to_bigint_be(atu8_entropy), XG_CURVE_ORDER - 1n) + 1n);
 
 export const sk_to_pk = (z_sk: Uint8Array | bigint, xc_uncompressed: boolean | 0 | 1=0 as const): Uint8Array => KP_BASE.mul(normalize_sk(z_sk)).out(xc_uncompressed);
 
@@ -392,8 +373,8 @@ export const sign = async(atu8_sk: Uint8Array, atu8_hash: Uint8Array, atu8_ent?:
 		}
 
 		const atu8_out = buffer(2 * NB_FIELD);
-		atu8_out.set(bigint_to_buffer(xg_r));
-		atu8_out.set(bigint_to_buffer(xg_s_normalized), NB_FIELD);
+		atu8_out.set(bigint_to_buffer_be(xg_r));
+		atu8_out.set(bigint_to_buffer_be(xg_s_normalized), NB_FIELD);
 
 		return [atu8_out, xc_recovery as RecoveryValue];
 	});
@@ -401,7 +382,7 @@ export const sign = async(atu8_sk: Uint8Array, atu8_hash: Uint8Array, atu8_ent?:
 
 
 export const verify = (atu8_signature: Uint8Array, atu8_msg: Uint8Array, atu8_pk: Uint8Array, b_low_s=true): boolean => {
-	if(2 * NB_FIELD !== atu8_signature.length) err('Invalid signature');
+	if(2 * NB_FIELD !== atu8_signature.length) die('Invalid signature');
 
 	let xg_r: bigint;
 	let xg_s: bigint;

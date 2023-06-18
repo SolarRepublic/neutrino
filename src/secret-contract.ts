@@ -97,7 +97,11 @@ export interface SecretContract {
  * @returns 
  */
 // eslint-disable-next-line @typescript-eslint/naming-convention
-export const SecretContract = async(p_lcd: HttpsUrl, sa_contract: SecretBech32, atu8_seed: Nilable<Uint8Array>=null): Promise<SecretContract> => {
+export const SecretContract = async(
+	p_lcd: HttpsUrl,
+	sa_contract: SecretBech32,
+	atu8_seed: Nilable<Uint8Array>=null
+): Promise<SecretContract> => {
 	// try loading instance from cache
 	let k_wasm = h_networks[p_lcd];
 

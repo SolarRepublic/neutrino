@@ -1,3 +1,5 @@
+import {die} from './util';
+
 const SX_ALPHABET = 'qpzry9x8gf2tvdw0s3jn54khce6mua7l';
 
 const polymod_step = (xb_pre: number, xb_value=xb_pre >> 25): number => ((xb_pre & 0x1ffffff) << 5)
@@ -98,7 +100,7 @@ export const bech32_decode = (sa_bech32: string): Uint8Array => {
 
 	for(const s_char of sx_data) {
 		const x_word = SX_ALPHABET.indexOf(s_char);
-		if(x_word < 0) throw new Error('Unknown character '+s_char);
+		if(x_word < 0) die('Unknown character '+s_char);
 
 		xb_checksum = polymod_step(xb_checksum) ^ x_word;
 
@@ -109,7 +111,7 @@ export const bech32_decode = (sa_bech32: string): Uint8Array => {
 		a_words.push(x_word);
 	}
 
-	if(1 !== xb_checksum) throw new Error('Invalid checksum for '+sa_bech32);
+	if(1 !== xb_checksum) die('Invalid checksum for '+sa_bech32);
 
 	return Uint8Array.from(regroup_bits(a_words, 5, 8));
 };

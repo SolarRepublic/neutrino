@@ -1,4 +1,4 @@
-import type {Base64, JsonObject, Nilable, Uint128} from '@blake.regalia/belt';
+import type {Base64, Dict, JsonObject, JsonString, Nilable, Uint128} from '@blake.regalia/belt';
 import type {AminoMsg, Coin, StdSignDoc} from '@cosmjs/amino';
 
 export type SecretBech32<
@@ -24,8 +24,15 @@ export interface PermitConfig extends JsonObject {
 	permissions: string[];
 }
 
-export interface QueryPermit extends JsonObject {
-	params: PermitConfig & {
+export interface NotificationSeedUpdateConfig extends JsonObject {
+	contract: SecretBech32;
+	previous_seed: Base64;
+}
+
+export interface SignedAminoDoc<
+	Config extends JsonObject,
+> extends JsonObject {
+	params: Config & {
 		chain_id: string;
 	};
 	signature: {
@@ -37,7 +44,13 @@ export interface QueryPermit extends JsonObject {
 	};
 }
 
+export type QueryPermit = SignedAminoDoc<PermitConfig>;
+
+export type NotificationSeedUpdate = SignedAminoDoc<NotificationSeedUpdateConfig>;
+
 export type MsgQueryPermit = TypedAminoMsg<'query_permit', PermitConfig>;
+
+export type MsgNotificationSeedUpdate = TypedAminoMsg<'notification_seed', NotificationSeedUpdateConfig>;
 
 export interface TypedCoin extends Coin, JsonObject {
 	readonly amount: Uint128;
@@ -77,3 +90,61 @@ export type AuthSecret = string | QueryPermit | [sh_viewing_key: string, sa_addr
 
 
 export type SlimAuthInfo = [acc_num: Nilable<Uint128>, sequence: Nilable<Uint128>];
+
+/**
+ * Bundles LCD and RPC endpoint URLs together
+ */
+export interface LcdRpcStruct {
+	/**
+	 * The LCD endpoint the struct is configured for
+	 */
+	lcd: HttpsUrl;
+
+	/**
+	 * RPC endpoint used for confirming broadcasted transactions
+	 */
+	rpc: HttpsUrl;
+}
+
+
+export interface JsonRpcResponse<
+	w_result extends JsonObject,
+> extends JsonObject {
+	jsonrpc: '2.0';
+	id: string;
+	result: w_result;
+}
+
+export interface TendermintEvent<
+	w_value extends JsonObject,
+> extends JsonObject {
+	query: string;
+	data: {
+		type: `tendermint/event/${string}`;
+		value: w_value;
+	};
+	events: Dict<string[]>;
+}
+
+export interface TxResult extends JsonObject {
+	TxResult: {
+		height: Uint128;
+		index: number;
+		tx: Base64;
+		result: {
+			code?: number;
+			data: Base64;
+			log: JsonString;
+			gas_wanted: Uint128;
+			gas_used: Uint128;
+			events: {
+				type: string;
+				attributes: {
+					key: Base64;
+					value: Base64;
+					index?: boolean;
+				}[];
+			}[];
+		};
+	};
+}

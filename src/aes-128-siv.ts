@@ -1,10 +1,11 @@
 import {ATU8_NIL, buffer} from '@blake.regalia/belt';
 
 import {NB_AES_BLOCK, aes_ctr, aes_key, s2v} from './aes';
+import {die} from './util';
 
 // splits an AES-128 SIV key
 const split_siv_key = async(atu8_key: Uint8Array): Promise<[CryptoKey, CryptoKey]> => {
-	if(32 !== atu8_key.byteLength) throw new Error('SIV key not 32 bytes');
+	if(32 !== atu8_key.byteLength) die('SIV key not 32 bytes');
 
 	// destructure halves
 	const atu8_key_mac = atu8_key.subarray(0, atu8_key.length / 2);
@@ -66,7 +67,7 @@ export const aes_128_siv_encrypt = async(atu8_key: Uint8Array, atu8_plaintext: U
 export const aes_128_siv_decrypt = async(atu8_key: Uint8Array, atu8_payload: Uint8Array, a_ad=[ATU8_NIL]): Promise<Uint8Array> => {
 	const [d_key_cbc, d_key_ctr] = await split_siv_key(atu8_key);
 
-	if(atu8_payload.byteLength < NB_AES_BLOCK) throw new Error(`SIV payload < ${NB_AES_BLOCK} bytes`);
+	if(atu8_payload.byteLength < NB_AES_BLOCK) die(`SIV payload < ${NB_AES_BLOCK} bytes`);
 
 	// extract tag || ciphertext
 	const atu8_tag = atu8_payload.subarray(0, NB_AES_BLOCK);
@@ -85,7 +86,7 @@ export const aes_128_siv_decrypt = async(atu8_key: Uint8Array, atu8_payload: Uin
 	const atu8_cmac = await s2v(d_key_cbc, atu8_plaintext, a_ad);
 
 	// assert expected length
-	if(atu8_cmac.length !== NB_AES_BLOCK || atu8_tag.length !== NB_AES_BLOCK) throw new Error(`Invalid tag/CMAC lengths`);
+	if(atu8_cmac.length !== NB_AES_BLOCK || atu8_tag.length !== NB_AES_BLOCK) die(`Invalid tag/CMAC lengths`);
 
 	// compare for equality
 	let xb_cmp = 0;
@@ -94,7 +95,7 @@ export const aes_128_siv_decrypt = async(atu8_key: Uint8Array, atu8_payload: Uin
 	}
 
 	// not equal
-	if(xb_cmp) throw new Error(`SIV tag/CMAC mismatch`);
+	if(xb_cmp) die(`SIV tag/CMAC mismatch`);
 
 	// plaintext
 	return atu8_plaintext;

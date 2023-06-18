@@ -10,7 +10,7 @@ import {
 } from '@blake.regalia/belt';
 
 import {aes_128_siv_decrypt, aes_128_siv_encrypt} from './aes-128-siv';
-import {random_32} from './util';
+import {die, random_32} from './util';
 import {ecs_mul, ecs_mul_base} from './x25519';
 
 export interface SecretWasm {
@@ -23,8 +23,8 @@ export interface SecretWasm {
 export const SecretWasm = (atu8_consensus_pk: Uint8Array, atu8_seed?: Nilable<Uint8Array>): SecretWasm => {
 	atu8_seed = atu8_seed || random_32();
 
-	if(32 !== atu8_consensus_pk.byteLength) throw new Error(`Invalid consensus key length`);
-	if(32 !== atu8_seed.byteLength) throw new Error(`Invalid seed length`);
+	if(32 !== atu8_consensus_pk.byteLength) die(`Invalid consensus key length`);
+	if(32 !== atu8_seed.byteLength) die(`Invalid seed length`);
 
 	// copy seed to new private key
 	const atu8_sk = atu8_seed.slice();

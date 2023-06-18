@@ -1,7 +1,7 @@
 import type {ProtoWriter} from './protobuf-writer';
 import type {AccountResponse} from './query/_root';
 
-import type {HttpsUrl, SecretBech32, SlimAuthInfo, SlimCoin, TypedAminoMsg, TypedStdSignDoc} from './types';
+import type {HttpsUrl, LcdRpcStruct, SecretBech32, SlimAuthInfo, SlimCoin, TypedAminoMsg, TypedStdSignDoc} from './types';
 
 import type {Uint128, HexUpper, Nilable, Base64} from '@blake.regalia/belt';
 import type {Coin} from '@cosmjs/amino';
@@ -14,7 +14,7 @@ import {any, coin, Protobuf} from './protobuf-writer';
 import {queryAuthAccounts} from './query/auth';
 import {ripemd160} from './ripemd160';
 import {sign, sk_to_pk, type SignatureAndRecovery} from './secp256k1';
-import {random_32} from './util';
+import {random_32, safe_json} from './util';
 
 const XC_SIGN_MODE_DIRECT = 1 as const;
 const XC_SIGN_MODE_AMINO = 127 as const;
@@ -218,12 +218,7 @@ export interface BroadcastResultErr {
 
 export type BroadcastResult = BroadcastResultOk | BroadcastResultErr;
 
-export interface Wallet {
-	/**
-	 * The LCD endpoint the wallet is configured for
-	 */
-	lcd: HttpsUrl;
-
+export interface Wallet extends LcdRpcStruct {
 	/**
 	 * Chain id
 	 */
@@ -262,7 +257,12 @@ export const pubkey_to_bech32 = async<
 
 
 // eslint-disable-next-line @typescript-eslint/naming-convention
-export const Wallet = async(atu8_sk: Uint8Array, si_chain: string, p_endpoint: HttpsUrl): Promise<Wallet> => {
+export const Wallet = async(
+	atu8_sk: Uint8Array,
+	si_chain: string,
+	p_lcd: HttpsUrl,
+	p_rpc: HttpsUrl
+): Promise<Wallet> => {
 	// obtain public key
 	const atu8_pk33 = sk_to_pk(atu8_sk);
 
@@ -270,13 +270,15 @@ export const Wallet = async(atu8_sk: Uint8Array, si_chain: string, p_endpoint: H
 	const sa_account = await pubkey_to_bech32(atu8_pk33);
 
 	return {
-		pk33: atu8_pk33,
+		lcd: p_lcd,
 
-		addr: sa_account,
+		rpc: p_rpc,
 
 		ref: si_chain,
 
-		lcd: p_endpoint,
+		addr: sa_account,
+
+		pk33: atu8_pk33,
 
 		sign: (atu8_hash: Uint8Array, atu8_k=random_32()) => sign(atu8_sk, atu8_hash, atu8_k),
 	};
@@ -313,17 +315,18 @@ export const auth = async(g_wallet: Pick<Wallet, 'lcd' | 'addr'>, a_auth?: Nilab
  *  - [0]: `s_res: string` - the result of `await response.text()`
  *  - [1]: `d_res: Response` - the {@link Response} object
  */
-export const broadcast = async(p_lcd: HttpsUrl, atu8_raw: Uint8Array): Promise<[string, Response]> => {
+export const broadcast = async(p_lcd: HttpsUrl, atu8_raw: Uint8Array, s_mode: 'BLOCK' | 'SYNC' | 'ASYNC'='BLOCK'): Promise<[string, Response]> => {
 	const d_res = await fetch(p_lcd+'/cosmos/tx/v1beta1/txs', {
 		method: 'POST',
 		body: JSON.stringify({
-			mode: 'BROADCAST_MODE_BLOCK',
+			mode: 'BROADCAST_MODE_'+s_mode,
 			txBytes: buffer_to_base64(atu8_raw),
 		}),
 	});
 
 	return [await d_res.text(), d_res];
 };
+
 
 
 // /**

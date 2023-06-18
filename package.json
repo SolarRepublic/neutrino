@@ -36,7 +36,7 @@
     "debug": "node --inspect-brk --loader ts-node/esm"
   },
   "devDependencies": {
-    "@blake.regalia/belt": "^0.14.1",
+    "@blake.regalia/belt": "^0.15.0",
     "@blake.regalia/eslint-config-elite": "^0.2.10",
     "@blake.regalia/tsconfig": "^0.1.2",
     "@cosmjs/amino": "^0.30.1",
@@ -52,7 +52,8 @@
     "chai-bites": "^0.1.2",
     "curve25519-js": "^0.0.4",
     "esformatter": "^0.11.3",
-    "eslint": "^8.42.0",
+    "eslint": "^8.43.0",
+    "isomorphic-ws": "^5.0.0",
     "js-beautify": "^1.14.8",
     "rollup": "^3.25.1",
     "rollup-plugin-ignore": "^1.0.10",
@@ -60,10 +61,11 @@
     "ts-toolbelt": "^9.6.0",
     "tsconfig-paths": "^4.2.0",
     "tslib": "^2.5.3",
-    "typescript": "^5.1.3"
+    "typescript": "^5.1.3",
+    "ws": "^8.13.0"
   },
   "dependencies": {
-    "@blake.regalia/belt": "^0.14.1"
+    "@blake.regalia/belt": "^0.15.0"
   },
   "publishConfig": {
     "access": "public"

@@ -3,6 +3,7 @@ import {buffer, buffer_to_base64, dataview} from '@blake.regalia/belt';
 
 import {chacha20} from './chacha20';
 import {poly1305} from './poly1305';
+import {die} from './util';
 
 // encrypt/decrypt data and generate the poly1305 key
 const transcrypt = (atu8_key: Uint8Array, atu8_nonce: Uint8Array, atu8_data: Uint8Array): [Uint8Array, Uint8Array] => [
@@ -54,7 +55,7 @@ const poly1305_auth = (atu8_poly1305_key: Uint8Array, atu8_ciphertext: Uint8Arra
  * @param atu8_plaintext - limited to 4 GiB in size
  * @param atu8_aad - additional authenticated data
  */
-export const chacha20_poly1305_encrypt = (
+export const chacha20_poly1305_seal = (
 	atu8_key: Uint8Array,
 	atu8_nonce: Uint8Array,
 	atu8_plaintext: Uint8Array,
@@ -82,11 +83,11 @@ export const chacha20_poly1305_encrypt = (
  * @param atu8_tag 
  * @returns 
  */
-export const chacha20_poly1305_decrypt = (
+export const chacha20_poly1305_open = (
 	atu8_key: Uint8Array,
 	atu8_nonce: Uint8Array,
-	atu8_ciphertext: Uint8Array,
 	atu8_tag: Uint8Array,
+	atu8_ciphertext: Uint8Array,
 	atu8_aad?: Uint8Array
 ): Uint8Array => {
 	// decrypt
@@ -99,7 +100,7 @@ export const chacha20_poly1305_decrypt = (
 	let atu8_tag_expected = poly1305_auth(atu8_poly1305_key, atu8_ciphertext, atu8_aad);
 
 	// mismatch
-	if(buffer_to_base64(atu8_tag_expected) !== buffer_to_base64(atu8_tag)) throw new Error('Tag mismatch; tampered or incomplete data');
+	if(buffer_to_base64(atu8_tag_expected) !== buffer_to_base64(atu8_tag)) die('Tag mismatch; tampered or incomplete data');
 
 	// return plaintext
 	return atu8_plaintext;
