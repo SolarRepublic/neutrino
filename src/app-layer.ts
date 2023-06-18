@@ -308,7 +308,7 @@ export const query_contract_infer = async<
  * 
  * @throws a {@link BroadcastResultErr}
  */
-export const exec_contract = async(
+export const exec_contract_unreliable = async(
 	k_contract: SecretContract,
 	k_wallet: Wallet,
 	h_exec: JsonObject,
@@ -396,7 +396,7 @@ export const exec_contract = async(
 
 /**
  * Execute a Secret Contract method using BROADCAST_MODE_SYNC and waiting for confirmation via JSONRPC.
- * More reliable than `exec_contract` which may appear to fail if the chain's block time exceeds node's broadcast timeout.
+ * More reliable than `exec_contract_unreliable` which may appear to fail if the chain's block time exceeds node's broadcast timeout.
  * @param k_contract - a {@link SecretContract} instance
  * @param k_wallet - the {@link Wallet} of the sender
  * @param h_exec - the execution message as a plain object (to be JSON-encoded)
@@ -413,7 +413,7 @@ export const exec_contract = async(
  * 
  * @throws a {@link BroadcastResultErr}
  */
-export const exec_contract_reliable = async(
+export const exec_contract = async(
 	k_contract: SecretContract,
 	k_wallet: Wallet,
 	h_exec: JsonObject,

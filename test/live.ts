@@ -6,7 +6,7 @@ import {text_to_buffer} from '@blake.regalia/belt';
 
 import './helper';
 
-import {exec_contract_reliable, retry, sign_query_permit} from '../src/app-layer';
+import {exec_contract, retry, sign_query_permit} from '../src/app-layer';
 import {queryBankSpendableBalances} from '../src/main';
 import {queryFeegrantAllowances} from '../src/query/feegrant';
 import {ent_to_sk} from '../src/secp256k1';
@@ -67,7 +67,7 @@ export async function connect() {
 	const g_executables = {
 		// set a viewing key
 		async viewing_key() {
-			const a_response = await retry(() => exec_contract_reliable(k_contract, k_wallet, {
+			const a_response = await retry(() => exec_contract(k_contract, k_wallet, {
 				set_viewing_key: {
 					key: 'password123',
 				},

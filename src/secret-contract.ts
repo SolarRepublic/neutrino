@@ -1,4 +1,4 @@
-import type {query_contract, exec_contract} from './app-layer';
+import type {query_contract, exec_contract_unreliable} from './app-layer';
 
 import type {ContractInfo, SecretBech32, HttpsUrl as HttpsUrl, SlimCoin} from './types';
 
@@ -90,7 +90,7 @@ export interface SecretContract {
  * and info unless already cached.
  * 
  * The `query` and `exec` methods are not intended for general application use; projects should instead use
- * {@link query_contract} and {@link exec_contract}.
+ * {@link query_contract} and {@link exec_contract_unreliable}.
  * @param p_lcd 
  * @param sa_contract 
  * @param atu8_seed 

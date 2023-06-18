@@ -6,7 +6,7 @@ import {buffer_to_hex, text_to_base64, base64_to_buffer} from '@blake.regalia/be
 
 
 import {connect} from './live';
-import {exec_contract_reliable, query_contract_infer} from '../src/app-layer';
+import {exec_contract, query_contract_infer} from '../src/app-layer';
 import {bech32_encode} from '../src/bech32';
 import {sign_seed_update, subscribe_snip52_channel} from '../src/snip-52';
 
@@ -69,7 +69,7 @@ const SI_COMMAND = process.argv[2] as 'init' | 'trigger' | 'update' | 'export' ?
 		},
 
 		async trigger() {
-			const a_response = await exec_contract_reliable(k_contract, k_wallet, {
+			const a_response = await exec_contract(k_contract, k_wallet, {
 				tx: {
 					channel: 'tx',
 				},
@@ -86,7 +86,7 @@ const SI_COMMAND = process.argv[2] as 'init' | 'trigger' | 'update' | 'export' ?
 			const g_update = await sign_seed_update(k_wallet, k_contract.addr, sb64_seed);
 
 			// execute update
-			const a_response = await exec_contract_reliable(k_contract, k_wallet, {
+			const a_response = await exec_contract(k_contract, k_wallet, {
 				update_seed: {
 					signed_doc: g_update,
 				},
@@ -103,7 +103,7 @@ const SI_COMMAND = process.argv[2] as 'init' | 'trigger' | 'update' | 'export' ?
 			const g_update = await sign_seed_update(k_wallet, k_contract.addr, text_to_base64('not-seed'));
 
 			// execute update
-			const a_response = await exec_contract_reliable(k_contract, k_wallet, {
+			const a_response = await exec_contract(k_contract, k_wallet, {
 				update_seed: {
 					signed_doc: g_update,
 				},
