@@ -61,15 +61,16 @@ export const subscribe_snip52_channels = async(
 		if(si_notification !== si_next) die('Failed to derive accurate notification ID');
 
 		return [
-			si_channel,
+			si_notification,
 			[
+				si_channel,
 				atu8_seed,
 				xg_counter,
 				xg_hash,
 				next_id,
 				fk_notification,
 			] as const,
-		] as [string, [Uint8Array, bigint, bigint, typeof next_id, typeof fk_notification]];
+		] as [Base64, [string, Uint8Array, bigint, bigint, typeof next_id, typeof fk_notification]];
 	})));
 
 	// on contract execution
@@ -78,10 +79,11 @@ export const subscribe_snip52_channels = async(
 		const g_jsonrpc_result = safe_json<JsonRpcResponse<TendermintEvent<TxResult>>>(d_event.data as string)!.result;
 		let h_events = g_jsonrpc_result.events;
 
-		// notification received
+		// check each channel
 		for(let si_notification in h_resolved) {
-			let [atu8_seed, xg_counter, xg_hash, next_id, fk_notification] = h_resolved[si_notification];
+			let [si_channel, atu8_seed, xg_counter, xg_hash, next_id, fk_notification] = h_resolved[si_notification as Base64];
 
+			// notification received
 			let a_received = h_events?.['wasm.'+si_notification];
 			if(a_received) {
 				// construct aad
@@ -97,20 +99,13 @@ export const subscribe_snip52_channels = async(
 				// decrypt notification data, splitting payload between tag and ciphertext
 				const atu8_message = chacha20_poly1305_open(atu8_seed, atu8_nonce, atu8_payload.subarray(-XN_16), atu8_payload.subarray(0, -XN_16), atu8_aad);
 
-				// find end of data
-				let ib_trim = atu8_message.length;
-				for(; !atu8_message[ib_trim--];);
-
-				// extract plaintext
-				let atu8_plaintext = atu8_message.subarray(0, ib_trim);
-
 				// call listener with decrypted data
-				fk_notification(cborDecode(atu8_plaintext)[0]);
-			}
+				fk_notification(cborDecode(atu8_message)[0]);
 
-			// remove notification and move onto next
-			delete h_resolved[si_notification];
-			h_resolved[await next_id()] = [atu8_seed, xg_counter + 1n, xg_hash, next_id, fk_notification];
+				// remove notification and move onto next
+				delete h_resolved[si_notification as Base64];
+				h_resolved[await next_id()] = [si_channel, atu8_seed, xg_counter + 1n, xg_hash, next_id, fk_notification];
+			}
 		}
 	});
 };
