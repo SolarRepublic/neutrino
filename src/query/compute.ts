@@ -11,7 +11,7 @@ export const queryComputeInfo = lcd_query<
 	ContractInfo
 >(
 	sa_contract => [SR_LCD_COMPUTE+'info/'+sa_contract],
-	g => g.ContractInfo
+	g => g.contract_info
 );
 
 export const queryComputeQuery = lcd_query<
