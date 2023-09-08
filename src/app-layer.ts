@@ -410,6 +410,7 @@ export const exec_contract_unreliable = async(
  * 		on error, will be either the error string from HTTP response text, chain error message,
  * 		or contract error as a JSON string.
  *  - [2]: `g_tx_res?: `{@link TxResponse} - on success, the parsed transaction response JSON object
+ *  - [3]: `si_txn?: string` - the transaction hash if a broadcast attempt was made
  * 
  * @throws a {@link BroadcastResultErr}
  */
@@ -424,7 +425,8 @@ export const exec_contract = async(
 ): Promise<[
 	xc_code: number,
 	s_res: string,
-	g_tx_res?: TxResult['TxResult'],
+	g_tx_res?: TxResult['TxResult'] | undefined,
+	si_txn?: string,
 ]> => {	// prep plaintext
 	// prep plaintext
 	let s_plaintext;
@@ -479,11 +481,11 @@ export const exec_contract = async(
 			s_plaintext = buffer_to_text(atu8_plaintext);
 		}
 
-		return [xc_error, s_plaintext ?? s_error];
+		return [xc_error, s_plaintext ?? s_error, void 0, si_txn];
 	}
 
 	// return as tuple
-	return [xc_error, s_plaintext, g_tx_res!];
+	return [xc_error, s_plaintext, g_tx_res!, si_txn];
 };
 
 
