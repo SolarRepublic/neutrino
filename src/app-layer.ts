@@ -409,7 +409,7 @@ export const exec_contract_unreliable = async(
  *  - [1]: `s_res: string` - message text. on success, will be the contract's response as a JSON string.
  * 		on error, will be either the error string from HTTP response text, chain error message,
  * 		or contract error as a JSON string.
- *  - [2]: `tx_res?: `{@link TxResponse} - on success, the parsed transaction response JSON object
+ *  - [2]: `g_tx_res?: `{@link TxResponse} - on success, the parsed transaction response JSON object
  * 
  * @throws a {@link BroadcastResultErr}
  */
@@ -423,9 +423,8 @@ export const exec_contract = async(
 	sa_granter?: SecretBech32 | ''
 ): Promise<[
 	xc_code: number,
-	s_error: string,
+	s_res: string,
 	g_tx_res?: TxResult['TxResult'],
-	s_exec_res?: string,
 ]> => {	// prep plaintext
 	// prep plaintext
 	let s_plaintext;
