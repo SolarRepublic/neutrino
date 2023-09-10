@@ -1,3 +1,4 @@
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import type {query_contract, exec_contract_unreliable} from './app-layer';
 
 import type {ContractInfo, SecretBech32, HttpsUrl as HttpsUrl, SlimCoin} from './types';
@@ -53,7 +54,7 @@ export interface SecretContract {
 	/**
 	 * Code hash
 	 */
-	hash: string;
+	hash: HexLower;
 
 	/**
 	 * the {@link SecretWasm} instance

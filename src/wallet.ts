@@ -310,8 +310,9 @@ export const auth = async(g_wallet: Pick<Wallet, 'lcd' | 'addr'>, a_auth?: Nilab
 
 /**
  * Broadcast a transaction to the network
- * @param p_lcd 
- * @param atu8_raw 
+ * @param p_lcd - LCD endpoint
+ * @param atu8_raw - raw tx bytes
+ * @param s_mode - defaults to `"BLOCK"`
  * @returns tuple of `[string, Response]` where:
  *  - [0]: `s_res: string` - the result of `await response.text()`
  *  - [1]: `d_res: Response` - the {@link Response} object
@@ -542,14 +543,11 @@ export const create_tx = async(
 	// encode signer info
 	const atu8_signer = encode_signerinfo(Protobuf(), xc_sign_mode, atu8_pubkey, sg_sequence || '0').o();
 
-
 	// encode fee
 	const atu8_fee = encode_fee(Protobuf(), a_fees, sg_limit, sa_granter, sa_payer).o();
 
-
 	// encode auth info
 	const atu8_auth = encode_authinfo(Protobuf(), [atu8_signer], atu8_fee).o();
-
 
 	// encode tx body bytes
 	const atu8_body = encode_txbody(Protobuf(), a_msgs, s_memo).o();
