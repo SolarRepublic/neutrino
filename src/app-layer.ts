@@ -260,7 +260,7 @@ export const format_query = (
  * 
  * @param k_contract 
  * @param h_query 
- * @returns tuple of `[number, string, JsonObject?]` where:
+ * @returns tuple of `[JsonObject?, number, string, JsonObject?]` where:
  *  - [0]: `w_result?: JsonObject` - unwrapped contract result on success
  *  - [1]: `xc_code: number` - error code from chain, or non-OK HTTP status code from the LCD server.
  * 		A value of `0` indicates success.
@@ -427,7 +427,7 @@ export const exec_contract = async(
 	s_res: string,
 	g_tx_res?: TxResult['TxResult'] | undefined,
 	si_txn?: string,
-]> => {	// prep plaintext
+]> => {
 	// prep plaintext
 	let s_plaintext;
 

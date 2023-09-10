@@ -16,10 +16,11 @@ import {ripemd160} from './ripemd160';
 import {sign, sk_to_pk, type SignatureAndRecovery} from './secp256k1';
 import {random_32, safe_json} from './util';
 
-const XC_SIGN_MODE_DIRECT = 1 as const;
-const XC_SIGN_MODE_AMINO = 127 as const;
+export const XC_SIGN_MODE_DIRECT = 1 as const;
+export const XC_SIGN_MODE_TEXTUAL = 2 as const;
+export const XC_SIGN_MODE_AMINO = 127 as const;
 
-type SignModeValue = typeof XC_SIGN_MODE_DIRECT | typeof XC_SIGN_MODE_AMINO;
+export type SignModeValue = typeof XC_SIGN_MODE_DIRECT | typeof XC_SIGN_MODE_TEXTUAL | typeof XC_SIGN_MODE_AMINO;
 
 // enum SignModeValue {
 // 	// UNSPECIFIED = 0,
