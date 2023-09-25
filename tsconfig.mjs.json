@@ -7,7 +7,9 @@
 
 		"declaration": true,
 		"declarationDir": "dist/mjs",
-		"noImplicitReturns": false
+		"noImplicitReturns": false,
+
+		"moduleResolution": "Bundler"
 	},
 
 	"include": [

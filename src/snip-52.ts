@@ -1,34 +1,30 @@
+/// <reference types="@solar-republic/contractor" />
 /* eslint-disable prefer-const */
 import type {CborValue} from './cbor';
 import type {SecretContract} from './secret-contract';
-import type {AuthSecret, HttpsUrl, MsgNotificationSeedUpdate, SecretBech32, NotificationSeedUpdate, NotificationSeedUpdateConfig, TendermintEvent, JsonRpcResponse, TxResult} from './types';
+import type {AuthSecret, HttpsUrl, MsgNotificationSeedUpdate, NotificationSeedUpdate, NotificationSeedUpdateConfig, TendermintEvent, JsonRpcResponse, TxResult, WeakSecretAccAddr} from './types';
 
-import type {Base64, Dict} from '@blake.regalia/belt';
+import type {Wallet} from './wallet';
+import type {Base64, SecretAccAddr} from '@solar-republic/contractor/datatypes';
+import type {Snip52} from '@solar-republic/contractor/snips';
 
-import {hmac, base64_to_buffer, text_to_buffer, buffer_to_base64, dataview, buffer, sha256, ode, fodemtv, ofe} from '@blake.regalia/belt';
+import {hmac, base64_to_buffer, text_to_buffer, buffer_to_base64, sha256, ode, ofe} from '@blake.regalia/belt';
 
 import {query_contract_infer, subscribe_tendermint_events} from './app-layer';
 import {cborDecode} from './cbor';
 import {chacha20_poly1305_open} from './chacha20-poly1305';
 import {XN_16} from './constants';
 import {bigint_to_buffer_be, buffer_to_bigint_be, die, safe_json} from './util';
-import {sign_amino, type Wallet} from './wallet';
-
-interface Snip52Response {
-	channel: string;
-	seed: Base64;
-	counter: `${bigint}`;
-	next_id: string;
-	as_of_block: `${bigint}`;
-	cddl?: string;
-}
+import {sign_amino} from './wallet';
 
 export type NotificationCallback = (z_data: CborValue) => void;
 
+
+
 export const subscribe_snip52_channels = async(
 	p_rpc: HttpsUrl,
-	k_contract: SecretContract,
-	z_auth: AuthSecret,
+	k_contract: SecretContract<Snip52>,
+	z_auth: Exclude<AuthSecret, string>,
 	h_channels: Record<string, NotificationCallback>
 ): Promise<void> => {
 	const h_resolved = ofe(await Promise.all(ode(h_channels).map(async([si_channel, fk_notification]) => {
@@ -36,41 +32,52 @@ export const subscribe_snip52_channels = async(
 			channel: si_channel,
 		}, z_auth);
 
-		let {
-			seed: sh_seed,
-			counter: sg_counter,
-			next_id: si_next,
-		} = g_result as unknown as Snip52Response;
+		if(!g_result) throw die(s_error);
 
 		// parse seed
-		let atu8_seed = base64_to_buffer(sh_seed);
+		let atu8_seed = base64_to_buffer(g_result.seed+'');  // TODO: add typings to utility function
 
-		// step counter back by one for initial call to next_id
-		let xg_counter = BigInt(sg_counter) -1n;
+		// counter mode
+		if('counter' === g_result.mode) {
+			let {
+				counter: sg_counter,
+				next_id: si_next,
+			} = g_result;
 
-		// create function to generate next id
-		let next_id = async() => buffer_to_base64(await hmac(atu8_seed, text_to_buffer(si_channel+':'+(xg_counter += 1n))));
+			// step counter back by one for initial call to next_id
+			let xg_counter = BigInt(sg_counter) -1n;
 
-		// derive next notification id
-		let si_notification = await next_id();
+			// create function to generate next id
+			let next_id = async() => buffer_to_base64(await hmac(atu8_seed, text_to_buffer(si_channel+':'+(xg_counter += 1n))));
 
-		// prep channel hash
-		let xg_hash = buffer_to_bigint_be((await sha256(text_to_buffer(si_channel))).subarray(0, 12));
+			// derive next notification id
+			let si_notification = await next_id();
 
-		// ensure it is a match with the next expected
-		if(si_notification !== si_next) die('Failed to derive accurate notification ID');
+			// prep channel hash
+			let xg_hash = buffer_to_bigint_be((await sha256(text_to_buffer(si_channel))).subarray(0, 12));
 
-		return [
-			si_notification,
-			[
-				si_channel,
-				atu8_seed,
-				xg_counter,
-				xg_hash,
-				next_id,
-				fk_notification,
-			] as const,
-		] as [Base64, [string, Uint8Array, bigint, bigint, typeof next_id, typeof fk_notification]];
+			// ensure it is a match with the next expected
+			if(si_notification !== si_next) die('Failed to derive accurate notification ID');
+
+			return [
+				si_notification,
+				[
+					si_channel,
+					atu8_seed,
+					xg_counter,
+					xg_hash,
+					next_id,
+					fk_notification,
+				] as const,
+			] as [Base64, [string, Uint8Array, bigint, bigint, typeof next_id, typeof fk_notification]];
+		}
+		// // txhash mode
+		// else if('txhash' === g_result.mode) {
+		// 	// // create function to generate next id
+		// 	// let next_id = async(si_tx: string) => buffer_to_base64(await hmac(atu8_seed, text_to_buffer(si_channel+':'+si_tx)));
+		// }
+
+		throw die('nop');
 	})));
 
 	// on contract execution
@@ -113,12 +120,12 @@ export const subscribe_snip52_channels = async(
 
 export const sign_seed_update = async(
 	k_wallet: Wallet,
-	sa_contract: SecretBech32,
+	sa_contract: WeakSecretAccAddr,
 	sb64_previous: Base64
 ): Promise<NotificationSeedUpdate> => {
 	// prep params
 	const g_params: NotificationSeedUpdateConfig = {
-		contract: sa_contract,
+		contract: sa_contract as SecretAccAddr,
 		previous_seed: sb64_previous,
 	};
 

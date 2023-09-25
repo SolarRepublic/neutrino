@@ -1,4 +1,4 @@
-import type {SecretBech32, SlimCoin} from 'src/types';
+import type {WeakSecretAccAddr, SlimCoin} from 'src/types';
 
 import {Protobuf, any, coin, timestamp} from '../protobuf-writer.js';
 
@@ -15,8 +15,8 @@ export const anyBasicAllowance = (a_limits: SlimCoin[], xt_expiration?: number):
 };
 
 export const msgGrantAllowance = (
-	sa_granter: SecretBech32,
-	sa_grantee: SecretBech32,
+	sa_granter: WeakSecretAccAddr,
+	sa_grantee: WeakSecretAccAddr,
 	atu8_allowance: Uint8Array
 ): Uint8Array => {
 	// construct body

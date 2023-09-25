@@ -1,38 +1,40 @@
-import type {Base64, Dict, JsonObject, JsonString, Nilable, Uint128} from '@blake.regalia/belt';
+import type {Dict, JsonObject, JsonString, Nilable} from '@blake.regalia/belt';
 import type {AminoMsg, Coin, StdSignDoc} from '@cosmjs/amino';
+import type {SecretAccAddr, Uint128, Base64} from '@solar-republic/contractor/datatypes';
 
-export type SecretBech32<
-	si_hrp extends `secret${string}`='secret',
-> = `${si_hrp}1${string}`;
+
+export type WeakSecretAccAddr = `secret1${string}`;
+
+export type WeakUint128 = `${bigint}`;
 
 export type SlimCoin = [
-	sg_amount: Uint128,
+	sg_amount: WeakUint128,
 	s_denom: 'uscrt',
 ];
 
-export interface ContractInfo {
-	code_id: Uint128;
-	creator: SecretBech32;
+export type ContractInfo = {
+	code_id: WeakUint128;
+	creator: SecretAccAddr;
 	label: string;
-}
+};
 
 export type HttpsUrl = `https://${string}`;
 
-export interface PermitConfig extends JsonObject {
+export type PermitConfig = {
 	permit_name: string;
-	allowed_tokens: SecretBech32[];
+	allowed_tokens: SecretAccAddr[];
 	permissions: string[];
-}
+};
 
-export interface NotificationSeedUpdateConfig extends JsonObject {
-	contract: SecretBech32;
+export type NotificationSeedUpdateConfig = {
+	contract: SecretAccAddr;
 	previous_seed: Base64;
-}
+};
 
-export interface SignedAminoDoc<
-	Config extends JsonObject,
-> extends JsonObject {
-	params: Config & {
+export type SignedAminoDoc<
+	h_config extends JsonObject,
+> = {
+	params: h_config & {
 		chain_id: string;
 	};
 	signature: {
@@ -42,7 +44,7 @@ export interface SignedAminoDoc<
 		};
 		signature: Base64;
 	};
-}
+};
 
 export type QueryPermit = SignedAminoDoc<PermitConfig>;
 
@@ -59,8 +61,8 @@ export interface TypedCoin extends Coin, JsonObject {
 export interface TypedStdFee extends JsonObject {
 	readonly amount: TypedCoin[];
 	readonly gas: Uint128;
-	readonly granter?: SecretBech32;
-	readonly payer?: SecretBech32;
+	readonly granter?: SecretAccAddr;
+	readonly payer?: SecretAccAddr;
 }
 
 export interface TypedAminoMsg<
@@ -80,16 +82,19 @@ export interface TypedStdSignDoc<
 	readonly msgs: a_msgs;
 }
 
+
+export type AuthSecret_ViewerInfo = [sh_key: string, sa_viewer?: WeakSecretAccAddr];
+
 /**
  * There are 3 types of authenticated queries typically used on Secret Network.
  * 1. Viewing Keys - indicated here by `string`
  * 2. Query Permits - indicated here by `Record<string, string>`
  * 3. ViewerInfo struts - indicated here by `[viewing_key: string, addr: 'secret1${string}']`
  */
-export type AuthSecret = string | QueryPermit | [sh_viewing_key: string, sa_address?: SecretBech32];
+export type AuthSecret = string | QueryPermit | AuthSecret_ViewerInfo;
 
 
-export type SlimAuthInfo = [acc_num: Nilable<Uint128>, sequence: Nilable<Uint128>];
+export type SlimAuthInfo = [acc_num: Nilable<WeakUint128>, sequence: Nilable<WeakUint128>];
 
 /**
  * Bundles LCD and RPC endpoint URLs together
@@ -107,26 +112,26 @@ export interface LcdRpcStruct {
 }
 
 
-export interface JsonRpcResponse<
+export type JsonRpcResponse<
 	w_result extends JsonObject,
-> extends JsonObject {
+> = {
 	jsonrpc: '2.0';
 	id: string;
 	result: w_result;
-}
+};
 
-export interface TendermintEvent<
+export type TendermintEvent<
 	w_value extends JsonObject,
-> extends JsonObject {
+> = {
 	query: string;
 	data: {
 		type: `tendermint/event/${string}`;
 		value: w_value;
 	};
 	events: Dict<string[]>;
-}
+};
 
-export interface TxResult extends JsonObject {
+export type TxResult = {
 	TxResult: {
 		height: Uint128;
 		index: number;
@@ -147,4 +152,4 @@ export interface TxResult extends JsonObject {
 			}[];
 		};
 	};
-}
+};

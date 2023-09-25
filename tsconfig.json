@@ -8,7 +8,10 @@
 		"declaration": true,
 		"declarationDir": "dist/nil",
 
-		"noImplicitReturns": false
+		"noImplicitReturns": false,
+
+		"moduleResolution": "Bundler",
+		// "noErrorTruncation": true
 	},
 
 	"include": [

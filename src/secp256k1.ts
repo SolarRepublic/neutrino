@@ -1,4 +1,6 @@
-import {buffer, concat2, type Nilable} from '@blake.regalia/belt';
+import type {Nilable} from '@blake.regalia/belt';
+
+import {buffer, concat2} from '@blake.regalia/belt';
 
 import {bigint_to_buffer_be, buffer_to_bigint_be, die, random_32} from './util';
 

@@ -1,6 +1,10 @@
-import type {SecretBech32, HttpsUrl} from '../src/types';
+import type {HttpsUrl} from '../src/types';
 
 import type {Dict} from '@blake.regalia/belt';
+
+import type {SecretAccAddr} from '@solar-republic/contractor/datatypes';
+
+import type {Snip24} from '@solar-republic/contractor/snips';
 
 import {text_to_buffer} from '@blake.regalia/belt';
 
@@ -22,9 +26,9 @@ const P_LCD_ENDPOINT = h_env['NFP_LCD'] as HttpsUrl;
 
 const P_RPC_ENDPOINT = h_env['NFP_RPC'] as HttpsUrl;
 
-const SA_CONTRACT = h_env['NFP_CONTRACT'] as SecretBech32;
+const SA_CONTRACT = h_env['NFP_CONTRACT'] as SecretAccAddr;
 
-const SA_GRANTER = h_env['NFP_GRANTER'] as SecretBech32 | undefined;
+const SA_GRANTER = h_env['NFP_GRANTER'] as SecretAccAddr | undefined;
 
 
 export async function connect() {
@@ -47,12 +51,12 @@ export async function connect() {
 
 
 	// prepare to interact with contract
-	const k_contract = await SecretContract(P_LCD_ENDPOINT, SA_CONTRACT, atu8_seed);
+	const k_contract = await SecretContract<Snip24>(P_LCD_ENDPOINT, SA_CONTRACT, atu8_seed);
 
 	// find feegrants
 	const a_allowances = await queryFeegrantAllowances(P_LCD_ENDPOINT, k_wallet.addr);
 
-	let sa_granter: SecretBech32 | '' = '';
+	let sa_granter: SecretAccAddr | '' = '';
 	for(const g_allowance of a_allowances) {
 		sa_granter = g_allowance.granter;
 

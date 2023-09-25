@@ -46,10 +46,16 @@ const regroup_bits = (a_words: Iterable<number>, ni_in: number, ni_out: number, 
 
 // option A
 // eslint-disable-next-line @typescript-eslint/naming-convention
-export const bech32_encode = (si_prefix: string, atu8_data: Uint8Array): string => {
-	let xb_checksum = prefix_checksum(si_prefix);
+/**
+ * Encode an address in bech32 format
+ * @param si_hrp - the human-readable part without the '1' separator
+ * @param atu8_data - canonical addr data
+ * @returns 
+ */
+export const bech32_encode = (si_hrp: string, atu8_data: Uint8Array): string => {
+	let xb_checksum = prefix_checksum(si_hrp);
 
-	let sa_output = si_prefix+'1';
+	let sa_output = si_hrp+'1';
 
 	for(const x_word of regroup_bits(atu8_data, 8, 5, 1)) {
 		xb_checksum = polymod_step(xb_checksum) ^ x_word;

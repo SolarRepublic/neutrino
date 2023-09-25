@@ -1,10 +1,12 @@
 import type {ProtoWriter} from './protobuf-writer';
 import type {AccountResponse} from './query/_root';
 
-import type {HttpsUrl, LcdRpcStruct, SecretBech32, SlimAuthInfo, SlimCoin, TypedAminoMsg, TypedStdSignDoc} from './types';
+import type {HttpsUrl, LcdRpcStruct, SlimAuthInfo, SlimCoin, TypedAminoMsg, TypedStdSignDoc, WeakSecretAccAddr, WeakUint128} from './types';
 
-import type {Uint128, HexUpper, Nilable, Base64} from '@blake.regalia/belt';
+import type {Nilable} from '@blake.regalia/belt';
 import type {Coin} from '@cosmjs/amino';
+
+import type {Addr, Base64, HexUpper, SecretAccAddr, Uint128} from '@solar-republic/contractor/datatypes';
 
 import {text_to_buffer, buffer_to_base64, buffer_to_hex, sha256, canonicalize_json} from '@blake.regalia/belt';
 
@@ -14,7 +16,7 @@ import {any, coin, Protobuf} from './protobuf-writer';
 import {queryAuthAccounts} from './query/auth';
 import {ripemd160} from './ripemd160';
 import {sign, sk_to_pk, type SignatureAndRecovery} from './secp256k1';
-import {random_32, safe_json} from './util';
+import {random_32} from './util';
 
 export const XC_SIGN_MODE_DIRECT = 1 as const;
 export const XC_SIGN_MODE_TEXTUAL = 2 as const;
@@ -46,7 +48,7 @@ const encode_modeinfo = (k_writer: ProtoWriter, xc_mode_single_arg: SignModeValu
 /**
  * SignerInfo
  */
-const encode_signerinfo = (k_writer: ProtoWriter, xc_sign_mode: SignModeValue, atu8_pubkey: Uint8Array, sg_sequence: Uint128) => {
+const encode_signerinfo = (k_writer: ProtoWriter, xc_sign_mode: SignModeValue, atu8_pubkey: Uint8Array, sg_sequence: WeakUint128) => {
 	k_writer
 		.v(10).b(atu8_pubkey)
 		.v(18).n(encode_modeinfo, xc_sign_mode);
@@ -64,10 +66,10 @@ const encode_signerinfo = (k_writer: ProtoWriter, xc_sign_mode: SignModeValue, a
 export const encode_fee = (
 	k_writer: ProtoWriter,
 	a_amounts: SlimCoin[],
-	sg_limit: Uint128,
-	sa_granter?: Nilable<SecretBech32> | '',
-	sa_payer?: Nilable<SecretBech32> | ''
-) => {
+	sg_limit: WeakUint128,
+	sa_granter?: Nilable<WeakSecretAccAddr> | '',
+	sa_payer?: Nilable<WeakSecretAccAddr> | ''
+): ProtoWriter => {
 	a_amounts.map(a_coin => k_writer.v(10).b(coin(a_coin)));
 
 	if('0' !== sg_limit) k_writer.v(16).g(BigInt(sg_limit));
@@ -84,7 +86,11 @@ export const encode_fee = (
 /**
  * AuthInfo
  */
-export const encode_authinfo = (k_writer: ProtoWriter, a_signers: Uint8Array[], atu8_fee: Uint8Array) => {
+export const encode_authinfo = (
+	k_writer: ProtoWriter,
+	a_signers: Uint8Array[],
+	atu8_fee: Uint8Array
+): ProtoWriter => {
 	a_signers.map(atu8_signer => k_writer.v(10).b(atu8_signer));
 
 	k_writer.v(18).b(atu8_fee);
@@ -95,7 +101,12 @@ export const encode_authinfo = (k_writer: ProtoWriter, a_signers: Uint8Array[], 
 /**
  * TxBody
  */
-export const encode_txbody = (k_writer: ProtoWriter, a_msgs: Uint8Array[], s_memo?: string, sg_timeout?: Uint128) => {
+export const encode_txbody = (
+	k_writer: ProtoWriter,
+	a_msgs: Uint8Array[],
+	s_memo?: string,
+	sg_timeout?: WeakUint128
+): ProtoWriter => {
 	a_msgs.map(atu8_msg => k_writer.v(10).b(atu8_msg));
 
 	if(s_memo) k_writer.v(18).s(s_memo);
@@ -113,8 +124,8 @@ export const encode_signdoc = (
 	atu8_body: Uint8Array,
 	atu8_auth: Uint8Array,
 	si_chain: string,
-	sg_account: Nilable<Uint128>
-) => {
+	sg_account: Nilable<WeakUint128>
+): ProtoWriter => {
 	k_writer
 		.v(10).b(atu8_body)
 		.v(18).b(atu8_auth)
@@ -128,7 +139,12 @@ export const encode_signdoc = (
 /**
  * TxRaw
  */
-export const encode_txraw = (k_writer: ProtoWriter, atu8_body: Uint8Array, atu8_auth: Uint8Array, a_signatures: Uint8Array[]) => {
+export const encode_txraw = (
+	k_writer: ProtoWriter,
+	atu8_body: Uint8Array,
+	atu8_auth: Uint8Array,
+	a_signatures: Uint8Array[]
+): ProtoWriter => {
 	k_writer
 		.v(10).b(atu8_body)
 		.v(18).b(atu8_auth);
@@ -173,8 +189,8 @@ export interface TxResponse {
 			fee: {
 				amount: Coin[];
 				gas_limit: Uint128;
-				granter: SecretBech32 | '';
-				payer: SecretBech32 | '';
+				granter: SecretAccAddr | '';
+				payer: SecretAccAddr | '';
 			};
 			signer_infos: {
 				mode_info: {
@@ -228,7 +244,7 @@ export interface Wallet extends LcdRpcStruct {
 	/**
 	 * Bech32 account address
 	 */
-	addr: SecretBech32;
+	addr: SecretAccAddr;
 
 	/**
 	 * Secp256k1 Public Key in compressed 33-byte form
@@ -245,7 +261,7 @@ export interface Wallet extends LcdRpcStruct {
 
 export const pubkey_to_bech32 = async<
 	s_hrp extends `secret${string}`='secret',
->(atu8_pk_33: Uint8Array, s_hrp: s_hrp='secret' as s_hrp): Promise<SecretBech32<s_hrp>> => {
+>(atu8_pk_33: Uint8Array, s_hrp: s_hrp='secret' as s_hrp): Promise<Addr<s_hrp>> => {
 	// sha-256 hash of pubkey
 	const atu8_sha256 = await sha256(atu8_pk_33);
 
@@ -253,7 +269,7 @@ export const pubkey_to_bech32 = async<
 	const atu8_ripemd160 = ripemd160(atu8_sha256);
 
 	// encode to bech32
-	return bech32_encode(s_hrp, atu8_ripemd160) as SecretBech32<s_hrp>;
+	return bech32_encode(s_hrp, atu8_ripemd160) as Addr<s_hrp>;
 };
 
 
@@ -420,11 +436,11 @@ export const sign_amino = async<
 	k_wallet: Wallet,
 	a_msgs: a_msgs,  // eslint-disable-line @typescript-eslint/naming-convention
 	a_fees: SlimCoin[],
-	sg_limit: Uint128,
+	sg_limit: WeakUint128,
 	a_auth?: Nilable<SlimAuthInfo> | 0,  // eslint-disable-line @typescript-eslint/naming-convention
 	s_memo?: string,
-	sa_granter?: Nilable<SecretBech32> | '',
-	sa_payer?: Nilable<SecretBech32> | ''
+	sa_granter?: Nilable<WeakSecretAccAddr> | '',
+	sa_payer?: Nilable<WeakSecretAccAddr> | ''
 ): Promise<[
 	atu8_signature: Uint8Array,
 	g_signed: g_signed,
@@ -444,8 +460,8 @@ export const sign_amino = async<
 				denom: a_coin[1],
 			})),
 			gas: sg_limit,
-			granter: sa_granter as SecretBech32,
-			payer: sa_payer as SecretBech32,
+			granter: sa_granter as SecretAccAddr,
+			payer: sa_payer as SecretAccAddr,
 		},
 		memo: s_memo || '',
 	}) as g_signed;
@@ -484,7 +500,7 @@ export const sign_direct = async(
 	k_wallet: Wallet,
 	atu8_auth: Uint8Array,
 	atu8_body: Uint8Array,
-	sg_account?: Nilable<Uint128>
+	sg_account?: Nilable<WeakUint128>
 ): Promise<[
 	atu8_signature: Uint8Array,
 	atu8_signdoc: Uint8Array,
@@ -521,11 +537,11 @@ export const create_tx_body = async(
 	k_wallet: Parameters<typeof auth>[0] & Pick<Wallet, 'pk33'>,
 	a_msgs: Uint8Array[],
 	a_fees: SlimCoin[],
-	sg_limit: Uint128,
+	sg_limit: WeakUint128,
 	a_auth?: Nilable<SlimAuthInfo> | 0,  // eslint-disable-line @typescript-eslint/naming-convention
 	s_memo?: string,
-	sa_granter?: Nilable<SecretBech32> | '',
-	sa_payer?: Nilable<SecretBech32> | ''
+	sa_granter?: Nilable<WeakSecretAccAddr> | '',
+	sa_payer?: Nilable<WeakSecretAccAddr> | ''
 ): Promise<[
 	atu8_auth: Uint8Array,
 	atu8_body: Uint8Array,
@@ -556,7 +572,7 @@ export const create_tx_body = async(
 	return [
 		atu8_auth,
 		atu8_body,
-		sg_account,
+		sg_account as Uint128,
 	];
 };
 
@@ -577,15 +593,15 @@ export const create_and_sign_tx_direct = async(
 	k_wallet: Wallet,
 	a_msgs: Uint8Array[],
 	a_fees: SlimCoin[],
-	sg_limit: Uint128,
+	sg_limit: WeakUint128,
 	a_auth?: Nilable<SlimAuthInfo> | 0,  // eslint-disable-line @typescript-eslint/naming-convention
 	s_memo?: string,
-	sa_granter?: Nilable<SecretBech32> | '',
-	sa_payer?: Nilable<SecretBech32> | ''
+	sa_granter?: Nilable<WeakSecretAccAddr> | '',
+	sa_payer?: Nilable<WeakSecretAccAddr> | ''
 ): Promise<[
 	atu8_raw: Uint8Array,
 	atu8_signdoc: Uint8Array,
-	si_txn: string,
+	si_txn: HexUpper,
 ]> => {
 	// create tx
 	const [

@@ -1,4 +1,7 @@
-import type {Base64, HexLower, HexMixed, JsonValue, Nilable} from '@blake.regalia/belt';
+/* eslint-disable @typescript-eslint/naming-convention */
+import type {JsonValue, Nilable} from '@blake.regalia/belt';
+
+import type {Base64, HexLower, HexMixed} from '@solar-republic/contractor/datatypes';
 
 import {
 	buffer,

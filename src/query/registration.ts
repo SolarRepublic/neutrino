@@ -1,4 +1,5 @@
-import type {Base64} from '@blake.regalia/belt';
+/* eslint-disable @typescript-eslint/naming-convention */
+import type {Base64} from '@solar-republic/contractor/datatypes';
 
 import {base64_to_buffer} from '@blake.regalia/belt';
 

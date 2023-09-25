@@ -2,12 +2,14 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import type {NetworkErrorDetails} from './query/_root';
 import type {QueryIntermediates, SecretContract} from './secret-contract';
-import type {AuthSecret, HttpsUrl, JsonRpcResponse, LcdRpcStruct, MsgQueryPermit, PermitConfig, QueryPermit, SecretBech32, SlimCoin, TendermintEvent, TxResult} from './types';
+import type {AuthSecret, AuthSecret_ViewerInfo, HttpsUrl, JsonRpcResponse, LcdRpcStruct, MsgQueryPermit, PermitConfig, QueryPermit, SlimCoin, TendermintEvent, TxResult, WeakSecretAccAddr, WeakUint128} from './types';
 
-import type {JsonObject, Nilable, Promisable, Uint128, AsJson, JsonString} from '@blake.regalia/belt';
+import type {JsonObject, Nilable, Promisable, AsJson, JsonString, Dict} from '@blake.regalia/belt';
 
-import {__UNDEFINED, buffer_to_base64, hex_to_buffer, timeout, base64_to_buffer, buffer_to_text, oda} from '@blake.regalia/belt';
+import type {SecretAccAddr} from '@solar-republic/contractor/datatypes';
+import type {ContractInterface} from '@solar-republic/contractor/typings';
 
+import {__UNDEFINED, buffer_to_base64, hex_to_buffer, timeout, base64_to_buffer, buffer_to_text, oda, odv} from '@blake.regalia/belt';
 
 import {decode_protobuf} from './protobuf-reader';
 import {die, safe_json} from './util';
@@ -147,21 +149,23 @@ export const broadcast_result = async(
  *  - [0]: `xc_code: number` - error code from chain, or non-OK HTTP status code from the LCD server.
  * 		A value of `0` indicates success.
  *  - [1]: `s_error: string` - error message from chain or HTTP response body
- *  - [2]: `h_msg?: JsonObject` - contract response as JSON object on success
+ *  - [3]: `h_answer?: JsonObject` - contract response as JSON object on success
  */
 // eslint-disable-next-line @typescript-eslint/naming-convention
 export const query_contract = async<
-	w_out extends object=JsonObject,
+	g_interface extends ContractInterface,
+	h_variants extends ContractInterface.MsgAndAnswer<g_interface, 'queries'>,
+	g_variant extends h_variants[keyof h_variants],
 >(
-	k_contract: SecretContract,
-	h_query: JsonObject
-): Promise<[xc_code: number, s_error: string, h_msg?: w_out]> => {
+	k_contract: SecretContract<g_interface>,
+	h_query: g_variant['msg']
+): Promise<[xc_code: number, s_error: string, h_answer?: g_variant['answer']]> => {
 	// output intermediates
 	const g_out: QueryIntermediates = {};
 
 	// attempt query as usual
 	try {
-		return [0, '', await k_contract.query<w_out>(h_query, g_out)];
+		return [0, '', await k_contract.query(h_query, g_out)];
 	}
 	// not successful
 	catch(e_query) {
@@ -254,6 +258,84 @@ export const format_query = (
 	}) as JsonObject;
 
 
+type InferQueryArgsAndAuthWithoutPermit<
+	h_args extends JsonObject,
+	si_method extends string='',
+> = h_args extends {
+	viewer: {
+		viewing_key: string;
+		address: string;
+	};
+}
+	? [Omit<h_args, 'viewer'>, AuthSecret_ViewerInfo]
+	: h_args[si_method] extends {key: string}
+		? [Omit<h_args, 'key'>, string]
+		: [h_args, void];
+
+/**
+ * Given a query msg (as args and method key), returns tuple of:
+ *  - [0]: `h_args: JsonObject` - the args, but the auth struct removed
+ *  - [1]: `z_auth?: AuthSecret | void` - acceptable {@link AuthSecret} type
+ */
+type InferQueryArgsAndAuth<
+	h_variants extends Dict<{
+		msg: JsonObject;
+	}>,
+	h_args extends JsonObject,
+	si_method extends string='',
+> = InferQueryArgsAndAuthWithoutPermit<h_args, si_method> extends [infer h_args0, infer z_auth0]
+	? h_variants extends {
+		with_permit: {
+			msg: {
+				query: {
+					[si_key in si_method]: infer h_args_alt;
+				};
+				permit: QueryPermit;
+			};
+		};
+	}
+		? [h_args0 | h_args_alt, z_auth0 | QueryPermit]
+		: [h_args0, z_auth0]
+	: never;
+
+/**
+ * 
+ */
+// TODO: consider weakly typed method and args
+type InferParams<
+	g_interface extends ContractInterface,
+	h_variants extends ContractInterface.MsgAndAnswer<g_interface, 'queries'>,
+	si_method extends Extract<keyof h_variants, string>,
+	g_variant extends h_variants[si_method],
+> = ContractInterface extends g_interface
+	// generic form, without an actual interface
+	? [
+		k_contract: SecretContract<g_interface>,
+		si_method: si_method,
+		h_args: JsonObject,
+		z_auth?: Nilable<AuthSecret>,
+	]
+	// an interface was given
+	: InferQueryArgsAndAuth<h_variants, g_variant['msg'], si_method> extends infer a_tuple
+		? a_tuple extends [any, any]
+			? a_tuple[1] extends void
+				// no auth method; forbid parameter (this could )
+				? [
+					k_contract: SecretContract<g_interface>,
+					si_method: si_method,
+					h_args: a_tuple[0],
+				]
+				// auth method present, require auth param
+				: [
+					k_contract: SecretContract<g_interface>,
+					si_method: si_method,
+					h_args: a_tuple[0],
+					z_auth: a_tuple[1],
+				]
+			: never
+		: never;
+
+
 /**
  * Query a Secret Contract method and automatically apply an auth secret if one is provided.
  * Additionally, unwrap the success response if one was returned.
@@ -265,29 +347,25 @@ export const format_query = (
  *  - [1]: `xc_code: number` - error code from chain, or non-OK HTTP status code from the LCD server.
  * 		A value of `0` indicates success.
  *  - [2]: `s_error: string` - error message from chain or HTTP response body
- *  - [3]: `h_msg?: JsonObject` - contract response as JSON object on success
+ *  - [3]: `h_answer?: JsonObject` - contract response as JSON object on success
  */
 export const query_contract_infer = async<
-	w_out extends object=JsonObject,
-	si_method extends string=string,
-	h_msg extends object=Record<si_method, w_out>,
->(
-	k_contract: SecretContract,
-	si_method: si_method,
-	h_args?: Nilable<object>,
-	z_auth?: Nilable<AuthSecret>
-): Promise<[w_result: w_out | undefined, xc_code: number, s_error: string, h_msg?: h_msg]> => {
-	const a_response = await query_contract<h_msg>(k_contract, format_query(si_method, h_args || {}, z_auth));
+	g_interface extends ContractInterface,
+	h_variants extends ContractInterface.MsgAndAnswer<g_interface, 'queries'>,
+	si_method extends Extract<keyof h_variants, string>,
+	g_variant extends h_variants[si_method],
+>(...[k_contract, si_method, h_args, z_auth]: InferParams<g_interface, h_variants, si_method, g_variant>
+): Promise<[w_result: g_variant['response'] | undefined, xc_code: number, s_error: string, h_answer?: g_variant['answer']]> => {
+	const a_response = await query_contract(k_contract, format_query(si_method, h_args || {}, z_auth));
 
 	// put unwrapped result in front
 	return [
 		a_response[0]
 			? __UNDEFINED
-			: (a_response[2] as any)?.[si_method] as w_out,
+			: odv(a_response[2] as JsonObject)[0]! as g_variant['response'],
 		...a_response,
 	];
 };
-
 
 
 /**
@@ -313,9 +391,9 @@ export const exec_contract_unreliable = async(
 	k_wallet: Wallet,
 	h_exec: JsonObject,
 	a_fees: [SlimCoin, ...SlimCoin[]],
-	sg_limit: Uint128,
+	sg_limit: WeakUint128,
 	s_memo?: string,
-	sa_granter?: SecretBech32 | ''
+	sa_granter?: WeakSecretAccAddr | ''
 ): Promise<[
 	xc_code: number,
 	s_error: string,
@@ -414,14 +492,20 @@ export const exec_contract_unreliable = async(
  * 
  * @throws a {@link BroadcastResultErr}
  */
-export const exec_contract = async(
-	k_contract: SecretContract,
+export const exec_contract = async<
+	g_interface extends ContractInterface,
+	h_group extends ContractInterface.MsgAndAnswer<g_interface, 'executions'>,
+	as_methods extends Extract<keyof h_group, string>,
+>(
+	k_contract: SecretContract<g_interface>,
 	k_wallet: Wallet,
-	h_exec: JsonObject,
+	h_exec: ContractInterface extends g_interface? JsonObject: {
+		[si_method in as_methods]: h_group[si_method]['msg'];
+	},
 	a_fees: [SlimCoin, ...SlimCoin[]],
-	sg_limit: Uint128,
+	sg_limit: WeakUint128,
 	s_memo?: string,
-	sa_granter?: SecretBech32 | ''
+	sa_granter?: WeakSecretAccAddr | ''
 ): Promise<[
 	xc_code: number,
 	s_res: string,
@@ -500,13 +584,13 @@ export const exec_contract = async(
 export const sign_query_permit = async(
 	k_wallet: Wallet,
 	si_permit: string,
-	a_tokens: SecretBech32[],
+	a_tokens: WeakSecretAccAddr[],
 	a_permissions: string[]
 ): Promise<QueryPermit> => {
 	// prep params
 	const g_params: PermitConfig = {
 		permit_name: si_permit,
-		allowed_tokens: a_tokens,
+		allowed_tokens: a_tokens as SecretAccAddr[],
 		permissions: a_permissions,
 	};
 

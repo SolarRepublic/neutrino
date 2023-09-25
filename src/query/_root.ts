@@ -1,13 +1,14 @@
-import type {SecretBech32} from '../types';
-import type {Dict, JsonObject, Uint128} from '@blake.regalia/belt';
+import type {Dict, JsonObject} from '@blake.regalia/belt';
 import type {Coin} from '@cosmjs/amino';
+
+import type {SecretAccAddr, Uint128} from '@solar-republic/contractor/datatypes';
 
 import {safe_json} from '../util';
 
 
 export interface AccountResponse {
 	'@type': string;
-	address: SecretBech32;
+	address: SecretAccAddr;
 	pub_key: {
 		'@type': '/cosmos.crypto.secp256k1.PubKey';
 		key: string;
@@ -30,8 +31,8 @@ export interface PeriodicAllowance {
 }
 
 export interface AllowanceResponse {
-	granter: SecretBech32;
-	grantee: SecretBech32;
+	granter: SecretAccAddr;
+	grantee: SecretAccAddr;
 	allowance: BasicAllowance;
 }
 
@@ -66,6 +67,16 @@ export type NetworkErrorDetails = [
 // 	});
 // };
 
+/**
+ * Submits a query to the LCD endpoint
+ * @param f_req - the {@link RpcRequest `RpcRequest`}
+ * @param f_res - a response-processing callback
+ * @returns what `f_res` returned
+ * @throws a tuple of `[Response, string, JsonObject?]` where:
+ * 	- 0: d_res - the {@link Response `Response`} object
+ * 	- 1: s_res - the response body as text
+ *    - 2?: g_res - the parsed response response JSON if valid
+*/
 export const lcd_query = <
 	a_args extends any[],
 	w_parsed,

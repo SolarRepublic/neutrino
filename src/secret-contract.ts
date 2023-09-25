@@ -1,11 +1,13 @@
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import type {query_contract, exec_contract_unreliable} from './app-layer';
+import type {ContractInfo, HttpsUrl, SlimCoin, WeakSecretAccAddr} from './types';
 
-import type {ContractInfo, SecretBech32, HttpsUrl as HttpsUrl, SlimCoin} from './types';
+import type {JsonObject, Nilable} from '@blake.regalia/belt';
+import type {HexLower, SecretAccAddr} from '@solar-republic/contractor/datatypes';
+import type {ContractInterface} from '@solar-republic/contractor/typings';
 
-import {base64_to_text, type HexLower, type JsonObject, type Nilable} from '@blake.regalia/belt';
+import {base64_to_text, buffer_to_text} from '@blake.regalia/belt';
 
-import {buffer_to_text} from '@blake.regalia/belt';
 
 import {bech32_decode} from './bech32';
 import {any, coin, Protobuf} from './protobuf-writer';
@@ -22,7 +24,7 @@ const NB_EXEC_BLOCK = 0;
 
 const h_codes_cache: Record<ContractInfo['code_id'], HexLower> = {};
 
-const h_contract_cache: Record<SecretBech32, ContractInfo> = {};
+const h_contract_cache: Record<WeakSecretAccAddr, ContractInfo> = {};
 
 const h_networks: Record<HttpsUrl, SecretWasm> = {};
 
@@ -35,7 +37,9 @@ export interface QueryIntermediates {
 }
 
 
-export interface SecretContract {
+export interface SecretContract<
+	g_interface extends ContractInterface=ContractInterface,
+> {
 	/**
 	 * URL of the LCD endpoint
 	 */
@@ -44,7 +48,7 @@ export interface SecretContract {
 	/**
 	 * Contract address
 	 */
-	addr: SecretBech32;
+	addr: SecretAccAddr;
 
 	/**
 	 * Contract's label, code id, and creator
@@ -70,7 +74,10 @@ export interface SecretContract {
 	 * 	- 1: s_res - the response body as text
 	 *    - 2?: g_res - the parsed response response JSON if valid
 	 */
-	query<w_out extends object=JsonObject>(h_query: JsonObject, g_out?: QueryIntermediates): Promise<w_out>;
+	query<
+		h_variants extends ContractInterface.MsgAndAnswer<g_interface, 'queries'>,
+		g_variant extends h_variants[keyof h_variants],
+	>(h_query: g_variant['msg'], g_out?: QueryIntermediates): Promise<g_variant['answer']>;
 
 	/**
 	 * Construct a contract execution message
@@ -79,7 +86,7 @@ export interface SecretContract {
 	 * @param a_funds 
 	 * @returns 
 	 */
-	exec(h_exec: JsonObject, sa_sender: SecretBech32, a_funds?: SlimCoin[]): Promise<[
+	exec(h_exec: JsonObject, sa_sender: SecretAccAddr, a_funds?: SlimCoin[]): Promise<[
 		atu8_data: Uint8Array,
 		atu8_nonce: Uint8Array,
 	]>;
@@ -98,11 +105,13 @@ export interface SecretContract {
  * @returns 
  */
 // eslint-disable-next-line @typescript-eslint/naming-convention
-export const SecretContract = async(
+export const SecretContract = async<
+	g_interface extends ContractInterface=ContractInterface,
+>(
 	p_lcd: HttpsUrl,
-	sa_contract: SecretBech32,
+	sa_contract: WeakSecretAccAddr,
 	atu8_seed: Nilable<Uint8Array>=null
-): Promise<SecretContract> => {
+): Promise<SecretContract<g_interface>> => {
 	// try loading instance from cache
 	let k_wasm = h_networks[p_lcd];
 
@@ -133,7 +142,7 @@ export const SecretContract = async(
 		lcd: p_lcd,
 
 		// contract address
-		addr: sa_contract,
+		addr: sa_contract as SecretAccAddr,
 
 		// expose info
 		info: g_info,
