@@ -1,12 +1,16 @@
 /* eslint-disable prefer-const */
 /* eslint-disable @typescript-eslint/naming-convention */
+import type {A, O, U} from 'ts-toolbelt';
+
 import type {NetworkErrorDetails} from './query/_root';
 import type {QueryIntermediates, SecretContract} from './secret-contract';
-import type {AuthSecret, AuthSecret_ViewerInfo, HttpsUrl, JsonRpcResponse, LcdRpcStruct, MsgQueryPermit, PermitConfig, QueryPermit, SlimCoin, TendermintEvent, TxResult, WeakSecretAccAddr, WeakUint128} from './types';
+import type {AuthSecret, AuthSecret_ViewerInfo, HttpsUrl, JsonRpcResponse, LcdRpcStruct, MsgQueryPermit, PermitConfig, SlimCoin, TendermintEvent, TxResult, WeakSecretAccAddr, WeakUint128} from './types';
 
 import type {JsonObject, Nilable, Promisable, AsJson, JsonString, Dict} from '@blake.regalia/belt';
 
-import type {SecretAccAddr} from '@solar-republic/contractor/datatypes';
+import type {QueryPermit, SecretAccAddr} from '@solar-republic/contractor/datatypes';
+import type {ReduceSafe} from '@solar-republic/contractor/reduce';
+import type {Snip821} from '@solar-republic/contractor/snips';
 import type {ContractInterface} from '@solar-republic/contractor/typings';
 
 import {__UNDEFINED, buffer_to_base64, hex_to_buffer, timeout, base64_to_buffer, buffer_to_text, oda, odv} from '@blake.regalia/belt';
@@ -267,10 +271,18 @@ type InferQueryArgsAndAuthWithoutPermit<
 		address: string;
 	};
 }
-	? [Omit<h_args, 'viewer'>, AuthSecret_ViewerInfo]
+	? [ReduceSafe<1, Omit<h_args, 'viewer'>>, AuthSecret_ViewerInfo]
 	: h_args[si_method] extends {key: string}
-		? [Omit<h_args, 'key'>, string]
+		? [ReduceSafe<1, Omit<h_args, 'key'>>, string]
 		: [h_args, void];
+
+// type testx = void | string | AuthSecret_ViewerInfo;
+
+type ExtractProperty<
+	as_objects,
+	si_key extends string,
+> = as_objects extends Record<si_key, infer w_value>? w_value: never;
+
 
 /**
  * Given a query msg (as args and method key), returns tuple of:
@@ -284,19 +296,24 @@ type InferQueryArgsAndAuth<
 	h_args extends JsonObject,
 	si_method extends string='',
 > = InferQueryArgsAndAuthWithoutPermit<h_args, si_method> extends [infer h_args0, infer z_auth0]
-	? h_variants extends {
-		with_permit: {
-			msg: {
-				query: {
-					[si_key in si_method]: infer h_args_alt;
+	? h_args0 extends JsonObject
+		? z_auth0 extends void | string | AuthSecret_ViewerInfo
+			? ExtractProperty<h_variants, 'with_permit'> extends {
+				msg: {
+					query: infer h_query;
+					permit: QueryPermit;
 				};
-				permit: QueryPermit;
-			};
-		};
-	}
-		? [h_args0 | h_args_alt, z_auth0 | QueryPermit]
-		: [h_args0, z_auth0]
+			}
+				? ExtractProperty<h_query, si_method> extends infer h_args_alt
+					? h_args_alt extends JsonObject
+						? [O.Merge<h_args0, h_args_alt>, z_auth0 | QueryPermit]
+						: never
+					: [h_args0, z_auth0]
+				: [h_args0, z_auth0]
+			: never
+		: never
 	: never;
+
 
 /**
  * 
@@ -334,6 +351,23 @@ type InferParams<
 				]
 			: never
 		: never;
+
+
+// type g_inter = SecretContract<Snip821>;
+// type h_var = ContractInterface.MsgAndAnswer<Snip821, 'queries'>;
+// type si_meth = 'owner_delegate_approvals';
+// type g_var = h_var[si_meth];
+
+// type insp = InferQueryArgsAndAuthWithoutPermit<g_var, si_meth>;
+
+// type test = ExtractProperty<h_var, 'with_permit'> extends {
+// 	msg: {
+// 		query: infer q;
+// 		permit: QueryPermit;
+// 	};
+// }? ExtractProperty<q, si_meth> extends infer w_ans? w_ans: 'no': 'nope';
+
+// type insp1 = InferQueryArgsAndAuth<h_var, g_var['msg'], si_meth>;
 
 
 /**

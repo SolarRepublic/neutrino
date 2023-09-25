@@ -1,6 +1,6 @@
 import type {Dict, JsonObject, JsonString, Nilable} from '@blake.regalia/belt';
 import type {AminoMsg, Coin, StdSignDoc} from '@cosmjs/amino';
-import type {SecretAccAddr, Uint128, Base64} from '@solar-republic/contractor/datatypes';
+import type {SecretAccAddr, Uint128, Base64, QueryPermit} from '@solar-republic/contractor/datatypes';
 
 
 export type WeakSecretAccAddr = `secret1${string}`;
@@ -46,7 +46,7 @@ export type SignedAminoDoc<
 	};
 };
 
-export type QueryPermit = SignedAminoDoc<PermitConfig>;
+// export type QueryPermit = SignedAminoDoc<PermitConfig>;
 
 export type NotificationSeedUpdate = SignedAminoDoc<NotificationSeedUpdateConfig>;
 
