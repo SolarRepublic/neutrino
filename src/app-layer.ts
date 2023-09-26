@@ -2,6 +2,7 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import type {A, O, U} from 'ts-toolbelt';
 
+import type {CreateQueryArgsAndAuthParams} from './inferencing';
 import type {NetworkErrorDetails} from './query/_root';
 import type {QueryIntermediates, SecretContract} from './secret-contract';
 import type {AuthSecret, AuthSecret_ViewerInfo, HttpsUrl, JsonRpcResponse, LcdRpcStruct, MsgQueryPermit, PermitConfig, SlimCoin, TendermintEvent, TxResult, WeakSecretAccAddr, WeakUint128} from './types';
@@ -262,113 +263,27 @@ export const format_query = (
 	}) as JsonObject;
 
 
-type InferQueryArgsAndAuthWithoutPermit<
-	h_args extends JsonObject,
-	si_method extends string='',
-> = h_args extends {
-	viewer: {
-		viewing_key: string;
-		address: string;
-	};
-}
-	? [ReduceSafe<1, Omit<h_args, 'viewer'>>, AuthSecret_ViewerInfo]
-	: h_args[si_method] extends {key: string}
-		? [ReduceSafe<1, Omit<h_args, 'key'>>, string]
-		: [h_args, void];
-
-// type testx = void | string | AuthSecret_ViewerInfo;
-
-type ExtractProperty<
-	as_objects,
-	si_key extends string,
-> = as_objects extends Record<si_key, infer w_value>? w_value: never;
-
-
-/**
- * Given a query msg (as args and method key), returns tuple of:
- *  - [0]: `h_args: JsonObject` - the args, but the auth struct removed
- *  - [1]: `z_auth?: AuthSecret | void` - acceptable {@link AuthSecret} type
- */
-type InferQueryArgsAndAuth<
-	h_variants extends Dict<{
-		msg: JsonObject;
-	}>,
-	h_args extends JsonObject,
-	si_method extends string='',
-> = InferQueryArgsAndAuthWithoutPermit<h_args, si_method> extends [infer h_args0, infer z_auth0]
-	? h_args0 extends JsonObject
-		? z_auth0 extends void | string | AuthSecret_ViewerInfo
-			? ExtractProperty<h_variants, 'with_permit'> extends {
-				msg: {
-					query: infer h_query;
-					permit: QueryPermit;
-				};
-			}
-				? ExtractProperty<h_query, si_method> extends infer h_args_alt
-					? h_args_alt extends JsonObject
-						? [O.Merge<h_args0, h_args_alt>, z_auth0 | QueryPermit]
-						: never
-					: [h_args0, z_auth0]
-				: [h_args0, z_auth0]
-			: never
-		: never
-	: never;
-
-
-/**
- * 
- */
-// TODO: consider weakly typed method and args
-type InferParams<
-	g_interface extends ContractInterface,
-	h_variants extends ContractInterface.MsgAndAnswer<g_interface, 'queries'>,
-	si_method extends Extract<keyof h_variants, string>,
-	g_variant extends h_variants[si_method],
-> = ContractInterface extends g_interface
-	// generic form, without an actual interface
-	? [
+interface QueryContractInfer {
+	<
+		g_interface extends ContractInterface,
+		h_variants extends ContractInterface.MsgAndAnswer<g_interface, 'queries'>,
+		si_method extends Extract<keyof h_variants, string>,
+		g_variant extends h_variants[si_method],
+	>(
 		k_contract: SecretContract<g_interface>,
 		si_method: si_method,
-		h_args: JsonObject,
-		z_auth?: Nilable<AuthSecret>,
-	]
-	// an interface was given
-	: InferQueryArgsAndAuth<h_variants, g_variant['msg'], si_method> extends infer a_tuple
-		? a_tuple extends [any, any]
-			? a_tuple[1] extends void
-				// no auth method; forbid parameter (this could )
-				? [
-					k_contract: SecretContract<g_interface>,
-					si_method: si_method,
-					h_args: a_tuple[0],
-				]
-				// auth method present, require auth param
-				: [
-					k_contract: SecretContract<g_interface>,
-					si_method: si_method,
-					h_args: a_tuple[0],
-					z_auth: a_tuple[1],
-				]
-			: never
-		: never;
-
-
-// type g_inter = SecretContract<Snip821>;
-// type h_var = ContractInterface.MsgAndAnswer<Snip821, 'queries'>;
-// type si_meth = 'owner_delegate_approvals';
-// type g_var = h_var[si_meth];
-
-// type insp = InferQueryArgsAndAuthWithoutPermit<g_var, si_meth>;
-
-// type test = ExtractProperty<h_var, 'with_permit'> extends {
-// 	msg: {
-// 		query: infer q;
-// 		permit: QueryPermit;
-// 	};
-// }? ExtractProperty<q, si_meth> extends infer w_ans? w_ans: 'no': 'nope';
-
-// type insp1 = InferQueryArgsAndAuth<h_var, g_var['msg'], si_meth>;
-
+		...[h_args, z_auth]: CreateQueryArgsAndAuthParams<
+			h_variants,
+			si_method,
+			ContractInterface extends g_interface? 1: 0
+		>
+	): Promise<[
+		w_result: g_variant['response'] | undefined,
+		xc_code_x: number,
+		s_error: string,
+		h_answer?: g_variant['answer'],
+	]>;
+}
 
 /**
  * Query a Secret Contract method and automatically apply an auth secret if one is provided.
@@ -383,27 +298,25 @@ type InferParams<
  *  - [2]: `s_error: string` - error message from chain or HTTP response body
  *  - [3]: `h_answer?: JsonObject` - contract response as JSON object on success
  */
-export const query_contract_infer = async<
-	g_interface extends ContractInterface,
-	h_variants extends ContractInterface.MsgAndAnswer<g_interface, 'queries'>,
-	si_method extends Extract<keyof h_variants, string>,
-	g_variant extends h_variants[si_method],
->(...[k_contract, si_method, h_args, z_auth]: InferParams<g_interface, h_variants, si_method, g_variant>
-): Promise<[w_result: g_variant['response'] | undefined, xc_code: number, s_error: string, h_answer?: g_variant['answer']]> => {
+export const query_contract_infer: QueryContractInfer = async(
+	k_contract: SecretContract,
+	si_method: string,
+	...[h_args, z_auth]: [h_args?: Nilable<JsonObject>, z_auth?: Nilable<AuthSecret>]
+): Promise<[w_result: JsonObject | undefined, xc_code_p: number, s_error: string, h_answer?: JsonObject]> => {
 	const a_response = await query_contract(k_contract, format_query(si_method, h_args || {}, z_auth));
 
 	// put unwrapped result in front
 	return [
 		a_response[0]
 			? __UNDEFINED
-			: odv(a_response[2] as JsonObject)[0]! as g_variant['response'],
+			: odv(a_response[2] as JsonObject)[0]! as JsonObject,
 		...a_response,
 	];
 };
 
 
 /**
- * Execute a Secret Contract method
+ * Execute a Secret Contract method using BROADCAST_MODE_BLOCK; see {@link exec_contract} for more reliable method
  * @param k_contract - a {@link SecretContract} instance
  * @param k_wallet - the {@link Wallet} of the sender
  * @param h_exec - the execution message as a plain object (to be JSON-encoded)
@@ -507,14 +420,16 @@ export const exec_contract_unreliable = async(
 
 
 /**
- * Execute a Secret Contract method using BROADCAST_MODE_SYNC and waiting for confirmation via JSONRPC.
+ * Execute a Secret Contract method using BROADCAST_MODE_SYNC and wait for confirmation via JSONRPC.
  * More reliable than `exec_contract_unreliable` which may appear to fail if the chain's block time exceeds node's broadcast timeout.
  * @param k_contract - a {@link SecretContract} instance
  * @param k_wallet - the {@link Wallet} of the sender
  * @param h_exec - the execution message as a plain object (to be JSON-encoded)
- * @param a_fees - an Array of {@link SlimCoin SlimCoin} describing the amounts and denoms of fees
+ * @param a_fees - an Array of {@link SlimCoin} describing the amounts and denoms of fees
  * @param sg_limit - the u128 gas limit to set for the transaction
  * @param sa_granter - optional granter address to use to pay for gas fee
+ * @param a_funds - optional Array of {@link SlimCoin} of funds to send into the contract with the tx
+ * @param s_memo - optional memo field
  * @returns tuple of `[number, string, TxResponse?]`
  *  - [0]: `xc_code: number` - error code from chain, or non-OK HTTP status code from the LCD server.
  * 		A value of `0` indicates success.
@@ -538,8 +453,9 @@ export const exec_contract = async<
 	},
 	a_fees: [SlimCoin, ...SlimCoin[]],
 	sg_limit: WeakUint128,
-	s_memo?: string,
-	sa_granter?: WeakSecretAccAddr | ''
+	sa_granter?: WeakSecretAccAddr | '',
+	a_funds?: SlimCoin[],
+	s_memo?: string
 ): Promise<[
 	xc_code: number,
 	s_res: string,
@@ -550,7 +466,7 @@ export const exec_contract = async<
 	let s_plaintext;
 
 	// construct execution message and save nonce
-	let [atu8_msg, atu8_nonce] = await k_contract.exec(h_exec, k_wallet.addr);
+	let [atu8_msg, atu8_nonce] = await k_contract.exec(h_exec, k_wallet.addr, a_funds);
 
 	// sign in direct mode
 	let [atu8_tx_raw, , si_txn] = await create_and_sign_tx_direct(k_wallet, [atu8_msg], a_fees, sg_limit, 0, s_memo, sa_granter);
