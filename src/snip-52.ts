@@ -6,7 +6,7 @@ import type {AuthSecret, HttpsUrl, MsgNotificationSeedUpdate, NotificationSeedUp
 
 import type {Wallet} from './wallet';
 import type {Base64, SecretAccAddr} from '@solar-republic/contractor/datatypes';
-import type {Snip52} from '@solar-republic/contractor/snips';
+import type {SecretContractInterface, Snip52} from '@solar-republic/contractor/snips';
 
 import {hmac, base64_to_buffer, text_to_buffer, buffer_to_base64, sha256, ode, ofe} from '@blake.regalia/belt';
 

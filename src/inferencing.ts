@@ -26,6 +26,13 @@ type ExtractProperty<
 	si_key extends string,
 > = as_objects extends Record<si_key, infer w_value>? w_value: undefined;
 
+// make the values of args readonly
+type MakeValuesReadonly<h_args extends Nilable<JsonObject>> = h_args extends JsonObject
+	? {
+		[si_key in keyof h_args]: Readonly<h_args[si_key]>;
+	}
+	: h_args;
+
 // determines the best type to use for the 'h_args' parameter
 type ResolveArgs<h_args extends Nilable<JsonObject>> = JsonObject extends h_args
 	// args can be made optional
@@ -33,9 +40,9 @@ type ResolveArgs<h_args extends Nilable<JsonObject>> = JsonObject extends h_args
 		// args are strongly empty
 		? Nilable<EmptyObject>
 		// args are optionally empty
-		: Nilable<h_args>
+		: Nilable<MakeValuesReadonly<h_args>>
 	// args are mandatory
-	: h_args;
+	: MakeValuesReadonly<h_args>;
 
 // merges `[a, b?] | [a, c?]` into `[a, (b | c)?]`
 type MergeTuple<a_tuple extends [any?, any?]> = {
@@ -130,7 +137,7 @@ export type CreateQueryArgsAndAuthParams<
 					// args can be made optional too
 					? [h_args?: ResolveArgs<h_args>, z_auth?: z_auth]
 					// args are mandatory; auth is still optional
-					: [h_args: h_args, z_auth?: z_auth]
+					: [h_args: ResolveArgs<h_args>, z_auth?: z_auth]
 				// auth is mandatory
 				: [h_args: ResolveArgs<h_args>, z_auth: z_auth]
 			// auth cast failed
