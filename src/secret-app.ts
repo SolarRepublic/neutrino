@@ -25,17 +25,12 @@ type ConvertAuth<a_tuple extends [any?, any?]> = a_tuple extends [any, any]
  * Simple wrapper for querying and executing a Secret contract. Binds Wallet and SecretContract, as well
  * as an AuthSecret, gas price, and optional granter.
  */
-export interface SecretApp {
+export interface SecretApp<
+	g_interface extends ContractInterface=ContractInterface,
+> {
 	price(xn_price: number): void;
 
-	// query(
-	// 	si_method: string,
-	// 	h_args: JsonObject,
-	// 	xc_auth: 0|1,
-	// ): ReturnType<typeof query_contract_infer>;
-
 	query<
-		g_interface extends ContractInterface,
 		h_variants extends ContractInterface.MsgAndAnswer<g_interface, 'queries'>,
 		si_method extends Extract<keyof h_variants, string>,
 		g_variant extends h_variants[si_method],
@@ -53,21 +48,27 @@ export interface SecretApp {
 		h_answer?: g_variant['answer'],
 	]>;
 
-	exec(
-		h_exec: JsonObject,
+	exec<
+		h_variants extends ContractInterface.MsgAndAnswer<g_interface, 'executions'>,
+	>(
+		h_exec: {
+			[si_method in keyof h_variants]: h_variants[si_method]['msg'];
+		},
 		xg_limit: bigint,
 		a_funds?: SlimCoin[],
 		s_memo?: string
 	): ReturnType<typeof exec_contract>;
 }
 
-export const SecretApp = (
+export const SecretApp = <
+	g_interface extends ContractInterface,
+>(
 	k_wallet: Wallet,
-	k_contract: SecretContract,
+	k_contract: SecretContract<g_interface>,
 	xn_gas_price: number,
 	z_auth: AuthSecret,
 	sa_granter?: SecretAccAddr
-): SecretApp => ({
+): SecretApp<g_interface> => ({
 	price: (xn_price: number) => xn_gas_price = xn_price,
 
 	query: (
@@ -75,7 +76,7 @@ export const SecretApp = (
 		h_args: JsonObject={},
 		xc_auth: 0|1=0
 	) => query_contract_infer(
-		k_contract,
+		k_contract as SecretContract,
 		si_method,
 		h_args,
 		xc_auth? z_auth: __UNDEFINED
@@ -87,7 +88,7 @@ export const SecretApp = (
 		a_funds?: SlimCoin[],
 		s_memo?: string
 	) => exec_contract(
-		k_contract,
+		k_contract as SecretContract,
 		k_wallet,
 		h_exec,
 		exec_fees(xg_limit, xn_gas_price),
