@@ -1,13 +1,17 @@
-/* eslint-disable prefer-const */
+/* eslint-disable prefer-const, no-sequences, @typescript-eslint/naming-convention */
 import type {Arrayable} from '@blake.regalia/belt';
 
 import {buffer_to_text, dataview} from '@blake.regalia/belt';
 
+import {buffer_to_bigint_be} from './util';
+
 export type CborPrimitive = boolean | number | bigint | string | Uint8Array;
 export type CborValue = Arrayable<CborPrimitive> | Map<CborValue, CborValue>;
 
-export const cborDecode = (atu8_data: Uint8Array, ib_read=0): [
-	w_item: CborValue,
+export const cborDecode = <
+	w_expected extends CborValue,
+>(atu8_data: Uint8Array, ib_read=0): [
+	w_item: w_expected,
 	ib_read: number,
 ] => {
 	let xb_initial = atu8_data[ib_read++];
@@ -26,7 +30,9 @@ export const cborDecode = (atu8_data: Uint8Array, ib_read=0): [
 		ib_read += nb_ahead;
 	}
 
-	/* eslint-disable @typescript-eslint/naming-convention, @typescript-eslint/no-unused-vars */
+	/* eslint-disable @typescript-eslint/no-unused-vars */
+	let f_bytes = (_?: any) => atu8_data.subarray(ib_read, ib_read+=xn_value);
+
 	let a_parsers = [
 		// uint
 		(_?: any) => xn_value,
@@ -35,13 +41,13 @@ export const cborDecode = (atu8_data: Uint8Array, ib_read=0): [
 		(_?: any) => -xn_value - 1,
 
 		// byte string
-		(_?: any) => atu8_data.subarray(ib_read, ib_read+=xn_value),
+		f_bytes,
 
 		// text string
 		(_?: any) => buffer_to_text(a_parsers[2]()),
 
 		// array
-		(a_items: any[]=[]) => {
+		(a_items: CborPrimitive[]=[]) => {
 			for(let i_item=0; i_item<xn_value; i_item++) {
 				[a_items[i_item], ib_read] = cborDecode(atu8_data, ib_read);
 			}
@@ -50,7 +56,7 @@ export const cborDecode = (atu8_data: Uint8Array, ib_read=0): [
 		},
 
 		// map
-		(hm_out=new Map()) => {
+		(hm_out=new Map<CborValue, CborValue>()) => {
 			for(let i_item=0, z_key, z_value; i_item<xn_value; i_item++) {
 				[z_key, ib_read] = cborDecode(atu8_data, ib_read);
 				[z_value, ib_read] = cborDecode(atu8_data, ib_read);
@@ -61,11 +67,26 @@ export const cborDecode = (atu8_data: Uint8Array, ib_read=0): [
 
 			return hm_out;
 		},
+
+		// tagged item
+		(__?: any) => [
+			// date/time string
+			(_?: any) => buffer_to_text(f_bytes()),
+
+			// epoch-based date/time as number of seconds (integer or float)
+			(xn_timestamp=0) => ([xn_timestamp, ib_read] = cborDecode<number>(atu8_data, ib_read), xn_timestamp),
+
+			// unsigned bigint
+			(_?: any) => buffer_to_bigint_be(f_bytes()),
+
+			// negative bigint
+			(_?: any) => -buffer_to_bigint_be(f_bytes()) - 1n,
+		][xc_additioanl](),
 	] as const;
 	/* eslint-enable */
 
 	return [
-		a_parsers[xc_major](),
+		a_parsers[xc_major]() as w_expected,
 		ib_read,
 	];
 };

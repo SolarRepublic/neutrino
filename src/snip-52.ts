@@ -6,7 +6,9 @@ import type {AuthSecret, HttpsUrl, MsgNotificationSeedUpdate, NotificationSeedUp
 
 import type {Wallet} from './wallet';
 import type {Base64, SecretAccAddr} from '@solar-republic/contractor/datatypes';
-import type {SecretContractInterface, Snip52} from '@solar-republic/contractor/snips';
+import type {Snip52} from '@solar-republic/contractor/snips';
+
+import type {ContractInterface} from '@solar-republic/contractor/typings';
 
 import {hmac, base64_to_buffer, text_to_buffer, buffer_to_base64, sha256, ode, ofe} from '@blake.regalia/belt';
 
@@ -19,14 +21,24 @@ import {sign_amino} from './wallet';
 
 export type NotificationCallback = (z_data: CborValue) => void;
 
-
-
-export const subscribe_snip52_channels = async(
+/**
+ * Subscribes to the set of channels given by a dict of callbacks, each of which will be invoked for every
+ * new notification emitted on that channel. 
+ * Returns an unsubscribe callback once all subscriptions have been confirmed.
+ * @param p_rpc 
+ * @param k_contract 
+ * @param z_auth 
+ * @param h_channels 
+ */
+export const subscribe_snip52_channels = async<
+	g_interface extends ContractInterface,
+	as_channels extends g_interface['config'] extends {snip52_channels: infer h_channels}? keyof h_channels: never,
+>(
 	p_rpc: HttpsUrl,
 	k_contract: SecretContract<Snip52>,
 	z_auth: Exclude<AuthSecret, string>,
-	h_channels: Record<string, NotificationCallback>
-): Promise<void> => {
+	h_channels: Record<as_channels, NotificationCallback>
+): Promise<() => void> => {
 	const h_resolved = ofe(await Promise.all(ode(h_channels).map(async([si_channel, fk_notification]) => {
 		let [g_result, xc_code, s_error] = await query_contract_infer(k_contract, 'channel_info', {
 			channel: si_channel,
@@ -68,7 +80,7 @@ export const subscribe_snip52_channels = async(
 					xg_hash,
 					next_id,
 					fk_notification,
-				] as const,
+				],
 			] as [Base64, [string, Uint8Array, bigint, bigint, typeof next_id, typeof fk_notification]];
 		}
 		// // txhash mode
@@ -81,7 +93,7 @@ export const subscribe_snip52_channels = async(
 	})));
 
 	// on contract execution
-	subscribe_tendermint_events(p_rpc, `wasm.contract_address='${k_contract.addr}'`, async(d_event) => {
+	const d_ws = subscribe_tendermint_events(p_rpc, `wasm.contract_address='${k_contract.addr}'`, async(d_event) => {
 		// parse message frame
 		const g_jsonrpc_result = safe_json<JsonRpcResponse<TendermintEvent<TxResult>>>(d_event.data as string)!.result;
 		let h_events = g_jsonrpc_result.events;
@@ -115,6 +127,9 @@ export const subscribe_snip52_channels = async(
 			}
 		}
 	});
+
+	// unsubscribe callback: close websocket
+	return () => d_ws.close();
 };
 
 
