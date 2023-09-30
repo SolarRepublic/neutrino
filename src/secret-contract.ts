@@ -37,9 +37,9 @@ export interface QueryIntermediates {
 }
 
 
-export interface SecretContract<
+export type SecretContract<
 	g_interface extends ContractInterface=ContractInterface,
-> {
+> = {
 	/**
 	 * URL of the LCD endpoint
 	 */
@@ -74,10 +74,11 @@ export interface SecretContract<
 	 * 	- 1: s_res - the response body as text
 	 *    - 2?: g_res - the parsed response response JSON if valid
 	 */
-	query<
-		h_variants extends ContractInterface.MsgAndAnswer<g_interface, 'queries'>,
-		g_variant extends h_variants[keyof h_variants],
-	>(h_query: g_variant['msg'], g_out?: QueryIntermediates): Promise<g_variant['answer']>;
+	query(h_query: JsonObject, g_out?: QueryIntermediates): Promise<JsonObject>;
+	// query<
+	// 	h_variants extends ContractInterface.MsgAndAnswer<g_interface, 'queries'>,
+	// 	g_variant extends h_variants[keyof h_variants],
+	// >(h_query: g_variant['msg'], g_out?: QueryIntermediates): Promise<g_variant['answer']>;
 
 	/**
 	 * Construct a contract execution message
@@ -90,7 +91,7 @@ export interface SecretContract<
 		atu8_data: Uint8Array,
 		atu8_nonce: Uint8Array,
 	]>;
-}
+};
 
 
 /**

@@ -1,16 +1,15 @@
 /// <reference types="@solar-republic/contractor" />
 /* eslint-disable prefer-const */
-import type {CborValue} from './cbor';
 import type {SecretContract} from './secret-contract';
 import type {AuthSecret, HttpsUrl, MsgNotificationSeedUpdate, NotificationSeedUpdate, NotificationSeedUpdateConfig, TendermintEvent, JsonRpcResponse, TxResult, WeakSecretAccAddr} from './types';
 
 import type {Wallet} from './wallet';
-import type {Base64, SecretAccAddr} from '@solar-republic/contractor/datatypes';
-import type {Snip52} from '@solar-republic/contractor/snips';
+import type {Base64, CborValue, SecretAccAddr, Snip52ChannelDict} from '@solar-republic/contractor/datatypes';
+import type {Snip20, Snip52} from '@solar-republic/contractor/snips';
 
 import type {ContractInterface} from '@solar-republic/contractor/typings';
 
-import {hmac, base64_to_buffer, text_to_buffer, buffer_to_base64, sha256, ode, ofe} from '@blake.regalia/belt';
+import {hmac, base64_to_buffer, text_to_buffer, buffer_to_base64, sha256, ode, ofe, type JsonObject} from '@blake.regalia/belt';
 
 import {query_contract_infer, subscribe_tendermint_events} from './app-layer';
 import {cborDecode} from './cbor';
@@ -20,6 +19,8 @@ import {bigint_to_buffer_be, buffer_to_bigint_be, die, safe_json} from './util';
 import {sign_amino} from './wallet';
 
 export type NotificationCallback = (z_data: CborValue) => void;
+
+type Channels<g_interface extends ContractInterface> = g_interface['config']['snip52_channels'];
 
 /**
  * Subscribes to the set of channels given by a dict of callbacks, each of which will be invoked for every
@@ -32,15 +33,19 @@ export type NotificationCallback = (z_data: CborValue) => void;
  */
 export const subscribe_snip52_channels = async<
 	g_interface extends ContractInterface,
-	as_channels extends g_interface['config'] extends {snip52_channels: infer h_channels}? keyof h_channels: never,
+	h_channels extends Channels<g_interface>,
+	// as_channels extends g_interface['config'] extends {snip52_channels: infer h_channels}? keyof h_channels: never,
+	as_channels extends keyof h_channels,
 >(
 	p_rpc: HttpsUrl,
-	k_contract: SecretContract<Snip52>,
+	k_contract: SecretContract<g_interface>,
 	z_auth: Exclude<AuthSecret, string>,
-	h_channels: Record<as_channels, NotificationCallback>
+	h_channels: {
+		[si_channel in as_channels]: (w_data: h_channels[si_channel]) => void;
+	}
 ): Promise<() => void> => {
 	const h_resolved = ofe(await Promise.all(ode(h_channels).map(async([si_channel, fk_notification]) => {
-		let [g_result, xc_code, s_error] = await query_contract_infer(k_contract, 'channel_info', {
+		let [g_result, xc_code, s_error] = await query_contract_infer(k_contract as SecretContract<Snip52>, 'channel_info', {
 			channel: si_channel,
 		}, z_auth);
 
@@ -119,7 +124,8 @@ export const subscribe_snip52_channels = async<
 				const atu8_message = chacha20_poly1305_open(atu8_seed, atu8_nonce, atu8_payload.subarray(-XN_16), atu8_payload.subarray(0, -XN_16), atu8_aad);
 
 				// call listener with decrypted data
-				fk_notification(cborDecode(atu8_message)[0]);
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+				fk_notification(cborDecode(atu8_message)[0] as any);
 
 				// remove notification and move onto next
 				delete h_resolved[si_notification as Base64];

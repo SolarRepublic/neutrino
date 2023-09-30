@@ -45,7 +45,7 @@ type ResolveArgs<h_args extends Nilable<JsonObject>> = JsonObject extends h_args
 	: MakeValuesReadonly<h_args>;
 
 // merges `[a, b?] | [a, c?]` into `[a, (b | c)?]`
-type MergeTuple<a_tuple extends [any?, any?]> = {
+export type MergeTuple<a_tuple extends [any?, any?]> = {
 	0: [h_args?: U.Merge<a_tuple[0]>, z_auth?: a_tuple[1]];
 	1: [h_args: U.Merge<a_tuple[0]>, z_auth?: a_tuple[1]];
 	2: [h_args: U.Merge<a_tuple[0]>, z_auth: a_tuple[1]];

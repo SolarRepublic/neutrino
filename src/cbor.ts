@@ -1,12 +1,9 @@
 /* eslint-disable prefer-const, no-sequences, @typescript-eslint/naming-convention */
-import type {Arrayable} from '@blake.regalia/belt';
+import type {CborValue} from '@solar-republic/contractor';
 
 import {buffer_to_text, dataview} from '@blake.regalia/belt';
 
 import {buffer_to_bigint_be} from './util';
-
-export type CborPrimitive = boolean | number | bigint | string | Uint8Array;
-export type CborValue = Arrayable<CborPrimitive> | Map<CborValue, CborValue>;
 
 export const cborDecode = <
 	w_expected extends CborValue,
@@ -47,7 +44,7 @@ export const cborDecode = <
 		(_?: any) => buffer_to_text(a_parsers[2]()),
 
 		// array
-		(a_items: CborPrimitive[]=[]) => {
+		(a_items: CborValue[]=[]) => {
 			for(let i_item=0; i_item<xn_value; i_item++) {
 				[a_items[i_item], ib_read] = cborDecode(atu8_data, ib_read);
 			}

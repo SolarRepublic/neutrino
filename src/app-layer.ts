@@ -288,9 +288,10 @@ interface QueryContractInfer {
 /**
  * Query a Secret Contract method and automatically apply an auth secret if one is provided.
  * Additionally, unwrap the success response if one was returned.
- * 
- * @param k_contract 
- * @param h_query 
+ * @param k_contract - the contract
+ * @param si_method - which query method to invoke
+ * @param h_args - the args value to pass in with the given query
+ * @param z_auth - optional {@link AuthSecret} to perform an authenticated query
  * @returns tuple of `[JsonObject?, number, string, JsonObject?]` where:
  *  - [0]: `w_result?: JsonObject` - unwrapped contract result on success
  *  - [1]: `xc_code: number` - error code from chain, or non-OK HTTP status code from the LCD server.
