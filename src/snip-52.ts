@@ -44,25 +44,39 @@ export const subscribe_snip52_channels = async<
 		[si_channel in as_channels]: (w_data: h_channels[si_channel]) => void;
 	}
 ): Promise<() => void> => {
-	const h_resolved = ofe(await Promise.all(ode(h_channels).map(async([si_channel, fk_notification]) => {
-		let [g_result, xc_code, s_error] = await query_contract_infer(k_contract as SecretContract<Snip52>, 'channel_info', {
-			channel: si_channel,
-		}, z_auth);
+	// const h_resolved = {} as Record<Extract<keyof typeof h_channels, string>, [
+	// 	Base64,
+	// 	[
+	// 		string, Uint8Array, bigint, bigint,
+	// 		() => Promise<Base64>,
+	// 		typeof h_channels[Extract<keyof typeof h_channels, string>],
+	// 	],
+	// ]>;
 
-		if(!g_result) throw die(s_error);
+	const h_resolved = {} as Record<Base64, [
+		string, Uint8Array, bigint, bigint,
+		() => Promise<Base64>,
+		typeof h_channels[Extract<keyof typeof h_channels, string>],
+	]>;
+
+	// fetch channel info for all requested channels at once
+	let [g_result, xc_code, s_error] = await query_contract_infer(k_contract as SecretContract<Snip52>, 'channel_info', {
+		channels: Object.keys(h_channels),
+	}, z_auth);
+
+	if(!g_result) throw die(s_error);
+
+	// each channel
+	for(const g_channel of g_result.channels) {
+		const si_channel = g_channel.channel as Extract<keyof typeof h_channels, string>;
 
 		// parse seed
-		let atu8_seed = base64_to_buffer(g_result.seed+'');  // TODO: add typings to utility function
+		let atu8_seed = base64_to_buffer(g_channel.seed+'');  // TODO: add typings to utility function
 
 		// counter mode
-		if('counter' === g_result.mode) {
-			let {
-				counter: sg_counter,
-				next_id: si_next,
-			} = g_result;
-
+		if('counter' === g_channel.mode) {
 			// step counter back by one for initial call to next_id
-			let xg_counter = BigInt(sg_counter) -1n;
+			let xg_counter = BigInt(g_channel.counter) -1n;
 
 			// create function to generate next id
 			let next_id = async() => buffer_to_base64(await hmac(atu8_seed, text_to_buffer(si_channel+':'+(xg_counter += 1n))));
@@ -74,19 +88,16 @@ export const subscribe_snip52_channels = async<
 			let xg_hash = buffer_to_bigint_be((await sha256(text_to_buffer(si_channel))).subarray(0, 12));
 
 			// ensure it is a match with the next expected
-			if(si_notification !== si_next) die('Failed to derive accurate notification ID');
+			if(si_notification !== g_channel.next_id) die('Failed to derive accurate notification ID');
 
-			return [
-				si_notification,
-				[
-					si_channel,
-					atu8_seed,
-					xg_counter,
-					xg_hash,
-					next_id,
-					fk_notification,
-				],
-			] as [Base64, [string, Uint8Array, bigint, bigint, typeof next_id, typeof fk_notification]];
+			h_resolved[si_notification] = [
+				si_channel,
+				atu8_seed,
+				xg_counter,
+				xg_hash,
+				next_id,
+				h_channels[si_channel],
+			];
 		}
 		// // txhash mode
 		// else if('txhash' === g_result.mode) {
@@ -95,7 +106,8 @@ export const subscribe_snip52_channels = async<
 		// }
 
 		throw die('nop');
-	})));
+	}
+	// })));
 
 	// on contract execution
 	const d_ws = subscribe_tendermint_events(p_rpc, `wasm.contract_address='${k_contract.addr}'`, async(d_event) => {
