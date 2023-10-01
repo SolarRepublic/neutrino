@@ -2,7 +2,7 @@ import type {A} from 'ts-toolbelt';
 
 import type {CreateQueryArgsAndAuthParams, MergeTuple} from './inferencing';
 import type {SecretContract} from './secret-contract';
-import type {AuthSecret, SlimCoin, TxResult} from './types';
+import type {AuthSecret, SlimCoin, TxResult, WeakSecretAccAddr} from './types';
 import type {Wallet} from './wallet';
 
 import type {SecretAccAddr} from '@solar-republic/contractor/datatypes';
@@ -32,6 +32,7 @@ export interface SecretApp<
 	g_interface extends ContractInterface=ContractInterface,
 > {
 	price(xn_price: number): void;
+	granter(sa_granter: WeakSecretAccAddr): void;
 
 	/**
 	 * Query a Secret Contract method and automatically apply an auth secret if one is provided.
@@ -101,9 +102,10 @@ export const SecretApp = <
 	k_wallet: Wallet,
 	k_contract: SecretContract<g_interface>,
 	xn_gas_price: number,
-	sa_granter?: SecretAccAddr
+	sa_granter?: WeakSecretAccAddr
 ): SecretApp<g_interface> => ({
 	price: (xn_price: number) => xn_gas_price = xn_price,
+	granter: (sa_granter_new: WeakSecretAccAddr) => sa_granter = sa_granter_new,
 
 	query: (
 		si_method: string,
