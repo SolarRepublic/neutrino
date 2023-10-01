@@ -104,8 +104,9 @@ export const subscribe_snip52_channels = async<
 		// 	// // create function to generate next id
 		// 	// let next_id = async(si_tx: string) => buffer_to_base64(await hmac(atu8_seed, text_to_buffer(si_channel+':'+si_tx)));
 		// }
-
-		throw die('nop');
+		else {
+			throw die('Unknown SNIP-52 channel mode: '+g_channel.mode);
+		}
 	}
 	// })));
 
