@@ -136,6 +136,18 @@ export const SecretApp = <
 			s_memo
 		);
 
+		// in dev mode, log the gas used/wanted
+		if((import.meta as any).env.DEV) {
+			if(g_tx) {
+				const {
+					gas_used: s_used,
+					gas_wanted: s_wanted,
+				} = g_tx.result;
+
+				console.log(`${si_method} | gas used/wanted: ${s_used}/${s_wanted}  (${+s_wanted - +s_used}) wasted)`);
+			}
+		}
+
 		const g_ans = safe_json(s_res) as JsonObject;
 
 		return [xc_code? __UNDEFINED: g_ans? odv(g_ans)[0] as JsonObject: g_ans, xc_code, s_res, g_tx, si_txn];

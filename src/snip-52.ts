@@ -33,15 +33,15 @@ type Channels<g_interface extends ContractInterface> = g_interface['config']['sn
  */
 export const subscribe_snip52_channels = async<
 	g_interface extends ContractInterface,
-	h_channels extends Channels<g_interface>,
+	h_channels_cddl extends Channels<g_interface>,
 	// as_channels extends g_interface['config'] extends {snip52_channels: infer h_channels}? keyof h_channels: never,
-	as_channels extends keyof h_channels,
+	as_channels extends keyof h_channels_cddl,
 >(
 	p_rpc: HttpsUrl,
 	k_contract: SecretContract<g_interface>,
 	z_auth: Exclude<AuthSecret, string>,
 	h_channels: {
-		[si_channel in as_channels]: (w_data: h_channels[si_channel]) => void;
+		[si_channel in as_channels]: (w_data: h_channels_cddl[si_channel]) => void;
 	}
 ): Promise<() => void> => {
 	// const h_resolved = {} as Record<Extract<keyof typeof h_channels, string>, [

@@ -24,9 +24,6 @@ const A_SHIFTS = /*#__PURE__*/[
 	[15, 12, 13, 13, 9, 5, 8, 6, 14, 11, 12, 11, 8, 6, 5, 5],
 ].map(a_words => buffer(a_words));
 
-// const A_SHIFTS_L = /*#__PURE__*/A_INDEXES_L.map((idx, i) => idx.map(j => A_SHIFTS[i][j]));
-// const A_SHIFTS_R = /*#__PURE__*/A_INDEXES_R.map((idx, i) => idx.map(j => A_SHIFTS[i][j]));
-
 let A_SHIFTS_L: Uint8Array[];
 let A_SHIFTS_R: Uint8Array[];
 
