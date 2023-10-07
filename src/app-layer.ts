@@ -9,10 +9,7 @@ import type {AuthSecret, AuthSecret_ViewerInfo, HttpsUrl, JsonRpcResponse, LcdRp
 
 import type {JsonObject, Nilable, Promisable, AsJson, JsonString, Dict} from '@blake.regalia/belt';
 
-import type {QueryPermit, SecretAccAddr} from '@solar-republic/contractor/datatypes';
-import type {ReduceSafe} from '@solar-republic/contractor/reduce';
-import type {Snip821} from '@solar-republic/contractor/snips';
-import type {ContractInterface} from '@solar-republic/contractor/typings';
+import type {QueryPermit, SecretAccAddr, ReduceSafe, Snip821, ContractInterface} from '@solar-republic/contractor';
 
 import {__UNDEFINED, buffer_to_base64, hex_to_buffer, timeout, base64_to_buffer, buffer_to_text, oda, odv} from '@blake.regalia/belt';
 
@@ -304,7 +301,21 @@ export const query_contract_infer: QueryContractInfer = async(
 	si_method: string,
 	...[h_args, z_auth]: [h_args?: Nilable<JsonObject>, z_auth?: Nilable<AuthSecret>]
 ): Promise<[w_result: JsonObject | undefined, xc_code_p: number, s_error: string, h_answer?: JsonObject]> => {
+	if(import.meta.env?.DEV) {
+		console.groupCollapsed(`❓ ${si_method}`);
+		console.debug(`Querying contract ${k_contract.addr} (${k_contract.info.label})`);
+		console.debug(format_query(si_method, h_args || {}, z_auth));
+		console.groupEnd();
+	}
+
 	const a_response = await query_contract(k_contract, format_query(si_method, h_args || {}, z_auth));
+
+	if(import.meta.env?.DEV) {
+		console.groupCollapsed(`🛰️ ${si_method}`);
+		console.debug(`Query response [code: ${a_response[0]}] from ${k_contract.addr} (${k_contract.info.label}):`);
+		console.debug(a_response[2]);
+		console.groupEnd();
+	}
 
 	// put unwrapped result in front
 	return [
@@ -472,6 +483,16 @@ export const exec_contract = async<
 	// sign in direct mode
 	let [atu8_tx_raw, , si_txn] = await create_and_sign_tx_direct(k_wallet, [atu8_msg], a_fees, sg_limit, 0, s_memo, sa_granter);
 
+	if(import.meta.env?.DEV) {
+		console.groupCollapsed(`🗳️ ${Object.keys(h_exec)[0]}`);
+		console.debug([
+			`Executing contract ${k_contract.addr} (${k_contract.info.label}) from ${k_wallet.addr}`,
+			`  limit: ${sg_limit} ┃ hash: ${si_txn}`,
+		].join('\n'));
+		console.debug(h_exec);
+		console.groupEnd();
+	}
+
 	// broadcast to chain
 	let [xc_error, sx_res, g_tx_res] = await broadcast_result(k_wallet, atu8_tx_raw, si_txn);
 
@@ -516,7 +537,31 @@ export const exec_contract = async<
 			s_plaintext = buffer_to_text(atu8_plaintext);
 		}
 
+		if(import.meta.env?.DEV) {
+			console.groupCollapsed(`❌ ${Object.keys(h_exec)[0]} [code: ${xc_error}]`);
+			console.debug('tx: ', g_tx_res);
+			console.debug('data: ', s_plaintext ?? s_error);
+			console.groupEnd();
+		}
+
 		return [xc_error, s_plaintext ?? s_error, void 0, si_txn];
+	}
+
+	if(import.meta.env?.DEV) {
+		console.groupCollapsed(`✅ ${Object.keys(h_exec)[0]}`);
+
+		if(g_tx_res) {
+			const {
+				gas_used: s_used,
+				gas_wanted: s_wanted,
+			} = g_tx_res.result;
+
+			console.log(`gas used/wanted: ${s_used}/${s_wanted}  (${+s_wanted - +s_used}) wasted)`);
+		}
+
+		console.debug('tx: ', g_tx_res);
+		console.debug('data: ', safe_json(s_plaintext) || s_plaintext);
+		console.groupEnd();
 	}
 
 	// return as tuple

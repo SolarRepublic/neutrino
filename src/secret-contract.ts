@@ -3,8 +3,7 @@ import type {query_contract, exec_contract_unreliable} from './app-layer';
 import type {ContractInfo, HttpsUrl, SlimCoin, WeakSecretAccAddr} from './types';
 
 import type {JsonObject, Nilable} from '@blake.regalia/belt';
-import type {HexLower, SecretAccAddr} from '@solar-republic/contractor/datatypes';
-import type {ContractInterface} from '@solar-republic/contractor/typings';
+import type {HexLower, SecretAccAddr, ContractInterface} from '@solar-republic/contractor';
 
 import {base64_to_text, buffer_to_text} from '@blake.regalia/belt';
 

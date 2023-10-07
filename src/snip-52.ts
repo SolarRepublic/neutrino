@@ -1,15 +1,11 @@
-/// <reference types="@solar-republic/contractor" />
 /* eslint-disable prefer-const */
 import type {SecretContract} from './secret-contract';
 import type {AuthSecret, HttpsUrl, MsgNotificationSeedUpdate, NotificationSeedUpdate, NotificationSeedUpdateConfig, TendermintEvent, JsonRpcResponse, TxResult, WeakSecretAccAddr} from './types';
 
 import type {Wallet} from './wallet';
-import type {Base64, CborValue, SecretAccAddr, Snip52ChannelDict} from '@solar-republic/contractor/datatypes';
-import type {Snip20, Snip52} from '@solar-republic/contractor/snips';
+import type {Base64, CborValue, SecretAccAddr, Snip52, ContractInterface} from '@solar-republic/contractor';
 
-import type {ContractInterface} from '@solar-republic/contractor/typings';
-
-import {hmac, base64_to_buffer, text_to_buffer, buffer_to_base64, sha256, ode, ofe, type JsonObject} from '@blake.regalia/belt';
+import {hmac, base64_to_buffer, text_to_buffer, buffer_to_base64, sha256} from '@blake.regalia/belt';
 
 import {query_contract_infer, subscribe_tendermint_events} from './app-layer';
 import {cborDecode} from './cbor';

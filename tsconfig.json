@@ -10,7 +10,7 @@
 
 		"noImplicitReturns": false,
 
-		"moduleResolution": "Bundler",
+		// "moduleResolution": "Bundler",
 		// "noErrorTruncation": true
 	},
 

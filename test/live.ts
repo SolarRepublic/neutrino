@@ -2,9 +2,7 @@ import type {HttpsUrl} from '../src/types';
 
 import type {Dict} from '@blake.regalia/belt';
 
-import type {SecretAccAddr} from '@solar-republic/contractor/datatypes';
-
-import type {Snip24} from '@solar-republic/contractor/snips';
+import type {SecretAccAddr, Snip24} from '@solar-republic/contractor';
 
 import {text_to_buffer} from '@blake.regalia/belt';
 

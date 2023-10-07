@@ -1,5 +1,5 @@
 {
-	"extends": "@blake.regalia/tsconfig/tsconfig.node-cjs.json",
+	"extends": "@blake.regalia/tsconfig/tsconfig.node.json",
 
 	"compilerOptions": {
 		"baseUrl": ".",
@@ -9,7 +9,7 @@
 		"declarationDir": "dist/cjs",
 		"noImplicitReturns": false,
 
-		"moduleResolution": "Bundler",
+		// "moduleResolution": "Bundler",
 	},
 
 	"include": [

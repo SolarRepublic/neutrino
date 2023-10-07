@@ -1,15 +1,13 @@
-import type {A} from 'ts-toolbelt';
 
 import type {CreateQueryArgsAndAuthParams, MergeTuple} from './inferencing';
 import type {SecretContract} from './secret-contract';
 import type {AuthSecret, SlimCoin, TxResult, WeakSecretAccAddr} from './types';
 import type {Wallet} from './wallet';
 
-import type {SecretAccAddr} from '@solar-republic/contractor/datatypes';
+import type {JsonObject, Nilable} from '@blake.regalia/belt';
+import type {ContractInterface} from '@solar-republic/contractor';
 
-import type {ContractInterface} from '@solar-republic/contractor/typings';
-
-import {__UNDEFINED, odv, type JsonObject, type JsonValue, type Nilable} from '@blake.regalia/belt';
+import {__UNDEFINED, odv} from '@blake.regalia/belt';
 
 import {exec_contract, query_contract_infer} from './app-layer';
 import {safe_json} from './util';
@@ -135,18 +133,6 @@ export const SecretApp = <
 			a_funds,
 			s_memo
 		);
-
-		// in dev mode, log the gas used/wanted
-		if((import.meta as any).env.DEV) {
-			if(g_tx) {
-				const {
-					gas_used: s_used,
-					gas_wanted: s_wanted,
-				} = g_tx.result;
-
-				console.log(`${si_method} | gas used/wanted: ${s_used}/${s_wanted}  (${+s_wanted - +s_used}) wasted)`);
-			}
-		}
 
 		const g_ans = safe_json(s_res) as JsonObject;
 

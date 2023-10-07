@@ -6,7 +6,7 @@ import type {HttpsUrl, LcdRpcStruct, SlimAuthInfo, SlimCoin, TypedAminoMsg, Type
 import type {Nilable} from '@blake.regalia/belt';
 import type {Coin} from '@cosmjs/amino';
 
-import type {Addr, Base64, HexUpper, SecretAccAddr, Uint128} from '@solar-republic/contractor/datatypes';
+import type {Addr, Base64, HexUpper, SecretAccAddr, Uint128} from '@solar-republic/contractor';
 
 import {text_to_buffer, buffer_to_base64, buffer_to_hex, sha256, canonicalize_json} from '@blake.regalia/belt';
 

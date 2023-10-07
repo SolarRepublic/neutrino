@@ -2,8 +2,7 @@ import type {O, U} from 'ts-toolbelt';
 
 import type {AuthSecret, AuthSecret_ViewerInfo} from './types';
 import type {Dict, JsonObject, Nilable} from '@blake.regalia/belt';
-import type {QueryPermit} from '@solar-republic/contractor/datatypes';
-import type {ReduceSafe} from '@solar-republic/contractor/reduce';
+import type {QueryPermit, ReduceSafe} from '@solar-republic/contractor';
 
 
 // a srongly empty object literal datatype

@@ -1,7 +1,7 @@
 import type {Dict, JsonObject} from '@blake.regalia/belt';
 import type {Coin} from '@cosmjs/amino';
 
-import type {SecretAccAddr, Uint128} from '@solar-republic/contractor/datatypes';
+import type {SecretAccAddr, Uint128} from '@solar-republic/contractor';
 
 import {safe_json} from '../util';
 

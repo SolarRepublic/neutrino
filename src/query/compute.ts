@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import type {ContractInfo, WeakSecretAccAddr, WeakUint128} from '../types';
 
-import type {HexLower, SecretAccAddr} from '@solar-republic/contractor/datatypes';
+import type {HexLower, SecretAccAddr} from '@solar-republic/contractor';
 
 import {base64_to_buffer, buffer_to_base64} from '@blake.regalia/belt';
 

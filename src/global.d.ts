@@ -1,4 +1,4 @@
-import type {Base64, HexLower} from '@solar-republic/contractor/datatypes';
+import type {Base64, HexLower} from '@solar-republic/contractor';
 
 declare module '@blake.regalia/belt' {
 	function buffer_to_base64(atu8_buffer: Uint8Array): Base64;

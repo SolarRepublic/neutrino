@@ -1,4 +1,4 @@
-import {ATU8_NIL, buffer} from '@blake.regalia/belt';
+import {ATU8_NIL, buffer, buffer_to_text} from '@blake.regalia/belt';
 
 import {NB_AES_BLOCK, aes_ctr, aes_key, s2v} from './aes';
 import {die} from './util';
@@ -95,7 +95,7 @@ export const aes_128_siv_decrypt = async(atu8_key: Uint8Array, atu8_payload: Uin
 	}
 
 	// not equal
-	if(xb_cmp) die(`SIV tag/CMAC mismatch`);
+	if(xb_cmp) die(`SIV tag/CMAC mismatch; plaintext:\n${buffer_to_text(atu8_plaintext)}`);
 
 	// plaintext
 	return atu8_plaintext;
