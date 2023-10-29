@@ -1,9 +1,9 @@
 import type {Nilable} from '@blake.regalia/belt';
 
-import {buffer, concat2} from '@blake.regalia/belt';
+import {bigint_to_buffer_be, buffer, buffer_to_bigint_be, concat2} from '@blake.regalia/belt';
+import {die} from '@solar-republic/cosmos-grpc';
 
-import {bigint_to_buffer_be, buffer_to_bigint_be, die, random_32} from './util';
-
+import {random_32} from './util.js';
 
 const XG_2_POW_256 = 2n ** 256n;
 

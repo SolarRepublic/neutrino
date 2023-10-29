@@ -37,27 +37,29 @@
     "debug": "node --inspect-brk --loader ts-node/esm"
   },
   "devDependencies": {
-    "@blake.regalia/belt": "^0.15.0",
+    "@blake.regalia/belt": "^0.21.0",
     "@blake.regalia/eslint-config-elite": "^0.3.3",
     "@blake.regalia/tsconfig": "^0.1.2",
-    "@cosmjs/amino": "^0.31.1",
+    "@cosmjs/amino": "^0.31.3",
     "@nfps.dev/rollup-plugin-microweb": "^0.3.5",
     "@noble/secp256k1": "^2.0.0",
-    "@rollup/plugin-commonjs": "^25.0.5",
-    "@rollup/plugin-replace": "^5.0.3",
-    "@solar-republic/contractor": "^0.4.3",
-    "@types/chai": "^4.3.6",
-    "@types/node": "^20.8.3",
-    "@types/web": "^0.0.115",
-    "@typescript-eslint/parser": "^6.7.4",
+    "@rollup/plugin-commonjs": "^25.0.7",
+    "@rollup/plugin-replace": "^5.0.4",
+    "@solar-republic/contractor": "^0.5.0",
+    "@solar-republic/cosmos-grpc": "^0.7.0",
+    "@solar-republic/types": "^0.1.4",
+    "@types/chai": "^4.3.9",
+    "@types/node": "^20.8.9",
+    "@types/web": "^0.0.119",
+    "@typescript-eslint/parser": "^6.9.0",
     "chai": "^4.3.10",
     "chai-bites": "^0.1.2",
     "curve25519-js": "^0.0.4",
     "esformatter": "^0.11.3",
-    "eslint": "^8.51.0",
+    "eslint": "^8.52.0",
     "isomorphic-ws": "^5.0.0",
     "js-beautify": "^1.14.9",
-    "rollup": "^4.0.2",
+    "rollup": "^4.1.5",
     "rollup-plugin-ignore": "^1.0.10",
     "ts-node": "^10.9.1",
     "ts-toolbelt": "^9.6.0",
@@ -68,7 +70,7 @@
     "ws": "^8.14.2"
   },
   "dependencies": {
-    "@blake.regalia/belt": "^0.15.0"
+    "@blake.regalia/belt": "^0.21.0"
   },
   "publishConfig": {
     "access": "public"

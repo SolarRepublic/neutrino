@@ -1,239 +1,31 @@
-import type {ProtoWriter} from './protobuf-writer';
-import type {AccountResponse} from './query/_root';
+/* eslint-disable prefer-const */
 
-import type {HttpsUrl, LcdRpcStruct, SlimAuthInfo, SlimCoin, TypedAminoMsg, TypedStdSignDoc, WeakSecretAccAddr, WeakUint128} from './types';
+
+import type {CwSecretAccAddr, LcdRpcStruct, SlimAuthInfo, TypedAminoMsg, TypedStdSignDoc, WeakSecretAccAddr} from './types.js';
 
 import type {Nilable} from '@blake.regalia/belt';
-import type {Coin} from '@cosmjs/amino';
+import type {ProtoEnumCosmosTxSigningSignMode} from '@solar-republic/cosmos-grpc/cosmos/tx/signing/v1beta1/signing.js';
+import type {CwUint128, CwHexUpper, CwAccountAddr, TrustedContextUrl, SlimCoin, WeakUint128Str, CwUint64} from '@solar-republic/types';
 
-import type {Addr, Base64, HexUpper, SecretAccAddr, Uint128} from '@solar-republic/contractor';
+import {text_to_buffer, buffer_to_hex, sha256, canonicalize_json, __UNDEFINED} from '@blake.regalia/belt';
 
-import {text_to_buffer, buffer_to_base64, buffer_to_hex, sha256, canonicalize_json} from '@blake.regalia/belt';
+import {bech32_encode, restruct_coin} from '@solar-republic/cosmos-grpc';
+import {destructCosmosAuthBaseAccount} from '@solar-republic/cosmos-grpc/cosmos/auth/v1beta1/auth.js';
+import {destructCosmosAuthQueryAccountResponse, queryCosmosAuthAccount} from '@solar-republic/cosmos-grpc/cosmos/auth/v1beta1/query.js';
+import {encodeCosmosCryptoSecp256k1PubKey} from '@solar-republic/cosmos-grpc/cosmos/crypto/secp256k1/keys.js';
+import {XC_PROTO_COSMOS_TX_SIGNING_SIGN_MODE_DIRECT} from '@solar-republic/cosmos-grpc/cosmos/tx/signing/v1beta1/signing.js';
 
+import {encodeCosmosTxAuthInfo, encodeCosmosTxFee, encodeCosmosTxModeInfo, encodeCosmosTxModeInfoSingle, encodeCosmosTxSignDoc, encodeCosmosTxSignerInfo, encodeCosmosTxTxBody, encodeCosmosTxTxRaw} from '@solar-republic/cosmos-grpc/cosmos/tx/v1beta1/tx.js';
+import {encodeGoogleProtobufAny} from '@solar-republic/cosmos-grpc/google/protobuf/any.js';
 
-import {bech32_encode} from './bech32';
-import {any, coin, Protobuf} from './protobuf-writer';
-import {queryAuthAccounts} from './query/auth';
-import {ripemd160} from './ripemd160';
-import {sign, sk_to_pk, type SignatureAndRecovery} from './secp256k1';
-import {random_32} from './util';
-
-export const XC_SIGN_MODE_DIRECT = 1 as const;
-export const XC_SIGN_MODE_TEXTUAL = 2 as const;
-export const XC_SIGN_MODE_AMINO = 127 as const;
-
-export type SignModeValue = typeof XC_SIGN_MODE_DIRECT | typeof XC_SIGN_MODE_TEXTUAL | typeof XC_SIGN_MODE_AMINO;
-
-// enum SignModeValue {
-// 	// UNSPECIFIED = 0,
-// 	DIRECT = 1,
-// 	// TEXTUAL = 2,
-// 	// DIRECT_AUX = 3,
-// 	LEGACY_AMINO_JSON = 127,
-// 	// EIP_191 = 191,
-// }
-
-/**
- * ModeInfo.Single
- */
-const encode_modeinfo_single = (k_writer: ProtoWriter, xc_mode: SignModeValue) => k_writer
-	.v(8).v(xc_mode);
-
-/**
- * ModeInfo
- */
-const encode_modeinfo = (k_writer: ProtoWriter, xc_mode_single_arg: SignModeValue) => k_writer
-	.v(10).n(encode_modeinfo_single, xc_mode_single_arg);
-
-/**
- * SignerInfo
- */
-const encode_signerinfo = (k_writer: ProtoWriter, xc_sign_mode: SignModeValue, atu8_pubkey: Uint8Array, sg_sequence: WeakUint128) => {
-	k_writer
-		.v(10).b(atu8_pubkey)
-		.v(18).n(encode_modeinfo, xc_sign_mode);
-
-	if('0' !== sg_sequence) {
-		k_writer.v(24).g(BigInt(sg_sequence));
-	}
-
-	return k_writer;
-};
-
-/**
- * Fee
- */
-export const encode_fee = (
-	k_writer: ProtoWriter,
-	a_amounts: SlimCoin[],
-	sg_limit: WeakUint128,
-	sa_granter?: Nilable<WeakSecretAccAddr> | '',
-	sa_payer?: Nilable<WeakSecretAccAddr> | ''
-): ProtoWriter => {
-	a_amounts.map(a_coin => k_writer.v(10).b(coin(a_coin)));
-
-	if('0' !== sg_limit) k_writer.v(16).g(BigInt(sg_limit));
-
-	// for multi-signer mode, not used in single-signer mode
-	if(sa_payer) k_writer.v(26).s(sa_payer);
-
-	// fee granter
-	if(sa_granter) k_writer.v(34).s(sa_granter);
-
-	return k_writer;
-};
-
-/**
- * AuthInfo
- */
-export const encode_authinfo = (
-	k_writer: ProtoWriter,
-	a_signers: Uint8Array[],
-	atu8_fee: Uint8Array
-): ProtoWriter => {
-	a_signers.map(atu8_signer => k_writer.v(10).b(atu8_signer));
-
-	k_writer.v(18).b(atu8_fee);
-
-	return k_writer;
-};
-
-/**
- * TxBody
- */
-export const encode_txbody = (
-	k_writer: ProtoWriter,
-	a_msgs: Uint8Array[],
-	s_memo?: string,
-	sg_timeout?: WeakUint128
-): ProtoWriter => {
-	a_msgs.map(atu8_msg => k_writer.v(10).b(atu8_msg));
-
-	if(s_memo) k_writer.v(18).s(s_memo);
-
-	if(sg_timeout) k_writer.v(24).g(BigInt(sg_timeout));
-
-	return k_writer;
-};
-
-/**
- * SignDoc
- */
-export const encode_signdoc = (
-	k_writer: ProtoWriter,
-	atu8_body: Uint8Array,
-	atu8_auth: Uint8Array,
-	si_chain: string,
-	sg_account: Nilable<WeakUint128>
-): ProtoWriter => {
-	k_writer
-		.v(10).b(atu8_body)
-		.v(18).b(atu8_auth)
-		.v(26).s(si_chain);
-
-	if(sg_account) k_writer.v(32).g(BigInt(sg_account));
-
-	return k_writer;
-};
-
-/**
- * TxRaw
- */
-export const encode_txraw = (
-	k_writer: ProtoWriter,
-	atu8_body: Uint8Array,
-	atu8_auth: Uint8Array,
-	a_signatures: Uint8Array[]
-): ProtoWriter => {
-	k_writer
-		.v(10).b(atu8_body)
-		.v(18).b(atu8_auth);
-
-	a_signatures.map(atu8_sig => k_writer.v(26).b(atu8_sig));
-
-	return k_writer;
-};
+import {ripemd160} from './ripemd160.js';
+import {sign, sk_to_pk, type SignatureAndRecovery} from './secp256k1.js';
+import {random_32} from './util.js';
 
 
-// export enum SignModeName {
-// 	// UNSPECIFIED = 'SIGN_MODE_UNSPECIFIED',
-// 	DIRECT = 'SIGN_MODE_DIRECT',
-// 	// TEXTUAL = 'SIGN_MODE_TEXTUAL',
-// 	// DIRECT_AUX = 'SIGN_MODE_DIRECT_AUX',
-// 	AMINO = 'SIGN_MODE_LEGACY_AMINO_JSON',
-// 	// EIP_191 = 'SIGN_MODE_EIP_191',
-// }
+type Zeroable<n_type extends number> = n_type | 0 | undefined;
+type Emptyable<s_type extends string> = s_type | '' | undefined;
 
-
-export interface TxResponse {
-	code: number;
-	codespace: string;
-	data: Base64;
-	events: {
-		type: string;
-		attributes: {
-			index?: boolean;
-			key: Base64;
-			value: Base64;
-		}[];
-	}[];
-	gas_used: Uint128;
-	gas_wanted: Uint128;
-	height: Uint128;
-	info: string;
-	logs: [];
-	raw_log: string;
-	timestamp: string;
-	tx: null | {
-		auth_info: {
-			fee: {
-				amount: Coin[];
-				gas_limit: Uint128;
-				granter: SecretAccAddr | '';
-				payer: SecretAccAddr | '';
-			};
-			signer_infos: {
-				mode_info: {
-					single: {
-						mode: `SIGN_MODE_${'UNSPECIFIED' | 'DIRECT' | 'TEXTUAL' | 'DIRECT_AUX' | 'LEGACY_AMINO_JSON' | 'EIP_191'}`;
-					};
-				} | {
-					multi: unknown;
-				};
-				public_key: {
-					type_url: '/cosmos.crypto.secp256k1.PubKey';
-					value: Base64;
-				};
-				sequence: Uint128;
-			}[];
-		};
-		body: {
-			extension_options: unknown[];
-			memo: string;
-			messages: {
-				type_url: string;
-				value: Base64;
-			}[];
-			non_critical_extension_options: unknown[];
-			timeout_height: Uint128;
-		};
-		signatures: Base64[];
-	};
-	txhash: HexUpper;
-}
-
-
-export interface BroadcastResultOk {
-	tx_response?: TxResponse;
-}
-
-export interface BroadcastResultErr {
-	code: 2;
-	message: string;
-	details: unknown[];
-}
-
-export type BroadcastResult = BroadcastResultOk | BroadcastResultErr;
 
 export interface Wallet extends LcdRpcStruct {
 	/**
@@ -244,7 +36,7 @@ export interface Wallet extends LcdRpcStruct {
 	/**
 	 * Bech32 account address
 	 */
-	addr: SecretAccAddr;
+	addr: CwSecretAccAddr;
 
 	/**
 	 * Secp256k1 Public Key in compressed 33-byte form
@@ -259,9 +51,15 @@ export interface Wallet extends LcdRpcStruct {
 	sign(atu8_hash: Uint8Array, atu8_k?: Uint8Array): Promise<SignatureAndRecovery>;
 }
 
+/**
+ * Convert a 33-byte canonical public key to a bech32-encoded string
+ * @param atu8_pk_33 - 33-byte public key buffer
+ * @param s_hrp - human-readable part of bech32-encoded address
+ * @returns bech32-encoded address string
+ */
 export const pubkey_to_bech32 = async<
 	s_hrp extends `secret${string}`='secret',
->(atu8_pk_33: Uint8Array, s_hrp: s_hrp='secret' as s_hrp): Promise<Addr<s_hrp>> => {
+>(atu8_pk_33: Uint8Array, s_hrp: s_hrp='secret' as s_hrp): Promise<CwAccountAddr<s_hrp>> => {
 	// sha-256 hash of pubkey
 	const atu8_sha256 = await sha256(atu8_pk_33);
 
@@ -269,16 +67,24 @@ export const pubkey_to_bech32 = async<
 	const atu8_ripemd160 = ripemd160(atu8_sha256);
 
 	// encode to bech32
-	return bech32_encode(s_hrp, atu8_ripemd160) as Addr<s_hrp>;
+	return bech32_encode(s_hrp, atu8_ripemd160) as CwAccountAddr<s_hrp>;
 };
 
-
+/**
+ * Creates a Secp256k1 wallet instance configured for a specific Cosmos chain and LCD/RPC endpoints,
+ * capable of signing arbitrary message hashes.
+ * @param atu8_sk - the private key
+ * @param si_chain - chain identifier
+ * @param p_lcd - the LCD endpoint URL (gRPC-gateway)
+ * @param p_rpc - the RPC endpoint URL
+ * @returns 
+ */
 // eslint-disable-next-line @typescript-eslint/naming-convention
 export const Wallet = async(
 	atu8_sk: Uint8Array,
 	si_chain: string,
-	p_lcd: HttpsUrl,
-	p_rpc: HttpsUrl
+	p_lcd: TrustedContextUrl,
+	p_rpc: TrustedContextUrl
 ): Promise<Wallet> => {
 	// obtain public key
 	const atu8_pk33 = sk_to_pk(atu8_sk);
@@ -304,130 +110,49 @@ export const Wallet = async(
 
 /**
  * Fetches auth info for the account (account_number and sequence)
- * @param a_auth 
  */
 // eslint-disable-next-line @typescript-eslint/naming-convention
 export const auth = async(g_wallet: Pick<Wallet, 'lcd' | 'addr'>, a_auth?: Nilable<SlimAuthInfo> | 0): Promise<SlimAuthInfo> => {
 	// resolve auth data
 	if(!a_auth) {
-		let g_account!: AccountResponse | undefined;
+		let sg_account: CwUint64 | undefined;
+		let sg_sequence: CwUint64 | undefined;
+
 		try {
-			g_account = (await queryAuthAccounts(g_wallet.lcd, g_wallet.addr))[0];
+			// submit gRPC-gateway query and destructure the response, extracting the response JSON
+			let [,, g_res] = await queryCosmosAuthAccount(g_wallet.lcd, g_wallet.addr);
+
+			// destructure the response JSON to get the account struct
+			let g_account = destructCosmosAuthQueryAccountResponse(g_res)[0];
+
+			// destructure the account struct to get its account and sequence numbers
+			[,, sg_account, sg_sequence] = destructCosmosAuthBaseAccount(g_account!);
 		}
 		catch(e_auth) {}
 
-		// destructure auth data
-		a_auth = [g_account?.account_number, g_account?.sequence];
+		// entuple auth data
+		a_auth = [sg_account, sg_sequence];
 	}
 
+	// return auth data as a tuple (possibly [undefined x 2])
 	return a_auth;
 };
 
 
-/**
- * Broadcast a transaction to the network
- * @param p_lcd - LCD endpoint
- * @param atu8_raw - raw tx bytes
- * @param s_mode - defaults to `"BLOCK"`
- * @returns tuple of `[string, Response]` where:
- *  - [0]: `s_res: string` - the result of `await response.text()`
- *  - [1]: `d_res: Response` - the {@link Response} object
- */
-export const broadcast = async(p_lcd: HttpsUrl, atu8_raw: Uint8Array, s_mode: 'BLOCK' | 'SYNC' | 'ASYNC'='BLOCK'): Promise<[string, Response]> => {
-	const d_res = await fetch(p_lcd+'/cosmos/tx/v1beta1/txs', {
-		method: 'POST',
-		body: JSON.stringify({
-			mode: 'BROADCAST_MODE_'+s_mode,
-			txBytes: buffer_to_base64(atu8_raw),
-		}),
-	});
-
-	return [await d_res.text(), d_res];
-};
-
-
-
-// /**
-//  * Signs a message in DIRECT mode (protobuf encoding)
-//  * @param k_wallet 
-//  * @param a_msgs 
-//  * @param a_fees 
-//  * @param sg_limit 
-//  * @param sa_granter 
-//  * @param sa_payer 
-//  * @param s_memo 
-//  * @param a_auth 
-//  * @returns 
-//  */
-// export const sign_direct = async(
-// 	k_wallet: Wallet,
-// 	a_msgs: Uint8Array[],
-// 	a_fees: SlimCoin[],
-// 	sg_limit: Uint128,
-// 	sa_granter: Nilable<SecretBech32> | ''='',
-// 	sa_payer: Nilable<SecretBech32> | ''='',
-// 	s_memo='',
-// 	a_auth?: Nilable<SlimAuthInfo>
-// ): Promise<[
-// 	atu8_tx_raw: Uint8Array,
-// 	atu8_signdoc: Uint8Array,
-// 	si_txn: string,
-// ]> => {
-// 	// resolve auth data
-// 	const [sg_account, sg_sequence] = await k_wallet.auth(a_auth);
-
-// 	// encode pubkey
-// 	const atu8_pubkey = any(
-// 		'/cosmos.crypto.secp256k1.PubKey',
-// 		Protobuf().v(10).b(k_wallet.pk33).o()
-// 	);
-
-// 	// encode signer info
-// 	const atu8_signer = encode_signerinfo(Protobuf(), XC_SIGN_MODE_DIRECT, atu8_pubkey, sg_sequence || '0').o();
-
-
-// 	// encode fee
-// 	const atu8_fee = encode_fee(Protobuf(), a_fees, sg_limit, sa_granter).o();
-
-
-// 	// encode auth info
-// 	const atu8_auth = encode_authinfo(Protobuf(), [atu8_signer], atu8_fee).o();
-
-
-// 	// encode tx body bytes
-// 	const atu8_body = encode_txbody(Protobuf(), a_msgs, s_memo).o();
-
-// 	// encode signdoc
-// 	const atu8_doc = encode_signdoc(Protobuf(), atu8_body, atu8_auth, k_wallet.ref, sg_account).o();
-
-
-// 	// hash message
-// 	const atu8_hash = await sha256(atu8_doc);
-
-// 	// sign message hash
-// 	const [atu8_signature] = await k_wallet.sign(atu8_hash);
-
-// 	// encode txraw
-// 	const atu8_raw = encode_txraw(Protobuf(), atu8_body, atu8_auth, [atu8_signature]).o();
-
-// 	// compute transaction hash id
-// 	const si_tx = buffer_to_hex(await sha256(atu8_raw)).toUpperCase();
-
-// 	return [atu8_raw, atu8_doc, si_tx];
-// };
-
 
 /**
- * Signs a set of Amino messages
- * @param k_wallet 
- * @param a_msgs 
- * @param a_fees 
- * @param sg_limit 
- * @param sa_granter 
- * @param sa_payer 
- * @param s_memo 
- * @param a_auth 
- * @returns 
+ * Signs a set of Amino messages as part of a transaction
+ * @param k_wallet - the {@link Wallet} instance
+ * @param a_msgs - ordered list of {@link TypedAminoMsg}
+ * @param a_fees - transaction fees to approve in the {@link SlimCoin} format
+ * @param sg_limit - gas limit as a {@link WeakUint128Str}
+ * @param a_auth - optional auth info to use in order to bypass an additional network request, in the {@link SlimAuthInfo} format
+ * @param s_memo - optional public memo text to attach to the transaction
+ * @param sa_granter - optional address of fee granter account, who will ultimately pay for the transaction fee
+ * @param sa_payer - optional address of account to specify which signer account is responsible for the trasaction fee
+ * @returns a tuple where:
+ *   - 0: the raw signature bytes as a `Uint8Array`
+ *   - 1: the signed doc as a {@link TypedStdSignDoc}
  */
 export const sign_amino = async<
 	a_msgs extends TypedAminoMsg[]=TypedAminoMsg[],
@@ -436,11 +161,11 @@ export const sign_amino = async<
 	k_wallet: Wallet,
 	a_msgs: a_msgs,  // eslint-disable-line @typescript-eslint/naming-convention
 	a_fees: SlimCoin[],
-	sg_limit: WeakUint128,
+	sg_limit: WeakUint128Str,
 	a_auth?: Nilable<SlimAuthInfo> | 0,  // eslint-disable-line @typescript-eslint/naming-convention
 	s_memo?: string,
-	sa_granter?: Nilable<WeakSecretAccAddr> | '',
-	sa_payer?: Nilable<WeakSecretAccAddr> | ''
+	sa_granter?: Emptyable<WeakSecretAccAddr>,
+	sa_payer?: Emptyable<WeakSecretAccAddr>
 ): Promise<[
 	atu8_signature: Uint8Array,
 	g_signed: g_signed,
@@ -455,13 +180,10 @@ export const sign_amino = async<
 		sequence: sg_sequence,
 		msgs: a_msgs,
 		fee: {
-			amount: a_fees.map(a_coin => ({
-				amount: a_coin[0],
-				denom: a_coin[1],
-			})),
+			amount: a_fees.map(restruct_coin),
 			gas: sg_limit,
-			granter: sa_granter as SecretAccAddr,
-			payer: sa_payer as SecretAccAddr,
+			granter: sa_granter as CwSecretAccAddr,
+			payer: sa_payer as CwSecretAccAddr,
 		},
 		memo: s_memo || '',
 	}) as g_signed;
@@ -485,28 +207,39 @@ export const sign_amino = async<
 
 
 /**
- * Signs a set of protobuf-encoded message (Direct mode)
- * @param k_wallet 
- * @param a_msgs 
- * @param a_fees 
- * @param sg_limit 
- * @param sa_granter 
- * @param sa_payer 
- * @param s_memo 
- * @param a_auth 
+ * Signs a set of Amino messages as part of a transaction
+ * @param k_wallet - the {@link Wallet} instance
+ * @param a_msgs - ordered list of {@link TypedAminoMsg}
+ * @param a_fees - transaction fees to approve in the {@link SlimCoin} format
+ * @param sg_limit - gas limit as a {@link WeakUint128Str}
+ * @param a_auth - optional auth info to use in order to bypass an additional network request, in the {@link SlimAuthInfo} format
+ * @param s_memo - optional public memo text to attach to the transaction
+ * @param sa_granter - optional address of fee granter account, who will ultimately pay for the transaction fee
+ * @param sa_payer - optional address of account to specify which signer account is responsible for the trasaction fee
+ * @returns a tuple where:
+ *   - 0: the raw signature bytes as a `Uint8Array`
+ *   - 1: the signed doc as a {@link TypedStdSignDoc}
+ */
+
+/**
+ * Signs a set of protobuf-encoded messages (Direct mode)
+ * @param k_wallet - the {@link Wallet} instance
+ * @param atu8_auth - protobuf-encoded auth message
+ * @param atu8_body - protobuf-encoded
+ * @param sg_account 
  * @returns 
  */
 export const sign_direct = async(
 	k_wallet: Wallet,
 	atu8_auth: Uint8Array,
 	atu8_body: Uint8Array,
-	sg_account?: Nilable<WeakUint128>
+	sg_account?: Nilable<WeakUint128Str>
 ): Promise<[
 	atu8_signature: Uint8Array,
 	atu8_signdoc: Uint8Array,
 ]> => {
 	// encode signdoc
-	const atu8_doc = encode_signdoc(Protobuf(), atu8_body, atu8_auth, k_wallet.ref, sg_account).o();
+	const atu8_doc = encodeCosmosTxSignDoc(atu8_body, atu8_auth, k_wallet.ref, sg_account);
 
 	// hash message
 	const atu8_hash = await sha256(atu8_doc);
@@ -533,46 +266,52 @@ export const sign_direct = async(
  * @returns 
  */
 export const create_tx_body = async(
-	xc_sign_mode: SignModeValue,
+	xc_sign_mode: ProtoEnumCosmosTxSigningSignMode,
 	k_wallet: Parameters<typeof auth>[0] & Pick<Wallet, 'pk33'>,
 	a_msgs: Uint8Array[],
 	a_fees: SlimCoin[],
-	sg_limit: WeakUint128,
+	sg_limit: WeakUint128Str,
 	a_auth?: Nilable<SlimAuthInfo> | 0,  // eslint-disable-line @typescript-eslint/naming-convention
 	s_memo?: string,
-	sa_granter?: Nilable<WeakSecretAccAddr> | '',
-	sa_payer?: Nilable<WeakSecretAccAddr> | ''
+	sa_granter?: Emptyable<WeakSecretAccAddr>,
+	sa_payer?: Emptyable<WeakSecretAccAddr>
 ): Promise<[
 	atu8_auth: Uint8Array,
 	atu8_body: Uint8Array,
-	sg_account: Nilable<Uint128>,
+	sg_account: Nilable<CwUint128>,
 ]> => {
 	// resolve auth data
 	const [sg_account, sg_sequence] = await auth(k_wallet, a_auth);
 
 	// encode pubkey
-	const atu8_pubkey = any(
+	const atu8_pubkey = encodeGoogleProtobufAny(
 		'/cosmos.crypto.secp256k1.PubKey',
-		Protobuf().v(10).b(k_wallet.pk33).o()
+		encodeCosmosCryptoSecp256k1PubKey(k_wallet.pk33)
 	);
 
 	// encode signer info
-	const atu8_signer = encode_signerinfo(Protobuf(), xc_sign_mode, atu8_pubkey, sg_sequence || '0').o();
+	const atu8_signer = encodeCosmosTxSignerInfo(
+		atu8_pubkey,
+		encodeCosmosTxModeInfo(
+			encodeCosmosTxModeInfoSingle(xc_sign_mode)
+		),
+		sg_sequence
+	);
 
 	// encode fee
-	const atu8_fee = encode_fee(Protobuf(), a_fees, sg_limit, sa_granter, sa_payer).o();
+	const atu8_fee = encodeCosmosTxFee(a_fees, sg_limit, sa_payer, sa_granter);
 
 	// encode auth info
-	const atu8_auth = encode_authinfo(Protobuf(), [atu8_signer], atu8_fee).o();
+	const atu8_auth = encodeCosmosTxAuthInfo([atu8_signer], atu8_fee);
 
 	// encode tx body bytes
-	const atu8_body = encode_txbody(Protobuf(), a_msgs, s_memo).o();
+	const atu8_body = encodeCosmosTxTxBody(a_msgs, s_memo);
 
 	// return tx data
 	return [
 		atu8_auth,
 		atu8_body,
-		sg_account as Uint128,
+		sg_account as CwUint128,
 	];
 };
 
@@ -593,28 +332,28 @@ export const create_and_sign_tx_direct = async(
 	k_wallet: Wallet,
 	a_msgs: Uint8Array[],
 	a_fees: SlimCoin[],
-	sg_limit: WeakUint128,
+	sg_limit: WeakUint128Str,
 	a_auth?: Nilable<SlimAuthInfo> | 0,  // eslint-disable-line @typescript-eslint/naming-convention
 	s_memo?: string,
-	sa_granter?: Nilable<WeakSecretAccAddr> | '',
-	sa_payer?: Nilable<WeakSecretAccAddr> | ''
+	sa_granter?: Emptyable<WeakSecretAccAddr>,
+	sa_payer?: Emptyable<WeakSecretAccAddr>
 ): Promise<[
 	atu8_raw: Uint8Array,
 	atu8_signdoc: Uint8Array,
-	si_txn: HexUpper,
+	si_txn: CwHexUpper,
 ]> => {
 	// create tx
 	const [
 		atu8_auth,
 		atu8_body,
 		sg_account,
-	] = await create_tx_body(XC_SIGN_MODE_DIRECT, k_wallet, a_msgs, a_fees, sg_limit, a_auth, s_memo, sa_granter, sa_payer);
+	] = await create_tx_body(XC_PROTO_COSMOS_TX_SIGNING_SIGN_MODE_DIRECT, k_wallet, a_msgs, a_fees, sg_limit, a_auth, s_memo, sa_granter, sa_payer);
 
 	// sign direct
 	const [atu8_signature, atu8_signdoc] = await sign_direct(k_wallet, atu8_auth, atu8_body, sg_account);
 
 	// encode txraw
-	const atu8_raw = encode_txraw(Protobuf(), atu8_body, atu8_auth, [atu8_signature]).o();
+	const atu8_raw = encodeCosmosTxTxRaw(atu8_body, atu8_auth, [atu8_signature]);
 
 	// compute transaction hash id
 	const si_txn = buffer_to_hex(await sha256(atu8_raw)).toUpperCase();

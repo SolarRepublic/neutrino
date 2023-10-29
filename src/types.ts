@@ -1,34 +1,28 @@
-import type {Dict, JsonObject, JsonString, Nilable} from '@blake.regalia/belt';
+import type {Dict, JsonObject, Nilable} from '@blake.regalia/belt';
 import type {AminoMsg, Coin, StdSignDoc} from '@cosmjs/amino';
-import type {SecretAccAddr, Uint128, Base64, QueryPermit} from '@solar-republic/contractor';
+import type {SecretAccAddr} from '@solar-republic/contractor';
+import type {TendermintAbciTxResult} from '@solar-republic/cosmos-grpc/tendermint/abci/types.js';
+import type {WeakUint128Str, CwUint128, CwBase64, CwAccountAddr, WeakAccountAddr, TrustedContextUrl, SecretQueryPermit} from '@solar-republic/types';
 
+export type WeakSecretAccAddr = WeakAccountAddr<'secret'>;
 
-export type WeakSecretAccAddr = `secret1${string}`;
-
-export type WeakUint128 = `${bigint}`;
-
-export type SlimCoin = [
-	sg_amount: WeakUint128,
-	s_denom: 'uscrt',
-];
+export type CwSecretAccAddr = CwAccountAddr<'secret'>;
 
 export type ContractInfo = {
-	code_id: WeakUint128;
+	code_id: WeakUint128Str;
 	creator: SecretAccAddr;
 	label: string;
 };
 
-export type HttpsUrl = `https://${string}`;
-
 export type PermitConfig = {
 	permit_name: string;
-	allowed_tokens: SecretAccAddr[];
+	allowed_tokens: CwSecretAccAddr[];
 	permissions: string[];
 };
 
 export type NotificationSeedUpdateConfig = {
-	contract: SecretAccAddr;
-	previous_seed: Base64;
+	contract: CwSecretAccAddr;
+	previous_seed: CwBase64;
 };
 
 export type SignedAminoDoc<
@@ -40,9 +34,9 @@ export type SignedAminoDoc<
 	signature: {
 		pub_key: {
 			type: 'tendermint/PubKeySecp256k1';
-			value: Base64;
+			value: CwBase64;
 		};
-		signature: Base64;
+		signature: CwBase64;
 	};
 };
 
@@ -55,12 +49,12 @@ export type MsgQueryPermit = TypedAminoMsg<'query_permit', PermitConfig>;
 export type MsgNotificationSeedUpdate = TypedAminoMsg<'notification_seed', NotificationSeedUpdateConfig>;
 
 export interface TypedCoin extends Coin, JsonObject {
-	readonly amount: Uint128;
+	readonly amount: CwUint128;
 }
 
 export interface TypedStdFee extends JsonObject {
 	readonly amount: TypedCoin[];
-	readonly gas: Uint128;
+	readonly gas: CwUint128;
 	readonly granter?: SecretAccAddr;
 	readonly payer?: SecretAccAddr;
 }
@@ -76,8 +70,8 @@ export interface TypedAminoMsg<
 export interface TypedStdSignDoc<
 	a_msgs extends readonly TypedAminoMsg[]=TypedAminoMsg[],
 > extends StdSignDoc, JsonObject<a_msgs> {
-	readonly account_number: Uint128;
-	readonly sequence: Uint128;
+	readonly account_number: CwUint128;
+	readonly sequence: CwUint128;
 	readonly fee: TypedStdFee;
 	readonly msgs: a_msgs;
 }
@@ -91,10 +85,10 @@ export type AuthSecret_ViewerInfo = [sh_key: string, sa_viewer?: WeakSecretAccAd
  * 2. Query Permits - indicated here by `Record<string, string>`
  * 3. ViewerInfo struts - indicated here by `[viewing_key: string, addr: 'secret1${string}']`
  */
-export type AuthSecret = string | QueryPermit | AuthSecret_ViewerInfo;
+export type AuthSecret = string | SecretQueryPermit | AuthSecret_ViewerInfo;
 
 
-export type SlimAuthInfo = [acc_num: Nilable<WeakUint128>, sequence: Nilable<WeakUint128>];
+export type SlimAuthInfo = [acc_num: Nilable<WeakUint128Str>, sequence: Nilable<WeakUint128Str>];
 
 /**
  * Bundles LCD and RPC endpoint URLs together
@@ -103,15 +97,17 @@ export interface LcdRpcStruct {
 	/**
 	 * The LCD endpoint the struct is configured for
 	 */
-	lcd: HttpsUrl;
+	lcd: TrustedContextUrl;
 
 	/**
 	 * RPC endpoint used for confirming broadcasted transactions
 	 */
-	rpc: HttpsUrl;
+	rpc: TrustedContextUrl;
 }
 
-
+/**
+ * JSON-RPC response
+ */
 export type JsonRpcResponse<
 	w_result extends JsonObject,
 > = {
@@ -119,6 +115,7 @@ export type JsonRpcResponse<
 	id: string;
 	result: w_result;
 };
+
 
 export type TendermintEvent<
 	w_value extends JsonObject,
@@ -131,25 +128,7 @@ export type TendermintEvent<
 	events: Dict<string[]>;
 };
 
-export type TxResult = {
-	TxResult: {
-		height: Uint128;
-		index: number;
-		tx: Base64;
-		result: {
-			code?: number;
-			data: Base64;
-			log: JsonString;
-			gas_wanted: Uint128;
-			gas_used: Uint128;
-			events: {
-				type: string;
-				attributes: {
-					key: Base64;
-					value: Base64;
-					index?: boolean;
-				}[];
-			}[];
-		};
-	};
+
+export type TxResultWrapper = {
+	TxResult: TendermintAbciTxResult;
 };

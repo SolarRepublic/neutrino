@@ -1,7 +1,7 @@
 import {buffer, dataview} from '@blake.regalia/belt';
 
-import {rotl} from './bitwise';
-import {XN_16} from './constants';
+import {rotl} from './bitwise.js';
+import {XN_16} from './constants.js';
 
 let c_inits = 0;
 

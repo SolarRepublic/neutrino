@@ -1,19 +1,28 @@
+/* eslint-disable prefer-const */
+import type {Required} from 'ts-toolbelt/out/Object/Required.js';
+
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-import type {query_contract, exec_contract_unreliable} from './app-layer';
-import type {ContractInfo, HttpsUrl, SlimCoin, WeakSecretAccAddr} from './types';
+import type {query_secret_contract} from './app-layer.js';
+import type {ContractInfo, WeakSecretAccAddr} from './types.js';
 
 import type {JsonObject, Nilable} from '@blake.regalia/belt';
-import type {HexLower, SecretAccAddr, ContractInterface} from '@solar-republic/contractor';
 
-import {base64_to_text, buffer_to_text} from '@blake.regalia/belt';
+import type {SecretAccAddr, ContractInterface} from '@solar-republic/contractor';
+import type {SecretComputeContractInfo} from '@solar-republic/cosmos-grpc/secret/compute/v1beta1/types.js';
+import type {CwHexLower, SlimCoin, TrustedContextUrl} from '@solar-republic/types';
+
+import {__UNDEFINED, base64_to_text, buffer_to_text} from '@blake.regalia/belt';
+
+import {encodeGoogleProtobufAny} from '@solar-republic/cosmos-grpc/google/protobuf/any.js';
+import {encodeSecretComputeMsgExecuteContract} from '@solar-republic/cosmos-grpc/secret/compute/v1beta1/msg.js';
+import {destructSecretComputeQueryCodeHashResponse, destructSecretComputeQueryContractInfoResponse, destructSecretComputeQuerySecretContractResponse, querySecretComputeCodeHashByCodeId, querySecretComputeContractInfo, querySecretComputeQuerySecretContract} from '@solar-republic/cosmos-grpc/secret/compute/v1beta1/query.js';
+import {destructSecretRegistrationKey} from '@solar-republic/cosmos-grpc/secret/registration/v1beta1/msg.js';
+import {querySecretRegistrationTxKey} from '@solar-republic/cosmos-grpc/secret/registration/v1beta1/query.js';
+
+import {SecretWasm} from './secret-wasm.js';
 
 
-import {bech32_decode} from './bech32';
-import {any, coin, Protobuf} from './protobuf-writer';
-import {queryComputeInfo, queryComputeCodeHashByCodeId, queryComputeQuery} from './query/compute';
-import {queryRegistrationTxKey} from './query/registration';
-import {SecretWasm} from './secret-wasm';
-
+export type KnownContractInfo = Required<SecretComputeContractInfo, 'code_id' | 'label'>;
 
 // pads all query messages to be multiples of this many bytes
 const NB_QUERY_BLOCK = 64;
@@ -21,14 +30,17 @@ const NB_QUERY_BLOCK = 64;
 // pads all execution messages to be multiples of this many bytes
 const NB_EXEC_BLOCK = 0;
 
-const h_codes_cache: Record<ContractInfo['code_id'], HexLower> = {};
+const h_codes_cache: Record<ContractInfo['code_id'], CwHexLower> = {};
 
-const h_contract_cache: Record<WeakSecretAccAddr, ContractInfo> = {};
+const h_contract_cache: Record<WeakSecretAccAddr, KnownContractInfo> = {};
 
-const h_networks: Record<HttpsUrl, SecretWasm> = {};
+const h_networks = {} as Record<TrustedContextUrl, SecretWasm>;
 
 
-export interface QueryIntermediates {
+/**
+ * Stores intermediate values during the process of querying a Secret contract
+ */
+export interface SecretContractQueryIntermediates {
 	/**
 	 * The nonce that was used to encrypt the query
 	 */
@@ -42,7 +54,7 @@ export type SecretContract<
 	/**
 	 * URL of the LCD endpoint
 	 */
-	lcd: HttpsUrl;
+	lcd: TrustedContextUrl;
 
 	/**
 	 * Contract address
@@ -52,12 +64,12 @@ export type SecretContract<
 	/**
 	 * Contract's label, code id, and creator
 	 */
-	info: ContractInfo;
+	info: KnownContractInfo;
 
 	/**
 	 * Code hash
 	 */
-	hash: HexLower;
+	hash: CwHexLower;
 
 	/**
 	 * the {@link SecretWasm} instance
@@ -73,7 +85,7 @@ export type SecretContract<
 	 * 	- 1: s_res - the response body as text
 	 *    - 2?: g_res - the parsed response response JSON if valid
 	 */
-	query(h_query: JsonObject, g_out?: QueryIntermediates): Promise<JsonObject>;
+	query(h_query: JsonObject, g_out?: SecretContractQueryIntermediates): Promise<JsonObject>;
 	// query<
 	// 	h_variants extends ContractInterface.MsgAndAnswer<g_interface, 'queries'>,
 	// 	g_variant extends h_variants[keyof h_variants],
@@ -86,7 +98,7 @@ export type SecretContract<
 	 * @param a_funds 
 	 * @returns 
 	 */
-	exec(h_exec: JsonObject, sa_sender: SecretAccAddr, a_funds?: SlimCoin[]): Promise<[
+	exec(h_exec: JsonObject, sa_sender: WeakSecretAccAddr, a_funds?: SlimCoin[]): Promise<[
 		atu8_data: Uint8Array,
 		atu8_nonce: Uint8Array,
 	]>;
@@ -98,7 +110,7 @@ export type SecretContract<
  * and info unless already cached.
  * 
  * The `query` and `exec` methods are not intended for general application use; projects should instead use
- * {@link query_contract} and {@link exec_contract_unreliable}.
+ * {@link query_secret_contract} and {@link exec_secret_contract}.
  * @param p_lcd 
  * @param sa_contract 
  * @param atu8_seed 
@@ -108,7 +120,7 @@ export type SecretContract<
 export const SecretContract = async<
 	g_interface extends ContractInterface=ContractInterface,
 >(
-	p_lcd: HttpsUrl,
+	p_lcd: TrustedContextUrl,
 	sa_contract: WeakSecretAccAddr,
 	atu8_seed: Nilable<Uint8Array>=null
 ): Promise<SecretContract<g_interface>> => {
@@ -118,23 +130,41 @@ export const SecretContract = async<
 	// network not yet cached
 	if(!k_wasm) {
 		// fetch consensus io pubkey
-		const atu8_consensus_pk = await queryRegistrationTxKey(p_lcd);
+		let [,, g_res] = await querySecretRegistrationTxKey(p_lcd);
+
+		// destructure response
+		let [atu8_consensus_pk] = destructSecretRegistrationKey(g_res);
 
 		// instantiate secret wasm and save to cache
-		h_networks[p_lcd] = k_wasm = SecretWasm(atu8_consensus_pk, atu8_seed);
+		h_networks[p_lcd] = k_wasm = SecretWasm(atu8_consensus_pk!, atu8_seed);
 	}
 
-	// refload contract info
-	const g_info = h_contract_cache[sa_contract] = h_contract_cache[sa_contract] || await queryComputeInfo(p_lcd, sa_contract);
+	// ref contract info
+	let g_info = h_contract_cache[sa_contract];
+	if(!g_info) {
+		// refload contract info
+		let [,, g_res_info] = await querySecretComputeContractInfo(p_lcd, sa_contract);
+
+		// destruct response
+		let [, g_info1] = destructSecretComputeQueryContractInfoResponse(g_res_info);
+
+		// update
+		g_info = h_contract_cache[sa_contract] = g_info1! as KnownContractInfo;
+	}
 
 	// ref code id
 	const si_code = g_info.code_id;
 
-	// refload code hash
-	const sb16_code_hash = h_codes_cache[si_code] = h_codes_cache[si_code] || await queryComputeCodeHashByCodeId(p_lcd, si_code);
+	// ref code hash
+	let sb16_code_hash = h_codes_cache[si_code];
+	if(!sb16_code_hash) {
+		// refload code hash
+		let [,, g_res_hash] = await querySecretComputeCodeHashByCodeId(p_lcd, si_code);
 
-	// decode contract address
-	const atu8_contract = bech32_decode(sa_contract);
+		// destruct response
+		sb16_code_hash = h_codes_cache[si_code] = destructSecretComputeQueryCodeHashResponse(g_res_hash)[0]!;
+	}
+
 
 	// methods
 	return {
@@ -163,10 +193,13 @@ export const SecretContract = async<
 			const atu8_nonce = g_out.n = atu8_msg.slice(0, 32);
 
 			// submit query
-			const atu8_ciphertext = await queryComputeQuery(p_lcd, sa_contract, atu8_msg);
+			let [,, g_res_query] = await querySecretComputeQuerySecretContract(p_lcd, sa_contract, atu8_msg);
+
+			// destructure
+			const [atu8_ciphertext] = destructSecretComputeQuerySecretContractResponse(g_res_query);
 
 			// decrypt response
-			const atu8_plaintext = await k_wasm.decrypt(atu8_ciphertext, atu8_nonce);
+			const atu8_plaintext = await k_wasm.decrypt(atu8_ciphertext!, atu8_nonce);
 
 			// decode result
 			const sb64_response = buffer_to_text(atu8_plaintext);
@@ -179,23 +212,18 @@ export const SecretContract = async<
 		// execute contract
 		async exec(h_exec, sa_sender, a_funds=[]) {
 			// encrypt and encode execution body
-			const atu8_exec = await k_wasm.encodeMsg(sb16_code_hash, h_exec, NB_EXEC_BLOCK);
+			const atu8_body = await k_wasm.encodeMsg(sb16_code_hash, h_exec, NB_EXEC_BLOCK);
 
 			// extract nonce
-			const atu8_nonce = atu8_exec.slice(0, 32);
+			const atu8_nonce = atu8_body.slice(0, 32);
 
 			// construct body
-			const kb_body = Protobuf()
-				.v(10).b(bech32_decode(sa_sender))
-				.v(18).b(atu8_contract)
-				.v(26).b(atu8_exec);
-
-			// encode sent funds
-			a_funds.map(a_coin => kb_body.v(42).b(coin(a_coin)));
+			const atu8_exec = encodeSecretComputeMsgExecuteContract(sa_sender, sa_contract, atu8_body, __UNDEFINED, a_funds);
 
 			// construct as direct message
-			const atu8_msg = any('/secret.compute.v1beta1.MsgExecuteContract', kb_body.o());
+			const atu8_msg = encodeGoogleProtobufAny('/secret.compute.v1beta1.MsgExecuteContract', atu8_exec);
 
+			// return tuple
 			return [atu8_msg, atu8_nonce];
 		},
 	};

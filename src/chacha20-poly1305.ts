@@ -1,9 +1,11 @@
 /* eslint-disable prefer-const */
 import {buffer, buffer_to_base64, dataview} from '@blake.regalia/belt';
 
-import {chacha20} from './chacha20';
-import {poly1305} from './poly1305';
-import {die} from './util';
+import {die} from '@solar-republic/cosmos-grpc';
+
+import {chacha20} from './chacha20.js';
+import {poly1305} from './poly1305.js';
+
 
 // encrypt/decrypt data and generate the poly1305 key
 const transcrypt = (atu8_key: Uint8Array, atu8_nonce: Uint8Array, atu8_data: Uint8Array): [Uint8Array, Uint8Array] => [

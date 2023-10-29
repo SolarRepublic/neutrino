@@ -1,8 +1,8 @@
 import type {O, U} from 'ts-toolbelt';
 
-import type {AuthSecret, AuthSecret_ViewerInfo} from './types';
+import type {AuthSecret, AuthSecret_ViewerInfo} from './types.js';
 import type {Dict, JsonObject, Nilable} from '@blake.regalia/belt';
-import type {QueryPermit, ReduceSafe} from '@solar-republic/contractor';
+import type {ReduceSafe, SecretQueryPermit} from '@solar-republic/types';
 
 
 // a srongly empty object literal datatype
@@ -82,7 +82,7 @@ type InferQueryArgsAndAuth<
 		? ExtractProperty<h_variants, 'with_permit'> extends {
 			msg: {
 				query: infer h_query;
-				permit: QueryPermit;
+				permit: SecretQueryPermit;
 			};
 		}
 			// interface contains a 'with_permit' query
@@ -94,7 +94,7 @@ type InferQueryArgsAndAuth<
 						// args from 'with_permit' variant of same query
 						? [
 							h_args: O.Merge<h_args0, h_args_alt>,
-							z_auth: z_auth0 extends AuthSecret? z_auth0 | QueryPermit: QueryPermit,
+							z_auth: z_auth0 extends AuthSecret? z_auth0 | SecretQueryPermit: SecretQueryPermit,
 						]
 						// args from 'with_permit' variant are invalid
 						: [h_args: h_args0, z_auth: z_auth0]

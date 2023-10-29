@@ -1,7 +1,8 @@
-import type {Base64, HexLower} from '@solar-republic/contractor';
+/* eslint-disable @typescript-eslint/naming-convention */
+import type {CwBase64, CwHexLower} from '@solar-republic/types';
 
 declare module '@blake.regalia/belt' {
-	function buffer_to_base64(atu8_buffer: Uint8Array): Base64;
-	function buffer_to_hex(atu8_buffer: Uint8Array): HexLower;
-	function text_to_base64(s_text: string): Base64;
+	declare const buffer_to_base64: (atu8_buffer: Uint8Array) => CwBase64;
+	declare const buffer_to_hex: (atu8_buffer: Uint8Array) => CwHexLower;
+	declare const text_to_base64: (atu8_buffer: Uint8Array) => CwBase64;
 }

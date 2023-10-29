@@ -4,8 +4,8 @@ import chai, {expect} from 'chai';
 
 import chai_bites from 'chai-bites';
 
-import {describe} from './helper';
-import {aes_cmac_init, aes_key} from '../src/aes';
+import {describe} from './helper.js';
+import {aes_cmac_init, aes_key} from '../src/aes.js';
 
 chai.use(chai_bites);
 

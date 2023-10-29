@@ -1,7 +1,6 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import type {JsonValue, Nilable} from '@blake.regalia/belt';
-
-import type {Base64, HexLower, HexMixed} from '@solar-republic/contractor';
+import type {CwHexMixed, CwBase64, CwHexLower} from '@solar-republic/types';
 
 import {
 	buffer,
@@ -12,15 +11,18 @@ import {
 	text_to_buffer,
 } from '@blake.regalia/belt';
 
-import {aes_128_siv_decrypt, aes_128_siv_encrypt} from './aes-128-siv';
-import {die, random_32} from './util';
-import {ecs_mul, ecs_mul_base} from './x25519';
+import {die} from '@solar-republic/cosmos-grpc';
+
+import {aes_128_siv_decrypt, aes_128_siv_encrypt} from './aes-128-siv.js';
+import {random_32} from './util.js';
+import {ecs_mul, ecs_mul_base} from './x25519.js';
+
 
 export interface SecretWasm {
 	txKey(atu8_nonce?: Uint8Array): Promise<Uint8Array>;
-	encodeMsg(sb16_code_hash: HexMixed, g_msg: JsonValue, nb_msg_block?: number): Promise<Uint8Array>;
+	encodeMsg(sb16_code_hash: CwHexMixed, g_msg: JsonValue, nb_msg_block?: number): Promise<Uint8Array>;
 	decrypt(atu8_ciphertext: Uint8Array, atu8_nonce: Uint8Array): Promise<Uint8Array>;
-	decodeMsg(sb64_msg: Base64): Promise<[string, HexLower, Uint8Array]>;
+	decodeMsg(sb64_msg: CwBase64): Promise<[string, CwHexLower, Uint8Array]>;
 }
 
 export const SecretWasm = (atu8_consensus_pk: Uint8Array, atu8_seed?: Nilable<Uint8Array>): SecretWasm => {
@@ -119,7 +121,7 @@ export const SecretWasm = (atu8_consensus_pk: Uint8Array, atu8_seed?: Nilable<Ui
 				sx_exec.slice(64),
 
 				// code hash
-				sx_exec.slice(0, 64) as HexLower,
+				sx_exec.slice(0, 64) as CwHexLower,
 
 				// nonce
 				atu8_nonce,

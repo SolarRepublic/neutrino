@@ -1,6 +1,6 @@
 import {ATU8_NIL, buffer} from '@blake.regalia/belt';
 
-import {XN_16} from './constants';
+import {XN_16} from './constants.js';
 
 export const NB_AES_BLOCK = XN_16;
 
@@ -40,7 +40,7 @@ const double_block = (atu8_block: Uint8Array) => {
 	xb_carry = 0;
 };
 
-// XOR two buffers, replacing a in-place and up to len(b)
+// XOR two buffers, replacing 'a' in-place and up to len(b)
 const xor_buffers = (atu8_a: Uint8Array, atu8_b: Uint8Array) => {
 	for(let ib_each=0; ib_each<atu8_b.length; ib_each++) {
 		atu8_a[ib_each] ^= atu8_b[ib_each];

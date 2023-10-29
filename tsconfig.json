@@ -7,11 +7,9 @@
 
 		"declaration": true,
 		"declarationDir": "dist/nil",
-
 		"noImplicitReturns": false,
-
-		// "moduleResolution": "Bundler",
-		// "noErrorTruncation": true
+		"moduleResolution": "NodeNext",
+		// "moduleResolution": "Bundler"
 	},
 
 	"include": [

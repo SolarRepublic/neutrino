@@ -1,15 +1,19 @@
 {
-	"extends": "@blake.regalia/tsconfig/tsconfig.node.json",
+	"extends": "./tsconfig.json",
 
 	"compilerOptions": {
-		"baseUrl": ".",
+		// "baseUrl": ".",
 		"outDir": "dist/mjs",
 
-		"declaration": true,
+		// "declaration": true,
 		"declarationDir": "dist/mjs",
-		"noImplicitReturns": false,
+		// "noImplicitReturns": false,
 
-		"moduleResolution": "Bundler"
+		"moduleResolution": "Bundler",
+
+		"paths": {
+			"#/*": ["./src/gen/"],
+		},
 	},
 
 	"include": [

@@ -1,7 +1,8 @@
 /* eslint-disable prefer-const */
-import {buffer} from '@blake.regalia/belt';
+import {XG_8, buffer} from '@blake.regalia/belt';
 
-import {XG_8, XN_16} from './constants';
+import {XN_16} from './constants.js';
+
 
 const XG_PRIME_1305 = (2n ** 130n) - 5n;
 

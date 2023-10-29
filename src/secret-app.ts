@@ -1,16 +1,17 @@
 
-import type {CreateQueryArgsAndAuthParams, MergeTuple} from './inferencing';
-import type {SecretContract} from './secret-contract';
-import type {AuthSecret, SlimCoin, TxResult, WeakSecretAccAddr} from './types';
-import type {Wallet} from './wallet';
+import type {CreateQueryArgsAndAuthParams, MergeTuple} from './inferencing.js';
+import type {SecretContract} from './secret-contract.js';
+import type {AuthSecret, TxResultWrapper, WeakSecretAccAddr} from './types.js';
+import type {Wallet} from './wallet.js';
 
 import type {JsonObject, Nilable} from '@blake.regalia/belt';
 import type {ContractInterface} from '@solar-republic/contractor';
+import type {SlimCoin} from '@solar-republic/types';
 
-import {__UNDEFINED, odv} from '@blake.regalia/belt';
+import {__UNDEFINED, odv, safe_json} from '@blake.regalia/belt';
 
-import {exec_contract, query_contract_infer} from './app-layer';
-import {safe_json} from './util';
+import {exec_secret_contract, query_secret_contract_infer} from './app-layer.js';
+
 
 export const exec_fees = (xg_limit: bigint|`${bigint}`, x_gas_price: number, s_denom='uscrt') => [[
 	''+Math.ceil(Number(xg_limit) * x_gas_price), s_denom],
@@ -39,7 +40,7 @@ export interface SecretApp<
 	 * @param h_args - the args value to pass in with the given query
 	 * @param z_auth - optional {@link AuthSecret} to perform an authenticated query
 	 * @returns tuple of `[JsonObject?, number, string, JsonObject?]` where:
-	 *  - [0]: `w_result?: JsonObject` - unwrapped contract result on success
+	 *  - [0]: `w_result?: JsonObject` - parsed & unwrapped contract result on success
 	 *  - [1]: `xc_code: number` - error code from chain, or non-OK HTTP status code from the LCD server.
 	 * 		A value of `0` indicates success.
 	 *  - [2]: `s_error: string` - error message from chain or HTTP response body
@@ -63,18 +64,27 @@ export interface SecretApp<
 		h_answer?: g_variant['answer'],
 	]>;
 
-	// exec<
-	// 	h_group extends ContractInterface.MsgAndAnswer<g_interface, 'executions'>,
-	// 	as_methods extends Extract<keyof h_group, string>,
-	// >(
-	// 	h_exec: ContractInterface extends g_interface? JsonObject: {
-	// 		[si_method in as_methods]: h_group[si_method]['msg'];
-	// 	},
-	// 	xg_limit: bigint,
-	// 	a_funds?: SlimCoin[],
-	// 	s_memo?: string
-	// ): ReturnType<typeof exec_contract>;
 
+	/**
+	 * Executes the contract with given method, args, and limit. Automatically determines fee at set gas price.
+	 * Automatically uses granter if set on instance using {@link SecretApp.granter}.
+	 * @param si_method - which execution method to invoke
+	 * @param h_exec - the args value to pass in with the given execution
+	 * @param xg_limit - the gas limit to set for the transaction
+	 * @param a_funds - optional Array of {@link SlimCoin} of funds to send into the contract with the tx
+	 * @param s_memo - optional memo field
+	 * @returns tuple of `[number, string, TxResponse?]`
+	 *  - [0]: `w_result?: JsonValue` - parsed & unwrapped contract result on success
+	 *  - [1]: `xc_code: number` - error code from chain, or non-OK HTTP status code from the LCD server.
+	 * 		A value of `0` indicates success.
+	 *  - [2]: `s_res: string` - message text. on success, will be the contract's response as a JSON string.
+	 * 		on error, will be either the error string from HTTP response text, chain error message,
+	 * 		or contract error as a JSON string.
+	 *  - [3]: `g_tx_res?: `{@link TxResponse} - on success, the parsed transaction response JSON object
+	 *  - [4]: `si_txn?: string` - the transaction hash if a broadcast attempt was made
+	 * 
+	 * @throws a {@link BroadcastResultErr}
+	 */
 	exec<
 		h_group extends ContractInterface.MsgAndAnswer<g_interface, 'executions'>,
 		as_methods extends Extract<keyof h_group, string>,
@@ -88,10 +98,9 @@ export interface SecretApp<
 		w_result: h_group[as_methods]['response'] | undefined,
 		xc_code: number,
 		s_response: string,
-		g_tx: TxResult['TxResult'] | undefined,
+		g_tx: TxResultWrapper['TxResult'] | undefined,
 		si_txn: string | undefined,
 	]>;
-	// [JsonValue | undefined, ...A.Cast<ReturnType<typeof exec_contract>, []>];
 }
 
 export const SecretApp = <
@@ -109,7 +118,7 @@ export const SecretApp = <
 		si_method: string,
 		h_args: Nilable<JsonObject>=__UNDEFINED,
 		z_auth: Nilable<AuthSecret>=__UNDEFINED
-	) => query_contract_infer(
+	) => query_secret_contract_infer(
 		k_contract as SecretContract,
 		si_method,
 		h_args || {},
@@ -123,7 +132,7 @@ export const SecretApp = <
 		a_funds?: SlimCoin[],
 		s_memo?: string
 	) => {
-		const [xc_code, s_res, g_tx, si_txn] = await exec_contract(
+		const [xc_code, s_res, g_tx, si_txn] = await exec_secret_contract(
 			k_contract as SecretContract,
 			k_wallet,
 			{[si_method]:h_args},
@@ -134,7 +143,7 @@ export const SecretApp = <
 			s_memo
 		);
 
-		const g_ans = safe_json(s_res) as JsonObject;
+		const g_ans = safe_json<JsonObject>(s_res) || {};
 
 		return [xc_code? __UNDEFINED: g_ans? odv(g_ans)[0] as JsonObject: g_ans, xc_code, s_res, g_tx, si_txn];
 	},

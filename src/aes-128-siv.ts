@@ -1,7 +1,9 @@
 import {ATU8_NIL, buffer, buffer_to_text} from '@blake.regalia/belt';
 
-import {NB_AES_BLOCK, aes_ctr, aes_key, s2v} from './aes';
-import {die} from './util';
+import {die} from '@solar-republic/cosmos-grpc';
+
+import {NB_AES_BLOCK, aes_ctr, aes_key, s2v} from './aes.js';
+
 
 // splits an AES-128 SIV key
 const split_siv_key = async(atu8_key: Uint8Array): Promise<[CryptoKey, CryptoKey]> => {

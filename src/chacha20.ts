@@ -1,7 +1,7 @@
 import {buffer, dataview} from '@blake.regalia/belt';
 
-import {rotl} from './bitwise';
-import {XN_16} from './constants';
+import {rotl} from './bitwise.js';
+import {XN_16} from './constants.js';
 
 // xn_a: number, xn_b: number, xn_c: number, xn_d: number
 const quarterround = (atu32_d: Uint32Array, i_a: number, i_b: number, i_c: number, i_d: number) => {

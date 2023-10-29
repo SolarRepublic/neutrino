@@ -1,31 +1,28 @@
 /* eslint-disable prefer-const */
+/* eslint-disable no-console */
 /* eslint-disable @typescript-eslint/naming-convention */
-import type {A, O, U} from 'ts-toolbelt';
 
-import type {CreateQueryArgsAndAuthParams} from './inferencing';
-import type {NetworkErrorDetails} from './query/_root';
-import type {QueryIntermediates, SecretContract} from './secret-contract';
-import type {AuthSecret, AuthSecret_ViewerInfo, HttpsUrl, JsonRpcResponse, LcdRpcStruct, MsgQueryPermit, PermitConfig, SlimCoin, TendermintEvent, TxResult, WeakSecretAccAddr, WeakUint128} from './types';
+import type {CreateQueryArgsAndAuthParams} from './inferencing.js';
+import type {SecretContractQueryIntermediates, SecretContract} from './secret-contract.js';
+import type {AuthSecret, JsonRpcResponse, LcdRpcStruct, MsgQueryPermit, PermitConfig, TendermintEvent, TxResultWrapper, WeakSecretAccAddr} from './types.js';
 
-import type {JsonObject, Nilable, Promisable, AsJson, JsonString, Dict} from '@blake.regalia/belt';
+import type {Wallet} from './wallet.js';
+import type {JsonObject, Nilable, Promisable, AsJson, NaiveJsonString} from '@blake.regalia/belt';
 
-import type {QueryPermit, SecretAccAddr, ReduceSafe, Snip821, ContractInterface} from '@solar-republic/contractor';
+import type {ContractInterface} from '@solar-republic/contractor';
+import type {NetworkJsonResponse} from '@solar-republic/cosmos-grpc';
+import type {CosmosBaseAbciTxResponse} from '@solar-republic/cosmos-grpc/cosmos/base/abci/v1beta1/abci.js';
+import type {TendermintAbciTxResult} from '@solar-republic/cosmos-grpc/tendermint/abci/types.js';
+import type {SecretQueryPermit, SlimCoin, WeakAccountAddr, TrustedContextUrl, CwAccountAddr, CwUint32, WeakUint128Str} from '@solar-republic/types';
 
-import {__UNDEFINED, buffer_to_base64, hex_to_buffer, timeout, base64_to_buffer, buffer_to_text, oda, odv} from '@blake.regalia/belt';
+import {__UNDEFINED, buffer_to_base64, timeout, base64_to_buffer, buffer_to_text, oda, odv, safe_json} from '@blake.regalia/belt';
 
-import {decode_protobuf} from './protobuf-reader';
-import {die, safe_json} from './util';
-import {
-	type BroadcastResultOk,
-	// eslint-disable-next-line @typescript-eslint/no-unused-vars
-	type BroadcastResultErr,
-	type TxResponse,
-	type Wallet,
-	type BroadcastResult,
-	create_and_sign_tx_direct,
-	sign_amino,
-	broadcast,
-} from './wallet';
+import {die} from '@solar-republic/cosmos-grpc';
+import {SI_JSON_COSMOS_TX_BROADCAST_MODE_BLOCK, submitCosmosTxBroadcastTx} from '@solar-republic/cosmos-grpc/cosmos/tx/v1beta1/service.js';
+
+import {decodeGoogleProtobufAny} from '@solar-republic/cosmos-grpc/google/protobuf/any.js';
+
+import {create_and_sign_tx_direct, sign_amino} from './wallet.js';
 
 
 export type RetryParams = [
@@ -55,6 +52,14 @@ export const retry = async<w_out>(
 
 
 /**
+ * Evaluates the given Promise, returning whatever value is resolved or rejected
+ */
+const without_throwing = <
+	w_type extends NetworkJsonResponse,
+>(dp_req: Promise<w_type>): Promise<w_type> => new Promise(fk_resolve => dp_req.then(fk_resolve, fk_resolve));
+
+
+/**
  * Opens a new Tendermint JSONRPC WebSocket and immediately subscribes using the given query.
  * Users should close the WebSocket when no longer needed
  * @param p_rpc - RPC endpoint as an HTTPS base URL without trailing slash, e.g., "https://rpc.provider.net"
@@ -63,9 +68,9 @@ export const retry = async<w_out>(
  * @returns - the WebSocket instance
  */
 export const subscribe_tendermint_events = (
-	p_rpc: HttpsUrl,
+	p_rpc: TrustedContextUrl,
 	sx_query: string,
-	fk_message: (d_event: MessageEvent<JsonString>) => any
+	fk_message: (d_event: MessageEvent<NaiveJsonString>) => any
 ): WebSocket => oda(
 	// change protocol from http => ws and append /websocket to path
 	new WebSocket('ws'+p_rpc.slice(4)+'/websocket'), {
@@ -110,7 +115,7 @@ export const broadcast_result = async(
 ): Promise<[
 	xc_code: number,
 	sx_res: string,
-	g_tx_res?: Nilable<TxResult['TxResult']>,
+	g_tx_res?: Nilable<TxResultWrapper['TxResult']>,
 ]> => new Promise(async(fk_resolve) => {
 	// listen for tx event
 	const d_ws = subscribe_tendermint_events(gc_node.rpc, `tx.hash='${si_txn}'`, (d_event) => {
@@ -118,19 +123,16 @@ export const broadcast_result = async(
 		d_ws.close();
 
 		// parse message frame
-		const g_tx_res = safe_json<JsonRpcResponse<TendermintEvent<TxResult>>>(d_event.data as string)?.result.data.value.TxResult;
+		const g_tx_res = safe_json<JsonRpcResponse<TendermintEvent<TxResultWrapper>>>(d_event.data as string)?.result.data.value.TxResult;
 
 		// return parsed result
-		fk_resolve([g_tx_res? g_tx_res?.result.code ?? 0: -1, sx_res, g_tx_res]);
+		fk_resolve([g_tx_res? g_tx_res?.result?.code ?? 0: -1, sx_res, g_tx_res]);
 	});
 
 	// submit tx
-	const [sx_res, d_res] = await broadcast(gc_node.lcd, atu8_raw, 'SYNC');
+	const [d_res, sx_res, g_res] = await without_throwing(submitCosmosTxBroadcastTx(gc_node.lcd, atu8_raw, SI_JSON_COSMOS_TX_BROADCAST_MODE_BLOCK));
 
-	// attempt to parse response
-	const g_res = safe_json<AsJson<BroadcastResultOk>>(sx_res);
-
-	// not ok
+	// not ok HTTP code, no parsed JSON, or non-zero response code
 	if(!d_res.ok || !g_res || g_res.tx_response?.code) {
 		// close web socket
 		d_ws.close();
@@ -143,6 +145,7 @@ export const broadcast_result = async(
 	}
 });
 
+
 /**
  * Query a Secret Contract method
  * @param k_contract 
@@ -154,7 +157,7 @@ export const broadcast_result = async(
  *  - [3]: `h_answer?: JsonObject` - contract response as JSON object on success
  */
 // eslint-disable-next-line @typescript-eslint/naming-convention
-export const query_contract = async<
+export const query_secret_contract = async<
 	g_interface extends ContractInterface,
 	h_variants extends ContractInterface.MsgAndAnswer<g_interface, 'queries'>,
 	g_variant extends h_variants[keyof h_variants],
@@ -163,7 +166,7 @@ export const query_contract = async<
 	h_query: g_variant['msg']
 ): Promise<[xc_code: number, s_error: string, h_answer?: g_variant['answer']]> => {
 	// output intermediates
-	const g_out: QueryIntermediates = {};
+	const g_out: SecretContractQueryIntermediates = {};
 
 	// attempt query as usual
 	try {
@@ -172,15 +175,18 @@ export const query_contract = async<
 	// not successful
 	catch(e_query) {
 		// tuple was thrown
-		if((e_query as NetworkErrorDetails)[0]) {
+		if((e_query as NetworkJsonResponse)[0]) {
 			// destructure details
-			const [d_res, s_res, g_res] = e_query as NetworkErrorDetails;
+			const [d_res, s_res, g_res] = e_query as NetworkJsonResponse<{
+				code: CwUint32;
+				message: string;
+			}>;
 
 			// destructure chain code
-			const xc_code = g_res?.['code'] as number;
+			const xc_code = g_res?.code;
 
 			// error message
-			const m_error = /encrypted: (.+?):/.exec(g_res?.['message'] as string || '');
+			const m_error = /encrypted: (.+?):/.exec(g_res?.message || '');
 			if(m_error) {
 				// decode base64 string
 				const atu8_ciphertext = base64_to_buffer(m_error[1]);
@@ -221,7 +227,7 @@ export const query_contract = async<
  * @param z_auth 
  * @returns 
  */
-export const format_query = (
+export const format_secret_query = (
 	si_method: string,
 	h_query: object,
 	z_auth?: Nilable<AuthSecret>
@@ -296,7 +302,7 @@ interface QueryContractInfer {
  *  - [2]: `s_error: string` - error message from chain or HTTP response body
  *  - [3]: `h_answer?: JsonObject` - contract response as JSON object on success
  */
-export const query_contract_infer: QueryContractInfer = async(
+export const query_secret_contract_infer: QueryContractInfer = async(
 	k_contract: SecretContract,
 	si_method: string,
 	...[h_args, z_auth]: [h_args?: Nilable<JsonObject>, z_auth?: Nilable<AuthSecret>]
@@ -304,11 +310,11 @@ export const query_contract_infer: QueryContractInfer = async(
 	if(import.meta.env?.DEV) {
 		console.groupCollapsed(`❓ ${si_method}`);
 		console.debug(`Querying contract ${k_contract.addr} (${k_contract.info.label})`);
-		console.debug(format_query(si_method, h_args || {}, z_auth));
+		console.debug(format_secret_query(si_method, h_args || {}, z_auth));
 		console.groupEnd();
 	}
 
-	const a_response = await query_contract(k_contract, format_query(si_method, h_args || {}, z_auth));
+	const a_response = await query_secret_contract(k_contract, format_secret_query(si_method, h_args || {}, z_auth));
 
 	if(import.meta.env?.DEV) {
 		console.groupCollapsed(`🛰️ ${si_method}`);
@@ -324,110 +330,6 @@ export const query_contract_infer: QueryContractInfer = async(
 			: odv(a_response[2] as JsonObject)[0]! as JsonObject,
 		...a_response,
 	];
-};
-
-
-/**
- * Execute a Secret Contract method using BROADCAST_MODE_BLOCK; see {@link exec_contract} for more reliable method
- * @param k_contract - a {@link SecretContract} instance
- * @param k_wallet - the {@link Wallet} of the sender
- * @param h_exec - the execution message as a plain object (to be JSON-encoded)
- * @param a_fees - an Array of {@link SlimCoin SlimCoin} describing the amounts and denoms of fees
- * @param sg_limit - the u128 gas limit to set for the transaction
- * @param sa_granter - optional granter address to use to pay for gas fee
- * @returns tuple of `[number, string, TxResponse?]`
- *  - [0]: `xc_code: number` - error code from chain, or non-OK HTTP status code from the LCD server.
- * 		A value of `0` indicates success.
- *  - [1]: `s_res: string` - message text. on success, will be the contract's response as a JSON string.
- * 		on error, will be either the error string from HTTP response text, chain error message,
- * 		or contract error as a JSON string.
- *  - [2]: `tx_res?: `{@link TxResponse} - on success, the parsed transaction response JSON object
- * 
- * @throws a {@link BroadcastResultErr}
- */
-export const exec_contract_unreliable = async(
-	k_contract: SecretContract,
-	k_wallet: Wallet,
-	h_exec: JsonObject,
-	a_fees: [SlimCoin, ...SlimCoin[]],
-	sg_limit: WeakUint128,
-	s_memo?: string,
-	sa_granter?: WeakSecretAccAddr | ''
-): Promise<[
-	xc_code: number,
-	s_error: string,
-	g_tx_res?: TxResponse,
-	// s_exec_res?: string,
-]> => {
-	// prep plaintext
-	let s_plaintext;
-
-	// construct execution message and save nonce
-	let [atu8_msg, atu8_nonce] = await k_contract.exec(h_exec, k_wallet.addr);
-
-	// sign in direct mode
-	let [atu8_tx_raw] = await create_and_sign_tx_direct(k_wallet, [atu8_msg], a_fees, sg_limit, 0, s_memo, sa_granter);
-
-	// broadcast to chain
-	let [sx_res, d_res] = await broadcast(k_wallet.lcd, atu8_tx_raw);
-
-	// parse response
-	let g_res = safe_json(sx_res) as BroadcastResult;
-
-	// invalid json
-	if(!g_res) return [d_res.status, sx_res];
-
-	// destructure broadcast response
-	let g_tx_res = (g_res as BroadcastResultOk).tx_response;
-
-	// not success; restructure error
-	if(!g_tx_res) return [(g_res as BroadcastResultErr).code, (g_res as BroadcastResultErr).message];
-
-	// destructure tx response
-	let {
-		code: xc_error,
-		codespace: si_codespace,
-		raw_log: s_rawlog,
-	} = g_tx_res;
-
-	// no errors
-	if(!xc_error) {
-		// parse data
-		const [
-			[[
-				// type_url
-				[atu8_type],  // eslint-disable-line @typescript-eslint/no-unused-vars
-
-				// value
-				[
-					[[atu8_ciphertext]],
-				],
-			]],
-		] = decode_protobuf(hex_to_buffer(g_tx_res.data)) as [[[[Uint8Array], [[[Uint8Array]]]]]];
-
-		// decrypt ciphertext
-		const atu8_plaintext = await k_contract.wasm.decrypt(atu8_ciphertext, atu8_nonce);
-
-		// decode plaintext
-		s_plaintext = buffer_to_text(base64_to_buffer(buffer_to_text(atu8_plaintext)));
-
-		// return as tuple
-		return [0, s_plaintext, g_tx_res];
-	}
-	// error
-	else {
-		// encrypted error message
-		const m_response = /(\d+):(?: \w+:)*? encrypted: (.+?): (.+?) contract/.exec(s_rawlog);
-		if(m_response) {
-			const [, s_index, sb64_encrypted, si_action] = m_response;
-
-			const atu8_plaintext = await k_contract.wasm.decrypt(base64_to_buffer(sb64_encrypted), atu8_nonce);
-
-			s_plaintext = buffer_to_text(atu8_plaintext);
-		}
-
-		return [xc_error, s_plaintext ?? s_rawlog];
-	}
 };
 
 
@@ -453,7 +355,7 @@ export const exec_contract_unreliable = async(
  * 
  * @throws a {@link BroadcastResultErr}
  */
-export const exec_contract = async<
+export const exec_secret_contract = async<
 	g_interface extends ContractInterface,
 	h_group extends ContractInterface.MsgAndAnswer<g_interface, 'executions'>,
 	as_methods extends Extract<keyof h_group, string>,
@@ -464,14 +366,14 @@ export const exec_contract = async<
 		[si_method in as_methods]: h_group[si_method]['msg'];
 	},
 	a_fees: [SlimCoin, ...SlimCoin[]],
-	sg_limit: WeakUint128,
+	sg_limit: WeakUint128Str,
 	sa_granter?: WeakSecretAccAddr | '',
 	a_funds?: SlimCoin[],
 	s_memo?: string
 ): Promise<[
 	xc_code: number,
 	s_res: string,
-	g_tx_res?: TxResult['TxResult'] | undefined,
+	g_tx_res?: TendermintAbciTxResult | undefined,
 	si_txn?: string,
 ]> => {
 	// prep plaintext
@@ -483,6 +385,7 @@ export const exec_contract = async<
 	// sign in direct mode
 	let [atu8_tx_raw, , si_txn] = await create_and_sign_tx_direct(k_wallet, [atu8_msg], a_fees, sg_limit, 0, s_memo, sa_granter);
 
+	// debug info
 	if(import.meta.env?.DEV) {
 		console.groupCollapsed(`🗳️ ${Object.keys(h_exec)[0]}`);
 		console.debug([
@@ -497,35 +400,25 @@ export const exec_contract = async<
 	let [xc_error, sx_res, g_tx_res] = await broadcast_result(k_wallet, atu8_tx_raw, si_txn);
 
 	// parse broadcast result
-	let g_broadcast = safe_json<AsJson<{tx_response: TxResponse}>>(sx_res);
+	let g_broadcast = safe_json<AsJson<{tx_response: CosmosBaseAbciTxResponse}>>(sx_res);
 
 	// invalid json
 	if(xc_error < 0) return [xc_error, sx_res];
 
 	// no errors
 	if(!xc_error) {
-		// parse data
-		const [
-			[[
-				// type_url
-				[atu8_type],  // eslint-disable-line @typescript-eslint/no-unused-vars
-
-				// value
-				[
-					[[atu8_ciphertext]],
-				],
-			]],
-		] = decode_protobuf(base64_to_buffer(g_tx_res!.result.data)) as [[[[Uint8Array], [[[Uint8Array]]]]]];
+		// // parse data
+		let [s_type, atu8_ciphertext] = decodeGoogleProtobufAny(base64_to_buffer(g_tx_res!.result!.data!));
 
 		// decrypt ciphertext
-		const atu8_plaintext = await k_contract.wasm.decrypt(atu8_ciphertext, atu8_nonce);
+		const atu8_plaintext = await k_contract.wasm.decrypt(atu8_ciphertext!, atu8_nonce);
 
 		// decode plaintext
 		s_plaintext = buffer_to_text(base64_to_buffer(buffer_to_text(atu8_plaintext)));
 	}
 	// error
 	else {
-		const s_error = g_tx_res?.result.log ?? g_broadcast?.tx_response.raw_log ?? sx_res;
+		const s_error = g_tx_res?.result?.log ?? g_broadcast?.tx_response.raw_log ?? sx_res;
 
 		// encrypted error message
 		const m_response = /(\d+):(?: \w+:)*? encrypted: (.+?): (.+?) contract/.exec(s_error);
@@ -537,6 +430,7 @@ export const exec_contract = async<
 			s_plaintext = buffer_to_text(atu8_plaintext);
 		}
 
+		// debug info
 		if(import.meta.env?.DEV) {
 			console.groupCollapsed(`❌ ${Object.keys(h_exec)[0]} [code: ${xc_error}]`);
 			console.debug('tx: ', g_tx_res);
@@ -547,16 +441,17 @@ export const exec_contract = async<
 		return [xc_error, s_plaintext ?? s_error, void 0, si_txn];
 	}
 
+	// debug info
 	if(import.meta.env?.DEV) {
 		console.groupCollapsed(`✅ ${Object.keys(h_exec)[0]}`);
 
 		if(g_tx_res) {
 			const {
-				gas_used: s_used,
-				gas_wanted: s_wanted,
-			} = g_tx_res.result;
+				gas_used: sg_used,
+				gas_wanted: sg_wanted,
+			} = g_tx_res.result!;
 
-			console.log(`gas used/wanted: ${s_used}/${s_wanted}  (${+s_wanted - +s_used}) wasted)`);
+			console.log(`gas used/wanted: ${sg_used}/${sg_wanted}  (${+sg_wanted! - +sg_used!}) wasted)`);
 		}
 
 		console.debug('tx: ', g_tx_res);
@@ -577,16 +472,16 @@ export const exec_contract = async<
  * @param a_permissions 
  * @returns 
  */
-export const sign_query_permit = async(
+export const sign_secret_query_permit = async(
 	k_wallet: Wallet,
 	si_permit: string,
-	a_tokens: WeakSecretAccAddr[],
+	a_tokens: WeakAccountAddr<'secret'>[],
 	a_permissions: string[]
-): Promise<QueryPermit> => {
+): Promise<SecretQueryPermit> => {
 	// prep params
 	const g_params: PermitConfig = {
 		permit_name: si_permit,
-		allowed_tokens: a_tokens as SecretAccAddr[],
+		allowed_tokens: a_tokens as CwAccountAddr<'secret'>[],
 		permissions: a_permissions,
 	};
 
