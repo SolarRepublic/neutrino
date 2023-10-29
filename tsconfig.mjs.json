@@ -10,10 +10,6 @@
 		// "noImplicitReturns": false,
 
 		"moduleResolution": "Bundler",
-
-		"paths": {
-			"#/*": ["./src/gen/"],
-		},
 	},
 
 	"include": [

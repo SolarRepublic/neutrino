@@ -45,7 +45,7 @@ await Promise.all(A_VECTORS.map(async(g_vector, i_vector) => {
 
 		const atu8_k = random_32();
 
-		const atu8_pk_actual = sk_to_pk(atu8_sk);
+		const atu8_pk_actual: Uint8Array = sk_to_pk(atu8_sk);
 
 		const [atu8_sig_actual] = await sign(atu8_sk, atu8_msg, atu8_k);
 
@@ -71,9 +71,9 @@ await Promise.all(A_VECTORS.map(async(g_vector, i_vector) => {
 
 		await it('ecdh w/ 1', async() => {
 			const atu8_sk_1 = hex_to_buffer('0'.repeat(63)+'1');
-			const atu8_pk_1 = sk_to_pk(atu8_sk_1);
+			const atu8_pk_1: Uint8Array = sk_to_pk(atu8_sk_1);
 
-			const atu8_ecdh_actual = ecdh(atu8_sk, atu8_pk_1);
+			const atu8_ecdh_actual: Uint8Array = ecdh(atu8_sk, atu8_pk_1);
 			const atu8_ecdh_expect = noble_ecdh(atu8_sk, atu8_pk_1, true);
 
 			const sb16_ecdh_actual = buffer_to_hex(atu8_ecdh_actual);

@@ -1,32 +1,37 @@
-import type {HttpsUrl} from '../src/types';
+
 
 import type {Dict} from '@blake.regalia/belt';
 
 import type {SecretAccAddr, Snip24} from '@solar-republic/contractor';
 
+import type {TrustedContextUrl} from '@solar-republic/types';
+
 import {text_to_buffer} from '@blake.regalia/belt';
 
 import './helper';
 
-import {exec_contract, retry, sign_query_permit} from '../src/app-layer';
-import {queryBankSpendableBalances} from '../src/main';
-import {queryFeegrantAllowances} from '../src/query/feegrant';
+import {queryCosmosBankSpendableBalances} from '@solar-republic/cosmos-grpc/cosmos/bank/v1beta1/query.js';
+import {queryCosmosFeegrantAllowances} from '@solar-republic/cosmos-grpc/cosmos/feegrant/v1beta1/query.js';
+
+import {exec_secret_contract, retry, sign_secret_query_permit} from '../src/app-layer';
 import {ent_to_sk} from '../src/secp256k1';
 import {SecretContract} from '../src/secret-contract';
 import {random_32} from '../src/util';
 import {Wallet} from '../src/wallet';
 
+
 const h_env = process.env;
 
 const SI_CHAIN = h_env['NFP_CHAIN']!;
 
-const P_LCD_ENDPOINT = h_env['NFP_LCD'] as HttpsUrl;
+const P_LCD_ENDPOINT = h_env['NFP_LCD'] as TrustedContextUrl;
 
-const P_RPC_ENDPOINT = h_env['NFP_RPC'] as HttpsUrl;
+const P_RPC_ENDPOINT = h_env['NFP_RPC'] as TrustedContextUrl;
 
 const SA_CONTRACT = h_env['NFP_CONTRACT'] as SecretAccAddr;
 
 const SA_GRANTER = h_env['NFP_GRANTER'] as SecretAccAddr | undefined;
+
 
 
 export async function connect() {
@@ -44,7 +49,7 @@ export async function connect() {
 
 	// account balance
 	{
-		console.log('Spendable balance: ', ...await queryBankSpendableBalances(P_LCD_ENDPOINT, k_wallet.addr));
+		console.log('Spendable balance: ', ...await queryCosmosBankSpendableBalances(P_LCD_ENDPOINT, k_wallet.addr));
 	}
 
 
@@ -52,7 +57,7 @@ export async function connect() {
 	const k_contract = await SecretContract<Snip24>(P_LCD_ENDPOINT, SA_CONTRACT, atu8_seed);
 
 	// find feegrants
-	const a_allowances = await queryFeegrantAllowances(P_LCD_ENDPOINT, k_wallet.addr);
+	const a_allowances = await queryCosmosFeegrantAllowances(P_LCD_ENDPOINT, k_wallet.addr);
 
 	let sa_granter: SecretAccAddr | '' = '';
 	for(const g_allowance of a_allowances) {
@@ -62,14 +67,14 @@ export async function connect() {
 	}
 
 	// sign a query permit
-	const g_permit = await sign_query_permit(k_wallet, 'test', [k_contract.addr], ['balance', 'owner']);
+	const g_permit = await sign_secret_query_permit(k_wallet, 'test', [k_contract.addr], ['balance', 'owner']);
 
 
 	// define executables
 	const g_executables = {
 		// set a viewing key
 		async viewing_key() {
-			const a_response = await retry(() => exec_contract(k_contract, k_wallet, {
+			const a_response = await retry(() => exec_secret_contract(k_contract, k_wallet, {
 				set_viewing_key: {
 					key: 'password123',
 				},

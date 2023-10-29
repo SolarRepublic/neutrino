@@ -1,10 +1,6 @@
+import {connect} from './live';
+import {query_secret_contract, query_secret_contract_infer} from '../src/app-layer';
 import './helper';
-
-import {
-	connect,
-} from './live';
-
-import {query_contract, query_contract_infer} from '../src/app-layer';
 
 
 (async function() {
@@ -18,7 +14,7 @@ import {query_contract, query_contract_infer} from '../src/app-layer';
 
 		// query for token info
 	{
-		const a_response = await query_contract(k_contract, {
+		const a_response = await query_secret_contract(k_contract, {
 			token_info: {},
 		});
 
@@ -27,7 +23,7 @@ import {query_contract, query_contract_infer} from '../src/app-layer';
 
 		// check that query permit works
 	{
-		const a_response = await query_contract_infer(k_contract, 'balance', {}, g_permit);
+		const a_response = await query_secret_contract_infer(k_contract, 'balance', {}, g_permit);
 
 		console.log(`Authenticated token balance query response with permit: `, ...a_response);
 	}
