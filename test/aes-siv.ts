@@ -1,5 +1,5 @@
 
-import {hex_to_buffer} from '@blake.regalia/belt';
+import {hex_to_bytes} from '@blake.regalia/belt';
 import chai, {expect} from 'chai';
 import chai_bites from 'chai-bites';
 
@@ -49,10 +49,10 @@ const A_VECTORS = [
 
 for(const [i_vector, g_vector] of A_VECTORS.entries()) {
 	await describe(`Vector #${i_vector+1}`, async({it}) => {
-		const atu8_key = hex_to_buffer(g_vector.key);
-		const atu8_plaintext_expect = hex_to_buffer(g_vector.plaintext);
-		const atu8_ciphertext_expect = hex_to_buffer(g_vector.ciphertext);
-		const a_ad = g_vector.ad.map(hex_to_buffer);
+		const atu8_key = hex_to_bytes(g_vector.key);
+		const atu8_plaintext_expect = hex_to_bytes(g_vector.plaintext);
+		const atu8_ciphertext_expect = hex_to_bytes(g_vector.ciphertext);
+		const a_ad = g_vector.ad.map(hex_to_bytes);
 
 		await it('decryption', async() => {
 			const atu8_plaintext_actual = await aes_128_siv_decrypt(atu8_key, atu8_ciphertext_expect, a_ad);

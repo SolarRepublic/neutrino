@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/require-await */
 /* eslint-disable @typescript-eslint/no-unused-expressions */
-import {buffer_to_hex, hex_to_buffer, sha256, text_to_buffer} from '@blake.regalia/belt';
+import {bytes_to_hex, hex_to_bytes, sha256, text_to_bytes} from '@blake.regalia/belt';
 
 import {
 	signAsync as noble_sign,
@@ -28,12 +28,12 @@ import {random_32} from '../src/util';
 
 const A_VECTORS = [
 	{
-		sk: hex_to_buffer('ebb2c082fd7727890a28ac82f6bdf97bad8de9f5d7c9028692de1a255cad3e0f'),
-		msg: await sha256(text_to_buffer('Test message')),
+		sk: hex_to_bytes('ebb2c082fd7727890a28ac82f6bdf97bad8de9f5d7c9028692de1a255cad3e0f'),
+		msg: await sha256(text_to_bytes('Test message')),
 	},
 	{
-		sk: hex_to_buffer('0000000000000000000000000000000000000000000000000000000000000002'),
-		msg: await sha256(text_to_buffer('Test message')),
+		sk: hex_to_bytes('0000000000000000000000000000000000000000000000000000000000000002'),
+		msg: await sha256(text_to_bytes('Test message')),
 	},
 ];
 
@@ -70,14 +70,14 @@ await Promise.all(A_VECTORS.map(async(g_vector, i_vector) => {
 		});
 
 		await it('ecdh w/ 1', async() => {
-			const atu8_sk_1 = hex_to_buffer('0'.repeat(63)+'1');
+			const atu8_sk_1 = hex_to_bytes('0'.repeat(63)+'1');
 			const atu8_pk_1: Uint8Array = sk_to_pk(atu8_sk_1);
 
 			const atu8_ecdh_actual: Uint8Array = ecdh(atu8_sk, atu8_pk_1);
 			const atu8_ecdh_expect = noble_ecdh(atu8_sk, atu8_pk_1, true);
 
-			const sb16_ecdh_actual = buffer_to_hex(atu8_ecdh_actual);
-			const sb16_ecdh_expect = buffer_to_hex(atu8_ecdh_expect);
+			const sb16_ecdh_actual = bytes_to_hex(atu8_ecdh_actual);
+			const sb16_ecdh_expect = bytes_to_hex(atu8_ecdh_expect);
 
 			expect(sb16_ecdh_actual).to.eq(sb16_ecdh_expect);
 		});

@@ -1,23 +1,23 @@
-import {ATU8_NIL, buffer} from '@blake.regalia/belt';
+import {ATU8_NIL, bytes} from '@blake.regalia/belt';
 
 import {XN_16} from './constants.js';
 
 export const NB_AES_BLOCK = XN_16;
 
 // zero block
-const ATU8_ZERO_BLOCK = /*#__PURE__*/buffer(XN_16);
+const ATU8_ZERO_BLOCK = /*#__PURE__*/bytes(XN_16);
 
 // import aes key
 export const aes_key = (atu8_key: Uint8Array, si_algo: string): Promise<CryptoKey> => crypto.subtle.importKey('raw', atu8_key, si_algo, false, ['encrypt']);
 
 // perform AES-CBC
-export const aes_cbc = async(d_key_cbc: CryptoKey, atu8_data: Uint8Array): Promise<Uint8Array> => buffer(await crypto.subtle.encrypt({
+export const aes_cbc = async(d_key_cbc: CryptoKey, atu8_data: Uint8Array): Promise<Uint8Array> => bytes(await crypto.subtle.encrypt({
 	name: 'AES-CBC',
 	iv: ATU8_ZERO_BLOCK.slice(),
 }, d_key_cbc, atu8_data), 0, NB_AES_BLOCK);
 
 // perform AES-CTR
-export const aes_ctr = async(d_key_ctr: CryptoKey, atu8_iv: Uint8Array, atu8_data: Uint8Array): Promise<Uint8Array> => buffer(await crypto.subtle.encrypt({
+export const aes_ctr = async(d_key_ctr: CryptoKey, atu8_iv: Uint8Array, atu8_data: Uint8Array): Promise<Uint8Array> => bytes(await crypto.subtle.encrypt({
 	name: 'AES-CTR',
 	counter: atu8_iv,
 	length: NB_AES_BLOCK,
@@ -66,7 +66,7 @@ export const aes_cmac_init = async(d_key_mac: CryptoKey): Promise<(atu8_data: Ui
 		const nl_blocks = Math.ceil(nb_data / NB_AES_BLOCK);
 
 		// last block
-		const atu8_last = buffer(NB_AES_BLOCK);
+		const atu8_last = bytes(NB_AES_BLOCK);
 		atu8_last.set(atu8_data.subarray(((nl_blocks || 1) - 1) * NB_AES_BLOCK));
 
 		// cache size of last block
@@ -126,7 +126,7 @@ export const s2v = async(d_key_rkd: CryptoKey, atu8_plaintext: Uint8Array, a_ad=
 	const nb_plaintext = atu8_plaintext.byteLength;
 
 	// last block of plaintext
-	const atu8_sn = buffer(NB_AES_BLOCK);
+	const atu8_sn = bytes(NB_AES_BLOCK);
 
 	// if len(Sn) >= 128
 	if(nb_plaintext >= NB_AES_BLOCK) {

@@ -1,4 +1,4 @@
-import {buffer, dataview} from '@blake.regalia/belt';
+import {bytes, dataview} from '@blake.regalia/belt';
 
 import {rotl} from './bitwise.js';
 import {XN_16} from './constants.js';
@@ -24,10 +24,10 @@ export const chacha20 = (atu8_key: Uint8Array, atu8_nonce: Uint8Array, atu8_data
 	let i_each;
 
 	// prepare output
-	const atu8_out = buffer(atu8_data.length);
+	const atu8_out = bytes(atu8_data.length);
 
 	// prepare keystream
-	const atu8_keystream = buffer(64);
+	const atu8_keystream = bytes(64);
 	const dv_keystream = dataview(atu8_keystream.buffer);
 
 	// read key and nonce as sequences of uint32 words in little-endian

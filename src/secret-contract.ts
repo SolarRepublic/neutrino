@@ -8,16 +8,16 @@ import type {ContractInfo, WeakSecretAccAddr} from './types.js';
 import type {JsonObject, Nilable} from '@blake.regalia/belt';
 
 import type {SecretAccAddr, ContractInterface} from '@solar-republic/contractor';
-import type {SecretComputeContractInfo} from '@solar-republic/cosmos-grpc/secret/compute/v1beta1/types.js';
+import type {SecretComputeContractInfo} from '@solar-republic/cosmos-grpc/secret/compute/v1beta1/types';
 import type {CwHexLower, SlimCoin, TrustedContextUrl} from '@solar-republic/types';
 
-import {__UNDEFINED, base64_to_text, buffer_to_text} from '@blake.regalia/belt';
+import {__UNDEFINED, base64_to_text, bytes_to_text} from '@blake.regalia/belt';
 
-import {encodeGoogleProtobufAny} from '@solar-republic/cosmos-grpc/google/protobuf/any.js';
-import {encodeSecretComputeMsgExecuteContract} from '@solar-republic/cosmos-grpc/secret/compute/v1beta1/msg.js';
-import {destructSecretComputeQueryCodeHashResponse, destructSecretComputeQueryContractInfoResponse, destructSecretComputeQuerySecretContractResponse, querySecretComputeCodeHashByCodeId, querySecretComputeContractInfo, querySecretComputeQuerySecretContract} from '@solar-republic/cosmos-grpc/secret/compute/v1beta1/query.js';
-import {destructSecretRegistrationKey} from '@solar-republic/cosmos-grpc/secret/registration/v1beta1/msg.js';
-import {querySecretRegistrationTxKey} from '@solar-republic/cosmos-grpc/secret/registration/v1beta1/query.js';
+import {any} from '@solar-republic/cosmos-grpc';
+import {encodeSecretComputeMsgExecuteContract} from '@solar-republic/cosmos-grpc/secret/compute/v1beta1/msg';
+import {destructSecretComputeQueryCodeHashResponse, destructSecretComputeQueryContractInfoResponse, destructSecretComputeQuerySecretContractResponse, querySecretComputeCodeHashByCodeId, querySecretComputeContractInfo, querySecretComputeQuerySecretContract} from '@solar-republic/cosmos-grpc/secret/compute/v1beta1/query';
+import {destructSecretRegistrationKey} from '@solar-republic/cosmos-grpc/secret/registration/v1beta1/msg';
+import {querySecretRegistrationTxKey} from '@solar-republic/cosmos-grpc/secret/registration/v1beta1/query';
 
 import {SecretWasm} from './secret-wasm.js';
 
@@ -149,7 +149,7 @@ export const SecretContract = async<
 		let [, g_info1] = destructSecretComputeQueryContractInfoResponse(g_res_info);
 
 		// update
-		g_info = h_contract_cache[sa_contract] = g_info1! as KnownContractInfo;
+		g_info = h_contract_cache[sa_contract] = g_info1 as KnownContractInfo;
 	}
 
 	// ref code id
@@ -202,7 +202,7 @@ export const SecretContract = async<
 			const atu8_plaintext = await k_wasm.decrypt(atu8_ciphertext!, atu8_nonce);
 
 			// decode result
-			const sb64_response = buffer_to_text(atu8_plaintext);
+			const sb64_response = bytes_to_text(atu8_plaintext);
 			const sx_result = base64_to_text(sb64_response);
 
 			// return response and json
@@ -221,7 +221,7 @@ export const SecretContract = async<
 			const atu8_exec = encodeSecretComputeMsgExecuteContract(sa_sender, sa_contract, atu8_body, __UNDEFINED, a_funds);
 
 			// construct as direct message
-			const atu8_msg = encodeGoogleProtobufAny('/secret.compute.v1beta1.MsgExecuteContract', atu8_exec);
+			const atu8_msg = any('/secret.compute.v1beta1.MsgExecuteContract', atu8_exec);
 
 			// return tuple
 			return [atu8_msg, atu8_nonce];

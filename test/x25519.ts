@@ -1,6 +1,6 @@
 import {
-	hex_to_buffer,
-	base64_to_buffer,
+	hex_to_bytes,
+	base64_to_bytes,
 } from '@blake.regalia/belt';
 
 import chai, {expect} from 'chai';
@@ -21,8 +21,8 @@ chai.use(chai_bites);
 
 const A_VECTORS = [
 	{
-		sk: hex_to_buffer('a665a45920422f9d417e4867ef'.padStart(64, '0')),
-		iopk: base64_to_buffer('79++5YOHfm0SwhlpUDClv7cuCjq9xBZlWqSjDJWkRG8='),
+		sk: hex_to_bytes('a665a45920422f9d417e4867ef'.padStart(64, '0')),
+		iopk: base64_to_bytes('79++5YOHfm0SwhlpUDClv7cuCjq9xBZlWqSjDJWkRG8='),
 	},
 ];
 

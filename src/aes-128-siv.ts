@@ -1,4 +1,4 @@
-import {ATU8_NIL, buffer, buffer_to_text} from '@blake.regalia/belt';
+import {ATU8_NIL, bytes, bytes_to_text} from '@blake.regalia/belt';
 
 import {die} from '@solar-republic/cosmos-grpc';
 
@@ -40,7 +40,7 @@ export const aes_128_siv_encrypt = async(atu8_key: Uint8Array, atu8_plaintext: U
 	const [d_key_cbc, d_key_ctr] = await split_siv_key(atu8_key);
 
 	// prep payload
-	const atu8_payload = buffer(NB_AES_BLOCK + atu8_plaintext.byteLength);
+	const atu8_payload = bytes(NB_AES_BLOCK + atu8_plaintext.byteLength);
 
 	// V = S2V(K1, AD1, ..., ADn, P))
 	const atu8_iv = await s2v(d_key_cbc, atu8_plaintext, a_ad);
@@ -97,7 +97,7 @@ export const aes_128_siv_decrypt = async(atu8_key: Uint8Array, atu8_payload: Uin
 	}
 
 	// not equal
-	if(xb_cmp) die(`SIV tag/CMAC mismatch; plaintext:\n${buffer_to_text(atu8_plaintext)}`);
+	if(xb_cmp) die(`SIV tag/CMAC mismatch; plaintext:\n${bytes_to_text(atu8_plaintext)}`);
 
 	// plaintext
 	return atu8_plaintext;

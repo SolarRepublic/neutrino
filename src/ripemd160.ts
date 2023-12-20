@@ -1,4 +1,4 @@
-import {buffer, dataview} from '@blake.regalia/belt';
+import {bytes, dataview} from '@blake.regalia/belt';
 
 import {rotl} from './bitwise.js';
 import {XN_16} from './constants.js';
@@ -8,7 +8,7 @@ let c_inits = 0;
 /* eslint-disable @typescript-eslint/naming-convention */
 const NB_BLOCK = 64;
 
-const ATU8_0_16 = /*#__PURE__*/buffer(XN_16).map((xb, i) => i);
+const ATU8_0_16 = /*#__PURE__*/bytes(XN_16).map((xb, i) => i);
 const ATU8_PI = /*#__PURE__*/ATU8_0_16.map(i => ((9 * i) + 5) % XN_16);
 
 const ATU8_RHO = /*#__PURE__*/Uint8Array.from([7, 4, 13, 1, 10, 6, 15, 3, 12, 0, 9, 5, 2, 14, 11, 8]);
@@ -22,7 +22,7 @@ const A_SHIFTS = /*#__PURE__*/[
 	[13, 15, 14, 11, 7, 7, 6, 8, 13, 14, 13, 12, 5, 5, 6, 9],
 	[14, 11, 12, 14, 8, 6, 5, 5, 15, 12, 15, 14, 9, 9, 8, 6],
 	[15, 12, 13, 13, 9, 5, 8, 6, 14, 11, 12, 11, 8, 6, 5, 5],
-].map(a_words => buffer(a_words));
+].map(a_words => bytes(a_words));
 
 let A_SHIFTS_L: Uint8Array[];
 let A_SHIFTS_R: Uint8Array[];
@@ -72,7 +72,7 @@ export const ripemd160 = (atu8_data: Uint8Array): Uint8Array => {
 	let _a_words: number[] = [];
 	/* eslint-enable @typescript-eslint/naming-convention */
 
-	let atu8_block = buffer(NB_BLOCK);
+	let atu8_block = bytes(NB_BLOCK);
 	let dv_block = dataview(atu8_block.buffer);
 
 	let ib_write = 0;
@@ -166,7 +166,7 @@ export const ripemd160 = (atu8_data: Uint8Array): Uint8Array => {
 
 
 	// produce result
-	let atu8_digest = buffer(20);
+	let atu8_digest = bytes(20);
 	let dv_digest = dataview(atu8_digest.buffer);
 	_a_state.map((xn, i) => dv_digest.setUint32(i * 4, xn, true));
 

@@ -1,6 +1,6 @@
 import type {Nilable} from '@blake.regalia/belt';
 
-import {bigint_to_buffer_be, buffer, buffer_to_bigint_be, concat2} from '@blake.regalia/belt';
+import {bigint_to_bytes_be, bytes, bytes_to_bigint_be, concat2} from '@blake.regalia/belt';
 import {die} from '@solar-republic/cosmos-grpc';
 
 import {random_32} from './util.js';
@@ -22,7 +22,7 @@ const is_group_element = (xg_value: bigint) => xg_value > 0n && xg_value < XG_CU
 
 const exceeds_half_order = (xg_n: bigint): boolean => xg_n > (XG_CURVE_ORDER >> 1n);
 
-const extract_bigint_from_buffer = (atu8: Uint8Array, ib_lo: number, ib_hi: number): bigint => buffer_to_bigint_be(atu8.subarray(ib_lo, ib_hi));
+const extract_bigint_from_buffer = (atu8: Uint8Array, ib_lo: number, ib_hi: number): bigint => bytes_to_bigint_be(atu8.subarray(ib_lo, ib_hi));
 
 const mod = (xg_value: bigint, xg_mod=XG_FIELD_PRIME): bigint => {
 	const xg_result = xg_value % xg_mod;
@@ -172,12 +172,12 @@ const ec_point = ([xg_x, xg_y, xg_z]: [xg_x: bigint, xg_y: bigint, xg_z: bigint]
 	out(xc_uncompressed: boolean | 0 | 1): Uint8Array {
 		const [xg_ax, xg_ay] = this.aff();
 
-		const atu8_out = buffer(1 + (((xc_uncompressed as number) + 1) * NB_FIELD));
+		const atu8_out = bytes(1 + (((xc_uncompressed as number) + 1) * NB_FIELD));
 
 		atu8_out[0] = xc_uncompressed? 0x04: 0n === (xg_ay & 1n) ? 0x02: 0x03;
 
-		atu8_out.set(bigint_to_buffer_be(xg_ax), 1);
-		if(xc_uncompressed) atu8_out.set(bigint_to_buffer_be(xg_ay), 1 + NB_FIELD);
+		atu8_out.set(bigint_to_bytes_be(xg_ax), 1);
+		if(xc_uncompressed) atu8_out.set(bigint_to_bytes_be(xg_ay), 1 + NB_FIELD);
 
 		return atu8_out;
 	},
@@ -250,7 +250,7 @@ const invert = (xg_value: bigint, xg_md=XG_FIELD_PRIME): bigint => {
 };
 
 const normalize_sk = (z_sk: Uint8Array | bigint): bigint => {
-	if('bigint' !== typeof z_sk) z_sk = buffer_to_bigint_be(z_sk);
+	if('bigint' !== typeof z_sk) z_sk = bytes_to_bigint_be(z_sk);
 
 	return is_group_element(z_sk)? z_sk: die('Invalid private key');
 };
@@ -265,19 +265,17 @@ export type SignatureAndRecovery = [
 const bitsequence_to_uint = (atu8_data: Uint8Array): bigint => {
 	const n_delta = (atu8_data.length * 8) - 256;
 
-	const xg_value = buffer_to_bigint_be(atu8_data);
+	const xg_value = bytes_to_bigint_be(atu8_data);
 
 	return n_delta > 0? xg_value >> BigInt(n_delta): xg_value;
 };
 
-const i2o = (xg_n: bigint): Uint8Array => bigint_to_buffer_be(xg_n);
-
 type Predicate<T> = (v: Uint8Array) => T | undefined;
 
 const hmac_drbg = async<T>(atu8_seed_root: Uint8Array, f_predicate: Predicate<T>): Promise<T> => {
-	let atu8_b = buffer(NB_FIELD);
+	let atu8_b = bytes(NB_FIELD);
 
-	let atu8_k = buffer(NB_FIELD);
+	let atu8_k = bytes(NB_FIELD);
 
 	let i_attempts = 0;
 	const f_reset = () => {
@@ -288,14 +286,14 @@ const hmac_drbg = async<T>(atu8_seed_root: Uint8Array, f_predicate: Predicate<T>
 
 
 	const f_reseed = async(atu8_seed: Uint8Array) => {
-		const atu8_expand_0 = buffer(1 + atu8_seed.length);
+		const atu8_expand_0 = bytes(1 + atu8_seed.length);
 		atu8_expand_0.set(atu8_seed, 1);
 		atu8_k = await hmac_sha256(atu8_k, concat2(atu8_b, atu8_expand_0));
 
 		atu8_b = await hmac_sha256(atu8_k, atu8_b);
 		if(0 === atu8_seed.length) return;
 
-		const atu8_expand_1 = buffer(1 + atu8_seed.length);
+		const atu8_expand_1 = bytes(1 + atu8_seed.length);
 		atu8_expand_1.set(atu8_seed, 1);
 		atu8_expand_1[0] = 0x01;
 		atu8_expand_1.set(atu8_seed, 1);
@@ -317,7 +315,7 @@ const hmac_drbg = async<T>(atu8_seed_root: Uint8Array, f_predicate: Predicate<T>
 
 	let res: T | undefined;
 	while(!(res = f_predicate(await f_gen()))) {
-		await f_reseed(buffer(0));
+		await f_reseed(bytes(0));
 	}
 
 	f_reset();
@@ -326,11 +324,11 @@ const hmac_drbg = async<T>(atu8_seed_root: Uint8Array, f_predicate: Predicate<T>
 };
 
 
-export const gen_sk = (): Uint8Array => ent_to_sk(crypto.getRandomValues(buffer(NB_FIELD + 8)));
+export const gen_sk = (): Uint8Array => ent_to_sk(crypto.getRandomValues(bytes(NB_FIELD + 8)));
 
 export const ent_to_sk = (atu8_entropy: Uint8Array): Uint8Array => atu8_entropy.length < NB_FIELD + 8 || atu8_entropy.length > 1024
 	? die('Invalid entropy')
-	: bigint_to_buffer_be(mod(buffer_to_bigint_be(atu8_entropy), XG_CURVE_ORDER - 1n) + 1n);
+	: bigint_to_bytes_be(mod(bytes_to_bigint_be(atu8_entropy), XG_CURVE_ORDER - 1n) + 1n);
 
 export const sk_to_pk = (z_sk: Uint8Array | bigint, xc_uncompressed: boolean | 0 | 1=0 as const): Uint8Array => KP_BASE.mul(normalize_sk(z_sk)).out(xc_uncompressed);
 
@@ -342,11 +340,11 @@ export type Signature = [xg_r: bigint, xg_s: bigint];
 export const sign = async(atu8_sk: Uint8Array, atu8_hash: Uint8Array, atu8_ent?: Nilable<Uint8Array>): Promise<SignatureAndRecovery> => {
 	const xg_h1i = mod(bitsequence_to_uint(atu8_hash), XG_CURVE_ORDER);
 
-	const atu8_h1o = i2o(xg_h1i);
+	const atu8_h1o = bigint_to_bytes_be(xg_h1i);
 
 	const xg_d = normalize_sk(atu8_sk);
 
-	const atu8_seed = concat2(i2o(xg_d), concat2(atu8_h1o, atu8_ent || random_32()));
+	const atu8_seed = concat2(bigint_to_bytes_be(xg_d), concat2(atu8_h1o, atu8_ent || random_32()));
 
 	return hmac_drbg<SignatureAndRecovery>(atu8_seed, (atu8_k: Uint8Array): SignatureAndRecovery | undefined => {
 		const xg_k = bitsequence_to_uint(atu8_k);
@@ -374,16 +372,16 @@ export const sign = async(atu8_sk: Uint8Array, atu8_hash: Uint8Array, atu8_ent?:
 			xc_recovery ^= 1;
 		}
 
-		const atu8_out = buffer(2 * NB_FIELD);
-		atu8_out.set(bigint_to_buffer_be(xg_r));
-		atu8_out.set(bigint_to_buffer_be(xg_s_normalized), NB_FIELD);
+		const atu8_out = bytes(2 * NB_FIELD);
+		atu8_out.set(bigint_to_bytes_be(xg_r));
+		atu8_out.set(bigint_to_bytes_be(xg_s_normalized), NB_FIELD);
 
 		return [atu8_out, xc_recovery as RecoveryValue];
 	});
 };
 
 
-export const verify = (atu8_signature: Uint8Array, atu8_msg: Uint8Array, atu8_pk: Uint8Array, b_low_s=true): boolean => {
+export const verify = (atu8_signature: Uint8Array, atu8_hash: Uint8Array, atu8_pk: Uint8Array, b_low_s=true): boolean => {
 	if(2 * NB_FIELD !== atu8_signature.length) die('Invalid signature');
 
 	let xg_r: bigint;
@@ -397,7 +395,7 @@ export const verify = (atu8_signature: Uint8Array, atu8_msg: Uint8Array, atu8_pk
 
 		if(!is_group_element(xg_r) || !is_group_element(xg_s)) return false;
 
-		xg_h = mod(bitsequence_to_uint(atu8_msg), XG_CURVE_ORDER);
+		xg_h = mod(bitsequence_to_uint(atu8_hash), XG_CURVE_ORDER);
 
 		kp_p = import_ec_point(atu8_pk);
 	}
@@ -433,7 +431,7 @@ const hmac_sha256 = async(atu8_key: Uint8Array, atu8_data: Uint8Array) => {
 		hash: 'SHA-256',
 	}, false, ['sign']);
 
-	return buffer(await crypto.subtle.sign('HMAC', d_key, atu8_data));
+	return bytes(await crypto.subtle.sign('HMAC', d_key, atu8_data));
 };
 
 

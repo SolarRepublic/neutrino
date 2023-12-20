@@ -4,19 +4,18 @@
 import type {CwSecretAccAddr, LcdRpcStruct, SlimAuthInfo, TypedAminoMsg, TypedStdSignDoc, WeakSecretAccAddr} from './types.js';
 
 import type {Nilable} from '@blake.regalia/belt';
-import type {ProtoEnumCosmosTxSigningSignMode} from '@solar-republic/cosmos-grpc/cosmos/tx/signing/v1beta1/signing.js';
+import type {ProtoEnumCosmosTxSigningSignMode} from '@solar-republic/cosmos-grpc/cosmos/tx/signing/v1beta1/signing';
 import type {CwUint128, CwHexUpper, CwAccountAddr, TrustedContextUrl, SlimCoin, WeakUint128Str, CwUint64} from '@solar-republic/types';
 
-import {text_to_buffer, buffer_to_hex, sha256, canonicalize_json, __UNDEFINED} from '@blake.regalia/belt';
+import {text_to_bytes, bytes_to_hex, sha256, canonicalize_json, __UNDEFINED} from '@blake.regalia/belt';
 
-import {bech32_encode, restruct_coin} from '@solar-republic/cosmos-grpc';
-import {destructCosmosAuthBaseAccount} from '@solar-republic/cosmos-grpc/cosmos/auth/v1beta1/auth.js';
-import {destructCosmosAuthQueryAccountResponse, queryCosmosAuthAccount} from '@solar-republic/cosmos-grpc/cosmos/auth/v1beta1/query.js';
-import {encodeCosmosCryptoSecp256k1PubKey} from '@solar-republic/cosmos-grpc/cosmos/crypto/secp256k1/keys.js';
-import {XC_PROTO_COSMOS_TX_SIGNING_SIGN_MODE_DIRECT} from '@solar-republic/cosmos-grpc/cosmos/tx/signing/v1beta1/signing.js';
+import {any, bech32_encode, restruct_coin} from '@solar-republic/cosmos-grpc';
+import {destructCosmosAuthBaseAccount} from '@solar-republic/cosmos-grpc/cosmos/auth/v1beta1/auth';
+import {destructCosmosAuthQueryAccountResponse, queryCosmosAuthAccount} from '@solar-republic/cosmos-grpc/cosmos/auth/v1beta1/query';
+import {encodeCosmosCryptoSecp256k1PubKey} from '@solar-republic/cosmos-grpc/cosmos/crypto/secp256k1/keys';
+import {XC_PROTO_COSMOS_TX_SIGNING_SIGN_MODE_DIRECT} from '@solar-republic/cosmos-grpc/cosmos/tx/signing/v1beta1/signing';
 
-import {encodeCosmosTxAuthInfo, encodeCosmosTxFee, encodeCosmosTxModeInfo, encodeCosmosTxModeInfoSingle, encodeCosmosTxSignDoc, encodeCosmosTxSignerInfo, encodeCosmosTxTxBody, encodeCosmosTxTxRaw} from '@solar-republic/cosmos-grpc/cosmos/tx/v1beta1/tx.js';
-import {encodeGoogleProtobufAny} from '@solar-republic/cosmos-grpc/google/protobuf/any.js';
+import {encodeCosmosTxAuthInfo, encodeCosmosTxFee, encodeCosmosTxModeInfo, encodeCosmosTxModeInfoSingle, encodeCosmosTxSignDoc, encodeCosmosTxSignerInfo, encodeCosmosTxTxBody, encodeCosmosTxTxRaw} from '@solar-republic/cosmos-grpc/cosmos/tx/v1beta1/tx';
 
 import {ripemd160} from './ripemd160.js';
 import {sign, sk_to_pk, type SignatureAndRecovery} from './secp256k1.js';
@@ -189,7 +188,7 @@ export const sign_amino = async<
 	}) as g_signed;
 
 	// prepare message
-	const atu8_signdoc = text_to_buffer(
+	const atu8_signdoc = text_to_bytes(
 		JSON.stringify(g_signdoc)
 			.replace(/&/g, '\\u0026')
 			.replace(/</g, '\\u003c')
@@ -254,15 +253,16 @@ export const sign_direct = async(
 
 /**
  * Encodes a transaction
+ * 
+ * @param xc_sign_mode 
  * @param k_wallet 
  * @param a_msgs 
- * @param xc_sign_mode 
  * @param a_fees 
  * @param sg_limit 
+ * @param a_auth 
+ * @param s_memo 
  * @param sa_granter 
  * @param sa_payer 
- * @param s_memo 
- * @param a_auth 
  * @returns 
  */
 export const create_tx_body = async(
@@ -284,7 +284,7 @@ export const create_tx_body = async(
 	const [sg_account, sg_sequence] = await auth(k_wallet, a_auth);
 
 	// encode pubkey
-	const atu8_pubkey = encodeGoogleProtobufAny(
+	const atu8_pubkey = any(
 		'/cosmos.crypto.secp256k1.PubKey',
 		encodeCosmosCryptoSecp256k1PubKey(k_wallet.pk33)
 	);
@@ -356,7 +356,7 @@ export const create_and_sign_tx_direct = async(
 	const atu8_raw = encodeCosmosTxTxRaw(atu8_body, atu8_auth, [atu8_signature]);
 
 	// compute transaction hash id
-	const si_txn = buffer_to_hex(await sha256(atu8_raw)).toUpperCase();
+	const si_txn = bytes_to_hex(await sha256(atu8_raw)).toUpperCase();
 
 	// return tuple of raw tx bytes, sign doc, and tx hash id
 	return [atu8_raw, atu8_signdoc, si_txn];

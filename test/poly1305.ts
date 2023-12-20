@@ -1,4 +1,4 @@
-import {hex_to_buffer, text_to_buffer} from '@blake.regalia/belt';
+import {hex_to_bytes, text_to_bytes} from '@blake.regalia/belt';
 import chai, {expect} from 'chai';
 import chai_bites from 'chai-bites';
 
@@ -18,10 +18,10 @@ const A_TEST_VECTORS = [
 for(const [i_vector, g_vector] of A_TEST_VECTORS.entries()) {
 	void describe(`Vector #${i_vector+1}`, ({it}) => {
 		void it('tag', () => {
-			const atu8_key = hex_to_buffer(g_vector.key);
-			const atu8_msg = text_to_buffer(g_vector.message);
+			const atu8_key = hex_to_bytes(g_vector.key);
+			const atu8_msg = text_to_bytes(g_vector.message);
 			const atu8_tag_actual = poly1305(atu8_key, atu8_msg);
-			const atu8_tag_expect = hex_to_buffer(g_vector.tag);
+			const atu8_tag_expect = hex_to_bytes(g_vector.tag);
 
 			expect(atu8_tag_actual).to.equalBytes(atu8_tag_expect);
 		});

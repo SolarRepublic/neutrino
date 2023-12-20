@@ -1,4 +1,4 @@
-import {buffer} from '@blake.regalia/belt';
+import {bytes} from '@blake.regalia/belt';
 
 const float = (nl_size=16) => new Float64Array(nl_size);
 
@@ -6,7 +6,7 @@ const float = (nl_size=16) => new Float64Array(nl_size);
 let ATU8_BASE: Uint8Array;
 
 const init_base = () => {
-	ATU8_BASE = buffer(32);
+	ATU8_BASE = bytes(32);
 	ATU8_BASE[0] = 9;
 	return ATU8_BASE;
 };
@@ -88,7 +88,7 @@ const square = (atu8_out: Float64Array, atu8_a: Float64Array) => mul(atu8_out, a
 export const ecs_mul = (atu8_n: Uint8Array, atu8_p: Uint8Array): Uint8Array => {
 	init_base();
 
-	const atu8_q = buffer(32);
+	const atu8_q = bytes(32);
 	const atu8_z = atu8_n.map(x => x);
 	const atf64_x = float(80);
 	let xn_r: number;

@@ -9,7 +9,7 @@ import type {Snip52, ContractInterface} from '@solar-republic/contractor';
 
 import type {CwBase64, TrustedContextUrl} from '@solar-republic/types';
 
-import {hmac, base64_to_buffer, text_to_buffer, buffer_to_base64, sha256, bigint_to_buffer_be, buffer_to_bigint_be, safe_json, cbor_decode_trivial} from '@blake.regalia/belt';
+import {hmac, base64_to_bytes, text_to_bytes, bytes_to_base64, sha256, bigint_to_bytes_be, bytes_to_bigint_be, safe_json, cbor_decode_trivial} from '@blake.regalia/belt';
 
 import {die} from '@solar-republic/cosmos-grpc';
 
@@ -37,7 +37,6 @@ type Channels<g_interface extends ContractInterface> = g_interface['config']['sn
 export const subscribe_snip52_channels = async<
 	g_interface extends ContractInterface,
 	h_channels_cddl extends Channels<g_interface>,
-	// as_channels extends g_interface['config'] extends {snip52_channels: infer h_channels}? keyof h_channels: never,
 	as_channels extends keyof h_channels_cddl,
 >(
 	p_rpc: TrustedContextUrl,
@@ -47,15 +46,6 @@ export const subscribe_snip52_channels = async<
 		[si_channel in as_channels]: (w_data: h_channels_cddl[si_channel]) => void;
 	}
 ): Promise<() => void> => {
-	// const h_resolved = {} as Record<Extract<keyof typeof h_channels, string>, [
-	// 	Base64,
-	// 	[
-	// 		string, Uint8Array, bigint, bigint,
-	// 		() => Promise<Base64>,
-	// 		typeof h_channels[Extract<keyof typeof h_channels, string>],
-	// 	],
-	// ]>;
-
 	const h_resolved = {} as Record<CwBase64, [
 		string, Uint8Array, bigint, bigint,
 		() => Promise<CwBase64>,
@@ -74,7 +64,7 @@ export const subscribe_snip52_channels = async<
 		const si_channel = g_channel.channel as Extract<keyof typeof h_channels, string>;
 
 		// parse seed
-		let atu8_seed = base64_to_buffer(g_channel.seed+'');  // TODO: add typings to utility function
+		let atu8_seed = base64_to_bytes(g_channel.seed+'');  // TODO: add typings to utility function
 
 		// counter mode
 		if('counter' === g_channel.mode) {
@@ -82,13 +72,13 @@ export const subscribe_snip52_channels = async<
 			let xg_counter = BigInt(g_channel.counter) -1n;
 
 			// create function to generate next id
-			let next_id = async() => buffer_to_base64(await hmac(atu8_seed, text_to_buffer(si_channel+':'+(xg_counter += 1n))));
+			let next_id = async() => bytes_to_base64(await hmac(atu8_seed, text_to_bytes(si_channel+':'+(xg_counter += 1n))));
 
 			// derive next notification id
 			let si_notification = await next_id();
 
 			// prep channel hash
-			let xg_hash = buffer_to_bigint_be((await sha256(text_to_buffer(si_channel))).subarray(0, 12));
+			let xg_hash = bytes_to_bigint_be((await sha256(text_to_bytes(si_channel))).subarray(0, 12));
 
 			// ensure it is a match with the next expected
 			if(si_notification !== g_channel.next_id) die('Failed to derive accurate notification ID');
@@ -128,13 +118,13 @@ export const subscribe_snip52_channels = async<
 			if(a_received) {
 				// construct aad
 				let g_tx = g_jsonrpc_result.data.value.TxResult;
-				let atu8_aad = text_to_buffer(g_tx.height+':'+h_events['tx.acc_seq'][0].split('/')[0]);
+				let atu8_aad = text_to_bytes(g_tx.height+':'+h_events['tx.acc_seq'][0].split('/')[0]);
 
 				// decode payload
-				let atu8_payload = base64_to_buffer(a_received[0]);
+				let atu8_payload = base64_to_bytes(a_received[0]);
 
 				// create nonce
-				let atu8_nonce = bigint_to_buffer_be(xg_hash ^ xg_counter, 12);
+				let atu8_nonce = bigint_to_bytes_be(xg_hash ^ xg_counter, 12);
 
 				// decrypt notification data, splitting payload between tag and ciphertext
 				const atu8_message = chacha20_poly1305_open(atu8_seed, atu8_nonce, atu8_payload.subarray(-XN_16), atu8_payload.subarray(0, -XN_16), atu8_aad);
@@ -181,9 +171,9 @@ export const sign_seed_update = async(
 		signature: {
 			pub_key: {
 				type: 'tendermint/PubKeySecp256k1',
-				value: buffer_to_base64(k_wallet.pk33),
+				value: bytes_to_base64(k_wallet.pk33),
 			},
-			signature: buffer_to_base64(atu8_signature),
+			signature: bytes_to_base64(atu8_signature),
 		},
 	};
 };

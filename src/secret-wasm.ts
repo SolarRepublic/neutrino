@@ -3,12 +3,12 @@ import type {JsonValue, Nilable} from '@blake.regalia/belt';
 import type {CwHexMixed, CwBase64, CwHexLower} from '@solar-republic/types';
 
 import {
-	buffer,
+	bytes,
 	ATU8_NIL,
-	base64_to_buffer,
-	buffer_to_text,
+	base64_to_bytes,
+	bytes_to_text,
 	concat2,
-	text_to_buffer,
+	text_to_bytes,
 } from '@blake.regalia/belt';
 
 import {die} from '@solar-republic/cosmos-grpc';
@@ -57,23 +57,23 @@ export const SecretWasm = (atu8_consensus_pk: Uint8Array, atu8_seed?: Nilable<Ui
 			const ab_encryption = await crypto.subtle.deriveBits({
 				name: 'HKDF',
 				hash: 'SHA-256',
-				salt: base64_to_buffer('AAAAAAAAAAAAAkvq2N9pmQhSwgLbDgCXwaEupjfX6W0='),
+				salt: base64_to_bytes('AAAAAAAAAAAAAkvq2N9pmQhSwgLbDgCXwaEupjfX6W0='),
 				info: ATU8_NIL,
 			}, dk_input, 256);
 
-			return buffer(ab_encryption);
+			return bytes(ab_encryption);
 		},
 
 		async encodeMsg(sb16_code_hash, g_msg, nb_msg_block) {
 			// construct payload
-			const atu8_payload = text_to_buffer(sb16_code_hash.toUpperCase()+JSON.stringify(g_msg));
+			const atu8_payload = text_to_bytes(sb16_code_hash.toUpperCase()+JSON.stringify(g_msg));
 
 			// pad to make multiple of block size
 			const nb_payload = atu8_payload.byteLength;
 			const nb_target = nb_msg_block? Math.ceil(nb_payload / nb_msg_block) * nb_msg_block: nb_payload;
 
 			// pad the end with spaces
-			const atu8_padding = text_to_buffer(' '.repeat(nb_target - nb_payload));
+			const atu8_padding = text_to_bytes(' '.repeat(nb_target - nb_payload));
 
 			// construct plaintext
 			const atu8_plaintext = concat2(atu8_payload, atu8_padding);
@@ -101,7 +101,7 @@ export const SecretWasm = (atu8_consensus_pk: Uint8Array, atu8_seed?: Nilable<Ui
 
 		async decodeMsg(sb64_msg) {
 			// decode message
-			const atu8_msg = base64_to_buffer(sb64_msg);
+			const atu8_msg = base64_to_bytes(sb64_msg);
 
 			// nonce
 			const atu8_nonce = atu8_msg.subarray(0, 32);
@@ -114,7 +114,7 @@ export const SecretWasm = (atu8_consensus_pk: Uint8Array, atu8_seed?: Nilable<Ui
 
 			const atu8_plaintext = await this.decrypt(atu8_ciphertext, atu8_nonce);
 
-			const sx_exec = buffer_to_text(atu8_plaintext);
+			const sx_exec = bytes_to_text(atu8_plaintext);
 
 			return [
 				// contents

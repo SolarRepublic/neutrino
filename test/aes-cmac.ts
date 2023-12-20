@@ -1,5 +1,5 @@
 
-import {hex_to_buffer} from '@blake.regalia/belt';
+import {hex_to_bytes} from '@blake.regalia/belt';
 import chai, {expect} from 'chai';
 
 import chai_bites from 'chai-bites';
@@ -57,9 +57,9 @@ const A_CMAC_VECTORS = [
 
 for(const [i_vector, g_vector] of A_CMAC_VECTORS.entries()) {
 	await describe(`Vector #${i_vector+1}`, async({it}) => {
-		const atu8_key = hex_to_buffer(g_vector.key);
-		const atu8_message = hex_to_buffer(g_vector.message);
-		const atu8_tag_expect = hex_to_buffer(g_vector.tag);
+		const atu8_key = hex_to_bytes(g_vector.key);
+		const atu8_message = hex_to_bytes(g_vector.message);
+		const atu8_tag_expect = hex_to_bytes(g_vector.tag);
 
 		const d_key = await aes_key(atu8_key, 'AES-CBC');
 

@@ -1,17 +1,15 @@
-
-
 import type {Dict} from '@blake.regalia/belt';
 
 import type {SecretAccAddr, Snip24} from '@solar-republic/contractor';
 
 import type {TrustedContextUrl} from '@solar-republic/types';
 
-import {text_to_buffer} from '@blake.regalia/belt';
+import {text_to_bytes} from '@blake.regalia/belt';
 
 import './helper';
 
-import {queryCosmosBankSpendableBalances} from '@solar-republic/cosmos-grpc/cosmos/bank/v1beta1/query.js';
-import {queryCosmosFeegrantAllowances} from '@solar-republic/cosmos-grpc/cosmos/feegrant/v1beta1/query.js';
+import {queryCosmosBankSpendableBalances} from '@solar-republic/cosmos-grpc/cosmos/bank/v1beta1/query';
+import {queryCosmosFeegrantAllowances} from '@solar-republic/cosmos-grpc/cosmos/feegrant/v1beta1/query';
 
 import {exec_secret_contract, retry, sign_secret_query_permit} from '../src/app-layer';
 import {ent_to_sk} from '../src/secp256k1';
@@ -39,7 +37,7 @@ export async function connect() {
 	const atu8_seed = random_32();
 
 	// create private key from entropy
-	const atu8_ent = new Uint8Array(await crypto.subtle.digest('SHA-384', text_to_buffer('nfp-test-account:0')));
+	const atu8_ent = new Uint8Array(await crypto.subtle.digest('SHA-384', text_to_bytes('nfp-test-account:0')));
 	const atu8_sk = ent_to_sk(atu8_ent.subarray(0, 40));
 
 	// instantiate wallet

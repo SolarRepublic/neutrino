@@ -11,16 +11,16 @@ import type {JsonObject, Nilable, Promisable, AsJson, NaiveJsonString} from '@bl
 
 import type {ContractInterface} from '@solar-republic/contractor';
 import type {NetworkJsonResponse} from '@solar-republic/cosmos-grpc';
-import type {CosmosBaseAbciTxResponse} from '@solar-republic/cosmos-grpc/cosmos/base/abci/v1beta1/abci.js';
-import type {TendermintAbciTxResult} from '@solar-republic/cosmos-grpc/tendermint/abci/types.js';
+import type {CosmosBaseAbciTxResponse} from '@solar-republic/cosmos-grpc/cosmos/base/abci/v1beta1/abci';
+import type {TendermintAbciTxResult} from '@solar-republic/cosmos-grpc/tendermint/abci/types';
 import type {SecretQueryPermit, SlimCoin, WeakAccountAddr, TrustedContextUrl, CwAccountAddr, CwUint32, WeakUint128Str} from '@solar-republic/types';
 
-import {__UNDEFINED, buffer_to_base64, timeout, base64_to_buffer, buffer_to_text, oda, odv, safe_json} from '@blake.regalia/belt';
+import {__UNDEFINED, bytes_to_base64, timeout, base64_to_bytes, bytes_to_text, oda, odv, safe_json} from '@blake.regalia/belt';
 
 import {die} from '@solar-republic/cosmos-grpc';
-import {SI_JSON_COSMOS_TX_BROADCAST_MODE_BLOCK, submitCosmosTxBroadcastTx} from '@solar-republic/cosmos-grpc/cosmos/tx/v1beta1/service.js';
+import {SI_JSON_COSMOS_TX_BROADCAST_MODE_BLOCK, submitCosmosTxBroadcastTx} from '@solar-republic/cosmos-grpc/cosmos/tx/v1beta1/service';
 
-import {decodeGoogleProtobufAny} from '@solar-republic/cosmos-grpc/google/protobuf/any.js';
+import {decodeGoogleProtobufAny} from '@solar-republic/cosmos-grpc/google/protobuf/any';
 
 import {create_and_sign_tx_direct, sign_amino} from './wallet.js';
 
@@ -189,13 +189,13 @@ export const query_secret_contract = async<
 			const m_error = /encrypted: (.+?):/.exec(g_res?.message || '');
 			if(m_error) {
 				// decode base64 string
-				const atu8_ciphertext = base64_to_buffer(m_error[1]);
+				const atu8_ciphertext = base64_to_bytes(m_error[1]);
 
 				// decrypt the ciphertext
 				const atu8_plaintext = await k_contract.wasm.decrypt(atu8_ciphertext, g_out.n!);
 
 				// decode
-				const sx_plaintext = buffer_to_text(atu8_plaintext);
+				const sx_plaintext = bytes_to_text(atu8_plaintext);
 
 				// return tuple
 				return [xc_code, sx_plaintext];
@@ -408,13 +408,13 @@ export const exec_secret_contract = async<
 	// no errors
 	if(!xc_error) {
 		// // parse data
-		let [s_type, atu8_ciphertext] = decodeGoogleProtobufAny(base64_to_buffer(g_tx_res!.result!.data!));
+		let [s_type, atu8_ciphertext] = decodeGoogleProtobufAny(base64_to_bytes(g_tx_res!.result!.data!));
 
 		// decrypt ciphertext
 		const atu8_plaintext = await k_contract.wasm.decrypt(atu8_ciphertext!, atu8_nonce);
 
 		// decode plaintext
-		s_plaintext = buffer_to_text(base64_to_buffer(buffer_to_text(atu8_plaintext)));
+		s_plaintext = bytes_to_text(base64_to_bytes(bytes_to_text(atu8_plaintext)));
 	}
 	// error
 	else {
@@ -425,9 +425,9 @@ export const exec_secret_contract = async<
 		if(m_response) {
 			const [, s_index, sb64_encrypted, si_action] = m_response;
 
-			const atu8_plaintext = await k_contract.wasm.decrypt(base64_to_buffer(sb64_encrypted), atu8_nonce);
+			const atu8_plaintext = await k_contract.wasm.decrypt(base64_to_bytes(sb64_encrypted), atu8_nonce);
 
-			s_plaintext = buffer_to_text(atu8_plaintext);
+			s_plaintext = bytes_to_text(atu8_plaintext);
 		}
 
 		// debug info
@@ -500,9 +500,9 @@ export const sign_secret_query_permit = async(
 		signature: {
 			pub_key: {
 				type: 'tendermint/PubKeySecp256k1',
-				value: buffer_to_base64(k_wallet.pk33),
+				value: bytes_to_base64(k_wallet.pk33),
 			},
-			signature: buffer_to_base64(atu8_signature),
+			signature: bytes_to_base64(atu8_signature),
 		},
 	};
 };

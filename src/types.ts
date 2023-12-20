@@ -1,7 +1,7 @@
 import type {Dict, JsonObject, Nilable} from '@blake.regalia/belt';
 import type {AminoMsg, Coin, StdSignDoc} from '@cosmjs/amino';
 import type {SecretAccAddr} from '@solar-republic/contractor';
-import type {TendermintAbciTxResult} from '@solar-republic/cosmos-grpc/tendermint/abci/types.js';
+import type {TendermintAbciTxResult} from '@solar-republic/cosmos-grpc/tendermint/abci/types';
 import type {WeakUint128Str, CwUint128, CwBase64, CwAccountAddr, WeakAccountAddr, TrustedContextUrl, SecretQueryPermit} from '@solar-republic/types';
 
 export type WeakSecretAccAddr = WeakAccountAddr<'secret'>;

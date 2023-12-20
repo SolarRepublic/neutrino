@@ -1,5 +1,5 @@
 /* eslint-disable prefer-const */
-import {XG_8, buffer} from '@blake.regalia/belt';
+import {XG_8, bytes} from '@blake.regalia/belt';
 
 import {XN_16} from './constants.js';
 
@@ -27,7 +27,7 @@ export const poly1305 = (atu8_key: Uint8Array, atu8_msg: Uint8Array): Uint8Array
 	let nb_msg = atu8_msg.length;
 
 	// prep output tag
-	let atu8_tag = buffer(XN_16);
+	let atu8_tag = bytes(XN_16);
 
 	// read key bytes
 	for(; i_each<XN_16; i_each++) {
