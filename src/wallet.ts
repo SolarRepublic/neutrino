@@ -9,13 +9,14 @@ import type {CwUint128, CwHexUpper, CwAccountAddr, TrustedContextUrl, SlimCoin, 
 
 import {text_to_bytes, bytes_to_hex, sha256, canonicalize_json, __UNDEFINED} from '@blake.regalia/belt';
 
-import {any, bech32_encode, restruct_coin} from '@solar-republic/cosmos-grpc';
+import {any, restruct_coin} from '@solar-republic/cosmos-grpc';
 import {destructCosmosAuthBaseAccount} from '@solar-republic/cosmos-grpc/cosmos/auth/v1beta1/auth';
 import {destructCosmosAuthQueryAccountResponse, queryCosmosAuthAccount} from '@solar-republic/cosmos-grpc/cosmos/auth/v1beta1/query';
 import {encodeCosmosCryptoSecp256k1PubKey} from '@solar-republic/cosmos-grpc/cosmos/crypto/secp256k1/keys';
 import {XC_PROTO_COSMOS_TX_SIGNING_SIGN_MODE_DIRECT} from '@solar-republic/cosmos-grpc/cosmos/tx/signing/v1beta1/signing';
 
 import {encodeCosmosTxAuthInfo, encodeCosmosTxFee, encodeCosmosTxModeInfo, encodeCosmosTxModeInfoSingle, encodeCosmosTxSignDoc, encodeCosmosTxSignerInfo, encodeCosmosTxTxBody, encodeCosmosTxTxRaw} from '@solar-republic/cosmos-grpc/cosmos/tx/v1beta1/tx';
+import {bech32_encode} from '@solar-republic/crypto';
 
 import {ripemd160} from './ripemd160.js';
 import {sign, sk_to_pk, type SignatureAndRecovery} from './secp256k1.js';

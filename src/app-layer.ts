@@ -18,7 +18,7 @@ import type {SecretQueryPermit, SlimCoin, WeakAccountAddr, TrustedContextUrl, Cw
 import {__UNDEFINED, bytes_to_base64, timeout, base64_to_bytes, bytes_to_text, oda, odv, safe_json} from '@blake.regalia/belt';
 
 import {die} from '@solar-republic/cosmos-grpc';
-import {SI_JSON_COSMOS_TX_BROADCAST_MODE_BLOCK, submitCosmosTxBroadcastTx} from '@solar-republic/cosmos-grpc/cosmos/tx/v1beta1/service';
+import {SI_JSON_COSMOS_TX_BROADCAST_MODE_BLOCK, XC_PROTO_COSMOS_TX_BROADCAST_MODE_BLOCK, submitCosmosTxBroadcastTx} from '@solar-republic/cosmos-grpc/cosmos/tx/v1beta1/service';
 
 import {decodeGoogleProtobufAny} from '@solar-republic/cosmos-grpc/google/protobuf/any';
 
@@ -129,8 +129,8 @@ export const broadcast_result = async(
 		fk_resolve([g_tx_res? g_tx_res?.result?.code ?? 0: -1, sx_res, g_tx_res]);
 	});
 
-	// submit tx
-	const [d_res, sx_res, g_res] = await without_throwing(submitCosmosTxBroadcastTx(gc_node.lcd, atu8_raw, SI_JSON_COSMOS_TX_BROADCAST_MODE_BLOCK));
+	// attempt to submit tx
+	const [d_res, sx_res, g_res] = await submitCosmosTxBroadcastTx(gc_node.lcd, atu8_raw, XC_PROTO_COSMOS_TX_BROADCAST_MODE_BLOCK);
 
 	// not ok HTTP code, no parsed JSON, or non-zero response code
 	if(!d_res.ok || !g_res || g_res.tx_response?.code) {

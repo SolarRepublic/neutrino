@@ -153,7 +153,7 @@ export const SecretContract = async<
 	}
 
 	// ref code id
-	const si_code = g_info.code_id;
+	const si_code = g_info.code_id!;  // eslint-disable-line @typescript-eslint/no-unnecessary-type-assertion
 
 	// ref code hash
 	let sb16_code_hash = h_codes_cache[si_code];

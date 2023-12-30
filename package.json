@@ -45,13 +45,13 @@
     "@rollup/plugin-commonjs": "^25.0.7",
     "@rollup/plugin-replace": "^5.0.5",
     "@solar-republic/contractor": "^0.6.0",
-    "@solar-republic/cosmos-grpc": "^0.9.0",
+    "@solar-republic/cosmos-grpc": "^0.10.0",
     "@solar-republic/types": "^0.1.8",
     "@types/chai": "^4.3.11",
-    "@types/node": "^20.10.5",
-    "@types/web": "^0.0.129",
-    "@typescript-eslint/parser": "^6.15.0",
-    "chai": "^4.3.10",
+    "@types/node": "^20.10.6",
+    "@types/web": "^0.0.132",
+    "@typescript-eslint/parser": "^6.16.0",
+    "chai": "^5.0.0",
     "chai-bites": "^0.1.2",
     "curve25519-js": "^0.0.4",
     "esformatter": "^0.11.3",
@@ -66,7 +66,7 @@
     "tsconfig-paths": "^4.2.0",
     "tslib": "^2.6.2",
     "typescript": "~5.3.3",
-    "ws": "^8.15.1"
+    "ws": "^8.16.0"
   },
   "dependencies": {
     "@blake.regalia/belt": "^0.30.0"
