@@ -361,7 +361,7 @@ export const exec_secret_contract = async<
 	as_methods extends Extract<keyof h_group, string>,
 >(
 	k_contract: SecretContract<g_interface>,
-	k_wallet: Wallet,
+	k_wallet: Wallet<'secret'>,
 	h_exec: ContractInterface extends g_interface? JsonObject: {
 		[si_method in as_methods]: h_group[si_method]['msg'];
 	},

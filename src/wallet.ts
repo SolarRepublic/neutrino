@@ -27,7 +27,7 @@ type Zeroable<n_type extends number> = n_type | 0 | undefined;
 type Emptyable<s_type extends string> = s_type | '' | undefined;
 
 
-export interface Wallet extends LcdRpcStruct {
+export interface Wallet<s_hrp extends string=string> extends LcdRpcStruct {
 	/**
 	 * Chain id
 	 */
@@ -36,7 +36,7 @@ export interface Wallet extends LcdRpcStruct {
 	/**
 	 * Bech32 account address
 	 */
-	addr: CwSecretAccAddr;
+	addr: CwAccountAddr<s_hrp>;
 
 	/**
 	 * Secp256k1 Public Key in compressed 33-byte form
@@ -58,7 +58,7 @@ export interface Wallet extends LcdRpcStruct {
  * @returns bech32-encoded address string
  */
 export const pubkey_to_bech32 = async<
-	s_hrp extends `secret${string}`='secret',
+	s_hrp extends string,
 >(atu8_pk_33: Uint8Array, s_hrp: s_hrp='secret' as s_hrp): Promise<CwAccountAddr<s_hrp>> => {
 	// sha-256 hash of pubkey
 	const atu8_sha256 = await sha256(atu8_pk_33);
@@ -80,17 +80,18 @@ export const pubkey_to_bech32 = async<
  * @returns 
  */
 // eslint-disable-next-line @typescript-eslint/naming-convention
-export const Wallet = async(
+export const Wallet = async<s_hrp extends string>(
 	atu8_sk: Uint8Array,
 	si_chain: string,
 	p_lcd: TrustedContextUrl,
-	p_rpc: TrustedContextUrl
-): Promise<Wallet> => {
+	p_rpc: TrustedContextUrl,
+	s_hrp: s_hrp='secret' as s_hrp
+): Promise<Wallet<s_hrp>> => {
 	// obtain public key
 	const atu8_pk33 = sk_to_pk(atu8_sk);
 
 	// convert to bech32
-	const sa_account = await pubkey_to_bech32(atu8_pk33);
+	const sa_account = await pubkey_to_bech32(atu8_pk33, s_hrp);
 
 	return {
 		lcd: p_lcd,
