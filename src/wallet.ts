@@ -85,7 +85,7 @@ export const Wallet = async<s_hrp extends string>(
 	si_chain: string,
 	p_lcd: TrustedContextUrl,
 	p_rpc: TrustedContextUrl,
-	s_hrp: s_hrp='secret' as s_hrp
+	s_hrp: s_hrp=si_chain.replace(/-.*/, '') as s_hrp
 ): Promise<Wallet<s_hrp>> => {
 	// obtain public key
 	const atu8_pk33 = sk_to_pk(atu8_sk);
