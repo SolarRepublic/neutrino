@@ -1,4 +1,4 @@
-import {ATU8_NIL, bytes, bytes_to_text} from '@blake.regalia/belt';
+import {ATU8_NIL, base64_to_text, bytes, bytes_to_base64, bytes_to_text} from '@blake.regalia/belt';
 
 import {die} from '@solar-republic/cosmos-grpc';
 
@@ -97,7 +97,11 @@ export const aes_128_siv_decrypt = async(atu8_key: Uint8Array, atu8_payload: Uin
 	}
 
 	// not equal
-	if(xb_cmp) die(`SIV tag/CMAC mismatch; plaintext:\n${bytes_to_text(atu8_plaintext)}`);
+	if(xb_cmp) {
+		die(`SIV tag/CMAC mismatch; decoded:\n${
+			base64_to_text(/^([+a-z\d/]*)/i.exec(bytes_to_text(atu8_plaintext))![1])
+		}\n\nentire plaintext:\n${bytes_to_base64(atu8_plaintext)}`);
+	}
 
 	// plaintext
 	return atu8_plaintext;

@@ -266,7 +266,7 @@ export const format_secret_query = (
 	}) as JsonObject;
 
 
-interface QueryContractInfer {
+export interface QueryContractInfer {
 	<
 		g_interface extends ContractInterface,
 		h_variants extends ContractInterface.MsgAndAnswer<g_interface, 'queries'>,
