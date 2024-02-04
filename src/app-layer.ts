@@ -18,7 +18,7 @@ import type {SecretQueryPermit, SlimCoin, WeakAccountAddr, TrustedContextUrl, Cw
 import {__UNDEFINED, bytes_to_base64, timeout, base64_to_bytes, bytes_to_text, oda, odv, safe_json} from '@blake.regalia/belt';
 
 import {die} from '@solar-republic/cosmos-grpc';
-import {SI_JSON_COSMOS_TX_BROADCAST_MODE_BLOCK, XC_PROTO_COSMOS_TX_BROADCAST_MODE_BLOCK, submitCosmosTxBroadcastTx} from '@solar-republic/cosmos-grpc/cosmos/tx/v1beta1/service';
+import {SI_JSON_COSMOS_TX_BROADCAST_MODE_BLOCK, XC_PROTO_COSMOS_TX_BROADCAST_MODE_BLOCK, XC_PROTO_COSMOS_TX_BROADCAST_MODE_SYNC, submitCosmosTxBroadcastTx} from '@solar-republic/cosmos-grpc/cosmos/tx/v1beta1/service';
 
 import {decodeGoogleProtobufAny} from '@solar-republic/cosmos-grpc/google/protobuf/any';
 
@@ -130,7 +130,7 @@ export const broadcast_result = async(
 	});
 
 	// attempt to submit tx
-	const [d_res, sx_res, g_res] = await submitCosmosTxBroadcastTx(gc_node.lcd, atu8_raw, XC_PROTO_COSMOS_TX_BROADCAST_MODE_BLOCK);
+	const [d_res, sx_res, g_res] = await submitCosmosTxBroadcastTx(gc_node.lcd, atu8_raw, XC_PROTO_COSMOS_TX_BROADCAST_MODE_SYNC);
 
 	// not ok HTTP code, no parsed JSON, or non-zero response code
 	if(!d_res.ok || !g_res || g_res.tx_response?.code) {
@@ -399,9 +399,6 @@ export const exec_secret_contract = async<
 	// broadcast to chain
 	let [xc_error, sx_res, g_tx_res] = await broadcast_result(k_wallet, atu8_tx_raw, si_txn);
 
-	// parse broadcast result
-	let g_broadcast = safe_json<AsJson<{tx_response: CosmosBaseAbciTxResponse}>>(sx_res);
-
 	// invalid json
 	if(xc_error < 0) return [xc_error, sx_res];
 
@@ -418,7 +415,7 @@ export const exec_secret_contract = async<
 	}
 	// error
 	else {
-		const s_error = g_tx_res?.result?.log ?? g_broadcast?.tx_response.raw_log ?? sx_res;
+		const s_error = g_tx_res?.result?.log ?? sx_res;
 
 		// encrypted error message
 		const m_response = /(\d+):(?: \w+:)*? encrypted: (.+?): (.+?) contract/.exec(s_error);
