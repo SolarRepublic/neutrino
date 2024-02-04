@@ -104,7 +104,7 @@ export const subscribe_snip52_channels = async<
 	// })));
 
 	// on contract execution
-	const d_ws = subscribe_tendermint_events(p_rpc, `wasm.contract_address='${k_contract.addr}'`, async(d_event) => {
+	const d_ws = await subscribe_tendermint_events(p_rpc, `wasm.contract_address='${k_contract.addr}'`, async(d_event) => {
 		// parse message frame
 		const g_jsonrpc_result = safe_json<JsonRpcResponse<TendermintEvent<TxResultWrapper>>>(d_event.data as string)!.result;
 		let h_events = g_jsonrpc_result.events;

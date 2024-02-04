@@ -15,10 +15,10 @@ import type {CosmosBaseAbciTxResponse} from '@solar-republic/cosmos-grpc/cosmos/
 import type {TendermintAbciTxResult} from '@solar-republic/cosmos-grpc/tendermint/abci/types';
 import type {SecretQueryPermit, SlimCoin, WeakAccountAddr, TrustedContextUrl, CwAccountAddr, CwUint32, WeakUint128Str} from '@solar-republic/types';
 
-import {__UNDEFINED, bytes_to_base64, timeout, base64_to_bytes, bytes_to_text, oda, odv, safe_json} from '@blake.regalia/belt';
+import {__UNDEFINED, bytes_to_base64, timeout, base64_to_bytes, bytes_to_text, oda, odv, safe_json, timeout_exec} from '@blake.regalia/belt';
 
 import {die} from '@solar-republic/cosmos-grpc';
-import {SI_JSON_COSMOS_TX_BROADCAST_MODE_BLOCK, XC_PROTO_COSMOS_TX_BROADCAST_MODE_BLOCK, XC_PROTO_COSMOS_TX_BROADCAST_MODE_SYNC, submitCosmosTxBroadcastTx} from '@solar-republic/cosmos-grpc/cosmos/tx/v1beta1/service';
+import {SI_JSON_COSMOS_TX_BROADCAST_MODE_BLOCK, XC_PROTO_COSMOS_TX_BROADCAST_MODE_BLOCK, XC_PROTO_COSMOS_TX_BROADCAST_MODE_SYNC, queryCosmosTxGetTx, submitCosmosTxBroadcastTx} from '@solar-republic/cosmos-grpc/cosmos/tx/v1beta1/service';
 
 import {decodeGoogleProtobufAny} from '@solar-republic/cosmos-grpc/google/protobuf/any';
 
@@ -71,13 +71,28 @@ export const subscribe_tendermint_events = (
 	p_rpc: TrustedContextUrl,
 	sx_query: string,
 	fk_message: (d_event: MessageEvent<NaiveJsonString>) => any
-): WebSocket => oda(
+): Promise<WebSocket> => new Promise((fk_resolve, fe_reject) => oda(
 	// change protocol from http => ws and append /websocket to path
 	new WebSocket('ws'+p_rpc.slice(4)+'/websocket'), {
-		// first message will be subscription confirmation
-		onmessage() {
+		// first message should be subscription confirmation
+		onmessage(g_msg) {
+			// parse message
+			const g_data = safe_json<JsonRpcResponse<Record<string, never>>>(g_msg.data as NaiveJsonString);
+
+			// expect confirmation
+			if('0' !== g_data?.id || '{}' !== JSON.stringify(g_data?.result)) {
+				// reject
+				fe_reject(g_data);
+
+				// close socket
+				return this.close();
+			}
+
 			// each subsequent message
 			this.onmessage = fk_message;
+
+			// resolve
+			fk_resolve(this);
 		},
 
 		// open event
@@ -94,7 +109,7 @@ export const subscribe_tendermint_events = (
 	} as {
 		onmessage: (this: WebSocket, d_event: WebSocketEventMap['message']) => void;
 		onopen: (this: WebSocket, d_event: WebSocketEventMap['open']) => void;
-	});
+	}));
 
 
 /**
@@ -116,26 +131,92 @@ export const broadcast_result = async(
 	xc_code: number,
 	sx_res: string,
 	g_tx_res?: Nilable<TxResultWrapper['TxResult']>,
-]> => new Promise(async(fk_resolve) => {
+]> => new Promise(async(fk_resolve, fe_reject) => {
+	// prep websocket
+	let d_ws: WebSocket | undefined;
+
+	// prep periodic query
+	let i_periodic = 0;
+
+	// closes any open resources
+	const f_shutdown = () => {
+		// close websocket if it exists
+		d_ws?.close();
+
+		// cancel periodic queries
+		clearInterval(i_periodic);
+	};
+
 	// listen for tx event
-	const d_ws = subscribe_tendermint_events(gc_node.rpc, `tx.hash='${si_txn}'`, (d_event) => {
-		// destroy websocket
-		d_ws.close();
+	try {
+		[d_ws] = await timeout_exec(30e3, () => subscribe_tendermint_events(gc_node.rpc, `tx.hash='${si_txn}'`, (d_event) => {
+			// close resources
+			f_shutdown();
 
-		// parse message frame
-		const g_tx_res = safe_json<JsonRpcResponse<TendermintEvent<TxResultWrapper>>>(d_event.data as string)?.result.data.value.TxResult;
+			// parse message frame
+			const g_tx_res = safe_json<JsonRpcResponse<TendermintEvent<TxResultWrapper>>>(d_event.data as string)?.result.data.value.TxResult;
 
-		// return parsed result
-		fk_resolve([g_tx_res? g_tx_res?.result?.code ?? 0: -1, sx_res, g_tx_res]);
-	});
+			// return parsed result
+			fk_resolve([g_tx_res? g_tx_res.result?.code ?? 0: -1, sx_res, g_tx_res]);
+		}));
+	}
+	catch(e_subscribe) {}
+
+	// no websocket
+	if(!d_ws) {
+		return fe_reject(Error(`Failed to connect to Tendermint WebSocket`));
+
+		// TODO: are TxResult different between WebSocket message and query response?
+		// // fallback: start querying at interval
+		// i_periodic = (setInterval as Window['setInterval'])(async() => {
+		// 	// submit query
+		// 	const a_res = await without_throwing();
+
+		// 	// attempt query as usual
+		// 	try {
+		// 		const [d_res, s_res, g_res] = await queryCosmosTxGetTx(gc_node.lcd, si_txn);
+
+		// 		const g_tx_res = g_res.tx_response;
+
+		// 		return fk_resolve([g_tx_res? g_tx_res.code ?? 0: -1, s_res, g_tx_res!]);
+		// 	}
+		// 	// not successful
+		// 	catch(e_query) {
+		// 		// tuple was thrown
+		// 		if((e_query as NetworkJsonResponse)[0]) {
+		// 			// destructure details
+		// 			const [d_res, s_res, g_res] = e_query as NetworkJsonResponse<{
+		// 				code: CwUint32;
+		// 				message: string;
+		// 			}>;
+
+		// 			// destructure chain code
+		// 			const xc_code = g_res?.code;
+
+		// 			// error message
+		// 			const m_error = /encrypted: (.+?):/.exec(g_res?.message || '');
+		// 			if(m_error) {
+		// 	const g_res = a_res?.[2];
+
+		// 	// anything other than tx not found indicates a possible node error
+		// 	if(!/tx not found/.test(g_res?.message || '')) {
+		// 		fe_reject(g_res.)
+		// 	}
+
+		// 	// close resources
+		// 	f_shutdown();
+
+		// 	fk_resolve(g_res.);
+		// }, 6e3);
+	}
 
 	// attempt to submit tx
 	const [d_res, sx_res, g_res] = await submitCosmosTxBroadcastTx(gc_node.lcd, atu8_raw, XC_PROTO_COSMOS_TX_BROADCAST_MODE_SYNC);
 
 	// not ok HTTP code, no parsed JSON, or non-zero response code
 	if(!d_res.ok || !g_res || g_res.tx_response?.code) {
-		// close web socket
-		d_ws.close();
+		// close resources
+		f_shutdown();
 
 		// resolve with error
 		fk_resolve([
