@@ -120,7 +120,7 @@ export const subscribe_tendermint_events = (
  * @returns tuple of `[number, string, TxResponse?]`
  *  - [0]: `xc_code: number` - error code from chain, or non-OK HTTP status code from the LCD server.
  * 		A value of `0` indicates success. A value of `-1` indicates a JSON parsing error.
- *  - [1]: `sx_res: string` - raw response text from the initial broadcast request
+ *  - [1]: `sx_res: string` - raw response text from the initial broadcast request (result of CheckTx)
  *  - [2]: `tx_res?: `{@link TxResponse} - on success, the parsed transaction response JSON object
  */
 export const broadcast_result = async(
@@ -137,6 +137,9 @@ export const broadcast_result = async(
 
 	// prep periodic query
 	let i_periodic = 0;
+
+	// prep broadcast response (result of CheckTx)
+	let sx_res = '';
 
 	// closes any open resources
 	const f_shutdown = () => {
@@ -211,7 +214,10 @@ export const broadcast_result = async(
 	}
 
 	// attempt to submit tx
-	const [d_res, sx_res, g_res] = await submitCosmosTxBroadcastTx(gc_node.lcd, atu8_raw, XC_PROTO_COSMOS_TX_BROADCAST_MODE_SYNC);
+	const [d_res, sx_res_broadcast, g_res] = await submitCosmosTxBroadcastTx(gc_node.lcd, atu8_raw, XC_PROTO_COSMOS_TX_BROADCAST_MODE_SYNC);
+
+	// set value
+	sx_res = sx_res_broadcast;
 
 	// not ok HTTP code, no parsed JSON, or non-zero response code
 	if(!d_res.ok || !g_res || g_res.tx_response?.code) {
