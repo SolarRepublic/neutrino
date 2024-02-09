@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/naming-convention */
-import type {JsonValue, Nilable} from '@blake.regalia/belt';
+import type {JsonValue, NaiveBase64, NaiveHexMixed, Nilable} from '@blake.regalia/belt';
 import type {CwHexMixed, CwBase64, CwHexLower} from '@solar-republic/types';
 
 import {
@@ -20,9 +20,9 @@ import {ecs_mul, ecs_mul_base} from './x25519.js';
 
 export interface SecretWasm {
 	txKey(atu8_nonce?: Uint8Array): Promise<Uint8Array>;
-	encodeMsg(sb16_code_hash: CwHexMixed, g_msg: JsonValue, nb_msg_block?: number): Promise<Uint8Array>;
+	encodeMsg(sb16_code_hash: NaiveHexMixed, g_msg: JsonValue, nb_msg_block?: number): Promise<Uint8Array>;
 	decrypt(atu8_ciphertext: Uint8Array, atu8_nonce: Uint8Array): Promise<Uint8Array>;
-	decodeMsg(sb64_msg: CwBase64): Promise<[string, CwHexLower, Uint8Array]>;
+	decodeMsg(sb64_msg: NaiveBase64): Promise<[string, CwHexLower, Uint8Array]>;
 }
 
 export const SecretWasm = (atu8_consensus_pk: Uint8Array, atu8_seed?: Nilable<Uint8Array>): SecretWasm => {

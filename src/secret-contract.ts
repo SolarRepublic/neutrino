@@ -34,7 +34,10 @@ const h_codes_cache: Record<ContractInfo['code_id'], CwHexLower> = {};
 
 const h_contract_cache: Record<WeakSecretAccAddr, KnownContractInfo> = {};
 
-const h_networks = {} as Record<TrustedContextUrl, SecretWasm>;
+const h_networks = {} as Record<TrustedContextUrl, {
+	wasm: SecretWasm;
+	conspk: Uint8Array;
+}>;
 
 
 /**
@@ -124,20 +127,30 @@ export const SecretContract = async<
 	sa_contract: WeakSecretAccAddr,
 	atu8_seed: Nilable<Uint8Array>=null
 ): Promise<SecretContract<g_interface>> => {
-	// try loading instance from cache
-	let k_wasm = h_networks[p_lcd];
+	// try loading entry from cache
+	let g_cached = h_networks[p_lcd];
 
 	// network not yet cached
-	if(!k_wasm) {
+	if(!g_cached) {
 		// fetch consensus io pubkey
 		let [,, g_res] = await querySecretRegistrationTxKey(p_lcd);
 
 		// destructure response
 		let [atu8_consensus_pk] = destructSecretRegistrationKey(g_res);
 
-		// instantiate secret wasm and save to cache
-		h_networks[p_lcd] = k_wasm = SecretWasm(atu8_consensus_pk!, atu8_seed);
+		// instantiate default secret wasm using random seed and save to cache
+		h_networks[p_lcd] = g_cached = {
+			wasm: SecretWasm(atu8_consensus_pk!),
+			conspk: atu8_consensus_pk!,
+		};
 	}
+
+	// custom seed specified...
+	const k_wasm = atu8_seed
+		// ...create instance
+		? SecretWasm(g_cached.conspk, atu8_seed)
+		// no custom seed; re-use default wasm instance
+		: g_cached.wasm;
 
 	// ref contract info
 	let g_info = h_contract_cache[sa_contract];
