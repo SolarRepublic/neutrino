@@ -102,7 +102,7 @@ export interface LcdRpcStruct {
 	/**
 	 * RPC endpoint used for confirming broadcasted transactions
 	 */
-	rpc: TrustedContextUrl | WebSocket;
+	rpc: TrustedContextUrl;
 }
 
 /**

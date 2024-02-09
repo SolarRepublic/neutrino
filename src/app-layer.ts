@@ -62,18 +62,18 @@ const without_throwing = <
 /**
  * Opens a new Tendermint JSONRPC WebSocket and immediately subscribes using the given query.
  * Users should close the WebSocket when no longer needed
- * @param z_rpc - RPC endpoint as an HTTPS base URL without trailing slash, e.g., "https://rpc.provider.net"
+ * @param p_rpc - RPC endpoint as an HTTPS base URL without trailing slash, e.g., "https://rpc.provider.net"
  * @param sx_query - the Tendermint query to filter events by, e.g., "tm.event='Tx'"
  * @param fk_message - callback for each message
  * @returns - the WebSocket instance
  */
 export const subscribe_tendermint_events = (
-	z_rpc: TrustedContextUrl | WebSocket,
+	p_rpc: TrustedContextUrl,
 	sx_query: string,
 	fk_message: (d_event: MessageEvent<NaiveJsonString>) => any
 ): Promise<WebSocket> => new Promise((fk_resolve, fe_reject) => oda(
 	// change protocol from http => ws and append /websocket to path
-	'string' === typeof z_rpc? new WebSocket('ws'+z_rpc.slice(4)+'/websocket'): z_rpc, {
+	new WebSocket('ws'+p_rpc.slice(4)+'/websocket'), {
 		// first message should be subscription confirmation
 		onmessage(g_msg) {
 			// parse message
