@@ -10,7 +10,9 @@ import {
 	getSharedSecret as noble_ecdh,
 } from '@noble/secp256k1';
 
-import chai, {expect} from 'chai';
+import * as chai from 'chai';
+const {expect} = chai;
+
 import chai_bites from 'chai-bites';
 chai.use(chai_bites);
 

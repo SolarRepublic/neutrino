@@ -1,6 +1,7 @@
-import {hex_to_buffer, text_to_buffer} from '@blake.regalia/belt';
+import {hex_to_bytes, text_to_bytes} from '@blake.regalia/belt';
 
-import chai, {expect} from 'chai';
+import * as chai from 'chai';
+const {expect} = chai;
 import chai_bites from 'chai-bites';
 chai.use(chai_bites);
 
@@ -54,9 +55,9 @@ const A_VECTORS = [
 A_VECTORS.forEach((g_vector, i_vector) => {
 	void describe(`Vector #${i_vector+1}`, ({it}) => {
 		void it('digest', () => {
-			const atu8_digest = ripemd160(text_to_buffer(g_vector.message));
+			const atu8_digest = ripemd160(text_to_bytes(g_vector.message));
 
-			expect(atu8_digest).to.equalBytes(hex_to_buffer(g_vector.digest));
+			expect(atu8_digest).to.equalBytes(hex_to_bytes(g_vector.digest));
 		});
 	});
 });
