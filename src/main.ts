@@ -12,6 +12,7 @@ export * from './secret-app.js';
 export * from './secret-contract.js';
 export * from './secret-wasm.js';
 export * from './snip-52.js';
+export * from './tendermint-ws.js';
 export * from './tendermint-event-filter.js';
 export * from './util.js';
 export * from './wallet.js';
