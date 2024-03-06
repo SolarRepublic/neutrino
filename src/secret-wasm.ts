@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import type {JsonValue, NaiveBase64, NaiveHexMixed, Nilable} from '@blake.regalia/belt';
-import type {CwHexMixed, CwBase64, CwHexLower} from '@solar-republic/types';
+import type {CwHexLower} from '@solar-republic/types';
 
 import {
 	bytes,
@@ -9,9 +9,8 @@ import {
 	bytes_to_text,
 	concat2,
 	text_to_bytes,
+	die,
 } from '@blake.regalia/belt';
-
-import {die} from '@solar-republic/cosmos-grpc';
 
 import {aes_128_siv_decrypt, aes_128_siv_encrypt} from './aes-128-siv.js';
 import {random_32} from './util.js';

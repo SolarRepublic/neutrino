@@ -1,6 +1,4 @@
-import {ATU8_NIL, base64_to_text, bytes, bytes_to_base64, bytes_to_text} from '@blake.regalia/belt';
-
-import {die} from '@solar-republic/cosmos-grpc';
+import {ATU8_NIL, base64_to_text, bytes, bytes_to_base64, bytes_to_text, die} from '@blake.regalia/belt';
 
 import {NB_AES_BLOCK, aes_ctr, aes_key, s2v} from './aes.js';
 

@@ -7,7 +7,7 @@ import type {Nilable} from '@blake.regalia/belt';
 import type {ProtoEnumCosmosTxSigningSignMode} from '@solar-republic/cosmos-grpc/cosmos/tx/signing/v1beta1/signing';
 import type {CwUint128, CwHexUpper, CwAccountAddr, TrustedContextUrl, SlimCoin, WeakUint128Str, CwUint64} from '@solar-republic/types';
 
-import {text_to_bytes, bytes_to_hex, sha256, canonicalize_json, __UNDEFINED} from '@blake.regalia/belt';
+import {text_to_bytes, bytes_to_hex, sha256, canonicalize_json} from '@blake.regalia/belt';
 
 import {any, restruct_coin} from '@solar-republic/cosmos-grpc';
 import {destructCosmosAuthBaseAccount} from '@solar-republic/cosmos-grpc/cosmos/auth/v1beta1/auth';
@@ -67,7 +67,7 @@ export const pubkey_to_bech32 = async<
 	const atu8_ripemd160 = ripemd160(atu8_sha256);
 
 	// encode to bech32
-	return bech32_encode(s_hrp, atu8_ripemd160) as CwAccountAddr<s_hrp>;
+	return bech32_encode(s_hrp, atu8_ripemd160);
 };
 
 /**
@@ -129,7 +129,10 @@ export const auth = async(g_wallet: Pick<Wallet, 'lcd' | 'addr'>, a_auth?: Nilab
 			// destructure the account struct to get its account and sequence numbers
 			[,, sg_account, sg_sequence] = destructCosmosAuthBaseAccount(g_account!);
 		}
-		catch(e_auth) {}
+		catch(e_auth) {
+			// TODO: handle account does not exist
+
+		}
 
 		// entuple auth data
 		a_auth = [sg_account, sg_sequence];

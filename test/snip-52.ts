@@ -33,7 +33,7 @@ const SI_COMMAND = process.argv[2] as 'init' | 'trigger' | 'update' | 'export' ?
 		const [g_res_list] = await query_secret_contract_infer(k_contract as SecretContract<Snip52>, 'list_channels');
 
 		// get first channel
-		const si_channel = g_res_list!.channels[0];
+		const si_channel = g_res_list!['channels'][0];
 
 		// get its info using viewing key
 		const [g_res_info, xc_code, s_error] = await query_secret_contract_infer<{

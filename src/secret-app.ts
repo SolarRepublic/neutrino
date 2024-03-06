@@ -8,7 +8,7 @@ import type {JsonObject, Nilable} from '@blake.regalia/belt';
 import type {ContractInterface} from '@solar-republic/contractor';
 import type {SlimCoin} from '@solar-republic/types';
 
-import {__UNDEFINED, odv, safe_json} from '@blake.regalia/belt';
+import {__UNDEFINED, values, parse_json_safe} from '@blake.regalia/belt';
 
 import {exec_secret_contract, query_secret_contract_infer} from './app-layer.js';
 
@@ -143,8 +143,8 @@ export const SecretApp = <
 			s_memo
 		);
 
-		const g_ans = safe_json<JsonObject>(s_res) || {};
+		const g_ans = parse_json_safe<JsonObject>(s_res) || {};
 
-		return [xc_code? __UNDEFINED: g_ans? odv(g_ans)[0] as JsonObject: g_ans, xc_code, s_res, g_tx, si_txn];
+		return [xc_code? __UNDEFINED: g_ans? values(g_ans)[0] as JsonObject: g_ans, xc_code, s_res, g_tx, si_txn];
 	},
 });

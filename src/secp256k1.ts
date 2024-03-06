@@ -1,7 +1,6 @@
 import type {Nilable} from '@blake.regalia/belt';
 
-import {bigint_to_bytes_be, bytes, bytes_to_bigint_be, concat2} from '@blake.regalia/belt';
-import {die} from '@solar-republic/cosmos-grpc';
+import {biguint_to_bytes_be, bytes, bytes_to_biguint_be, concat2, die} from '@blake.regalia/belt';
 
 import {random_32} from './util.js';
 
@@ -22,7 +21,7 @@ const is_group_element = (xg_value: bigint) => xg_value > 0n && xg_value < XG_CU
 
 const exceeds_half_order = (xg_n: bigint): boolean => xg_n > (XG_CURVE_ORDER >> 1n);
 
-const extract_bigint_from_buffer = (atu8: Uint8Array, ib_lo: number, ib_hi: number): bigint => bytes_to_bigint_be(atu8.subarray(ib_lo, ib_hi));
+const extract_bigint_from_buffer = (atu8: Uint8Array, ib_lo: number, ib_hi: number): bigint => bytes_to_biguint_be(atu8.subarray(ib_lo, ib_hi));
 
 const mod = (xg_value: bigint, xg_mod=XG_FIELD_PRIME): bigint => {
 	const xg_result = xg_value % xg_mod;
@@ -176,8 +175,8 @@ const ec_point = ([xg_x, xg_y, xg_z]: [xg_x: bigint, xg_y: bigint, xg_z: bigint]
 
 		atu8_out[0] = xc_uncompressed? 0x04: 0n === (xg_ay & 1n) ? 0x02: 0x03;
 
-		atu8_out.set(bigint_to_bytes_be(xg_ax), 1);
-		if(xc_uncompressed) atu8_out.set(bigint_to_bytes_be(xg_ay), 1 + NB_FIELD);
+		atu8_out.set(biguint_to_bytes_be(xg_ax), 1);
+		if(xc_uncompressed) atu8_out.set(biguint_to_bytes_be(xg_ay), 1 + NB_FIELD);
 
 		return atu8_out;
 	},
@@ -250,7 +249,7 @@ const invert = (xg_value: bigint, xg_md=XG_FIELD_PRIME): bigint => {
 };
 
 const normalize_sk = (z_sk: Uint8Array | bigint): bigint => {
-	if('bigint' !== typeof z_sk) z_sk = bytes_to_bigint_be(z_sk);
+	if('bigint' !== typeof z_sk) z_sk = bytes_to_biguint_be(z_sk);
 
 	return is_group_element(z_sk)? z_sk: die('Invalid private key');
 };
@@ -265,7 +264,7 @@ export type SignatureAndRecovery = [
 const bitsequence_to_uint = (atu8_data: Uint8Array): bigint => {
 	const n_delta = (atu8_data.length * 8) - 256;
 
-	const xg_value = bytes_to_bigint_be(atu8_data);
+	const xg_value = bytes_to_biguint_be(atu8_data);
 
 	return n_delta > 0? xg_value >> BigInt(n_delta): xg_value;
 };
@@ -328,7 +327,7 @@ export const gen_sk = (): Uint8Array => ent_to_sk(crypto.getRandomValues(bytes(N
 
 export const ent_to_sk = (atu8_entropy: Uint8Array): Uint8Array => atu8_entropy.length < NB_FIELD + 8 || atu8_entropy.length > 1024
 	? die('Invalid entropy')
-	: bigint_to_bytes_be(mod(bytes_to_bigint_be(atu8_entropy), XG_CURVE_ORDER - 1n) + 1n);
+	: biguint_to_bytes_be(mod(bytes_to_biguint_be(atu8_entropy), XG_CURVE_ORDER - 1n) + 1n);
 
 export const sk_to_pk = (z_sk: Uint8Array | bigint, xc_uncompressed: boolean | 0 | 1=0 as const): Uint8Array => KP_BASE.mul(normalize_sk(z_sk)).out(xc_uncompressed);
 
@@ -340,11 +339,11 @@ export type Signature = [xg_r: bigint, xg_s: bigint];
 export const sign = async(atu8_sk: Uint8Array, atu8_hash: Uint8Array, atu8_ent?: Nilable<Uint8Array>): Promise<SignatureAndRecovery> => {
 	const xg_h1i = mod(bitsequence_to_uint(atu8_hash), XG_CURVE_ORDER);
 
-	const atu8_h1o = bigint_to_bytes_be(xg_h1i);
+	const atu8_h1o = biguint_to_bytes_be(xg_h1i);
 
 	const xg_d = normalize_sk(atu8_sk);
 
-	const atu8_seed = concat2(bigint_to_bytes_be(xg_d), concat2(atu8_h1o, atu8_ent || random_32()));
+	const atu8_seed = concat2(biguint_to_bytes_be(xg_d), concat2(atu8_h1o, atu8_ent || random_32()));
 
 	return hmac_drbg<SignatureAndRecovery>(atu8_seed, (atu8_k: Uint8Array): SignatureAndRecovery | undefined => {
 		const xg_k = bitsequence_to_uint(atu8_k);
@@ -373,8 +372,8 @@ export const sign = async(atu8_sk: Uint8Array, atu8_hash: Uint8Array, atu8_ent?:
 		}
 
 		const atu8_out = bytes(2 * NB_FIELD);
-		atu8_out.set(bigint_to_bytes_be(xg_r));
-		atu8_out.set(bigint_to_bytes_be(xg_s_normalized), NB_FIELD);
+		atu8_out.set(biguint_to_bytes_be(xg_r));
+		atu8_out.set(biguint_to_bytes_be(xg_s_normalized), NB_FIELD);
 
 		return [atu8_out, xc_recovery as RecoveryValue];
 	});

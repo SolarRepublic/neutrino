@@ -7,18 +7,16 @@ import type {SecretContractQueryIntermediates, SecretContract} from './secret-co
 import type {AuthSecret, JsonRpcResponse, LcdRpcStruct, MsgQueryPermit, PermitConfig, TendermintEvent, TxResultWrapper, WeakSecretAccAddr} from './types.js';
 
 import type {Wallet} from './wallet.js';
-import type {JsonObject, Nilable, Promisable, AsJson, NaiveJsonString} from '@blake.regalia/belt';
+import type {JsonObject, Nilable, Promisable, NaiveJsonString} from '@blake.regalia/belt';
 
 import type {ContractInterface} from '@solar-republic/contractor';
 import type {NetworkJsonResponse} from '@solar-republic/cosmos-grpc';
-import type {CosmosBaseAbciTxResponse} from '@solar-republic/cosmos-grpc/cosmos/base/abci/v1beta1/abci';
 import type {TendermintAbciTxResult} from '@solar-republic/cosmos-grpc/tendermint/abci/types';
 import type {SecretQueryPermit, SlimCoin, WeakAccountAddr, TrustedContextUrl, CwAccountAddr, CwUint32, WeakUint128Str} from '@solar-republic/types';
 
-import {__UNDEFINED, bytes_to_base64, timeout, base64_to_bytes, bytes_to_text, oda, odv, safe_json, timeout_exec} from '@blake.regalia/belt';
+import {__UNDEFINED, bytes_to_base64, timeout, base64_to_bytes, bytes_to_text, values, parse_json_safe, timeout_exec, die, assign} from '@blake.regalia/belt';
 
-import {die} from '@solar-republic/cosmos-grpc';
-import {SI_JSON_COSMOS_TX_BROADCAST_MODE_BLOCK, XC_PROTO_COSMOS_TX_BROADCAST_MODE_BLOCK, XC_PROTO_COSMOS_TX_BROADCAST_MODE_SYNC, queryCosmosTxGetTx, submitCosmosTxBroadcastTx} from '@solar-republic/cosmos-grpc/cosmos/tx/v1beta1/service';
+import {XC_PROTO_COSMOS_TX_BROADCAST_MODE_SYNC, submitCosmosTxBroadcastTx} from '@solar-republic/cosmos-grpc/cosmos/tx/v1beta1/service';
 
 import {decodeGoogleProtobufAny} from '@solar-republic/cosmos-grpc/google/protobuf/any';
 
@@ -61,6 +59,7 @@ const without_throwing = <
 
 /**
  * Opens a new Tendermint JSONRPC WebSocket and immediately subscribes using the given query.
+ * Returns a Promise that resolves once a subscription confirmation message is received.
  * Users should close the WebSocket when no longer needed
  * @param p_rpc - RPC endpoint as an HTTPS base URL without trailing slash, e.g., "https://rpc.provider.net"
  * @param sx_query - the Tendermint query to filter events by, e.g., "tm.event='Tx'"
@@ -68,16 +67,16 @@ const without_throwing = <
  * @returns - the WebSocket instance
  */
 export const subscribe_tendermint_events = (
-	p_rpc: TrustedContextUrl,
+	p_rpc: TrustedContextUrl | `wss://${string}`,
 	sx_query: string,
 	fk_message: (d_event: MessageEvent<NaiveJsonString>) => any
-): Promise<WebSocket> => new Promise((fk_resolve, fe_reject) => oda(
-	// change protocol from http => ws and append /websocket to path
-	new WebSocket('ws'+p_rpc.slice(4)+'/websocket'), {
+): Promise<WebSocket> => new Promise((fk_resolve, fe_reject) => assign(
+	// normalize protocol from http(s) => ws and append /websocket to path
+	new WebSocket('ws'+p_rpc.replace(/^(http|ws)/, '')+'/websocket'), {
 		// first message should be subscription confirmation
 		onmessage(g_msg) {
 			// parse message
-			const g_data = safe_json<JsonRpcResponse<Record<string, never>>>(g_msg.data as NaiveJsonString);
+			const g_data = parse_json_safe<JsonRpcResponse<Record<string, never>>>(g_msg.data as NaiveJsonString);
 
 			// expect confirmation
 			if('0' !== g_data?.id || '{}' !== JSON.stringify(g_data?.result)) {
@@ -91,7 +90,7 @@ export const subscribe_tendermint_events = (
 			// each subsequent message
 			this.onmessage = fk_message;
 
-			// resolve
+			// resolve now that subscription has been confirmed
 			fk_resolve(this);
 		},
 
@@ -110,7 +109,6 @@ export const subscribe_tendermint_events = (
 		onmessage: (this: WebSocket, d_event: WebSocketEventMap['message']) => void;
 		onopen: (this: WebSocket, d_event: WebSocketEventMap['open']) => void;
 	}));
-
 
 /**
  * Broadcast a transaction to the network for its result
@@ -157,7 +155,7 @@ export const broadcast_result = async(
 			f_shutdown();
 
 			// parse message frame
-			const g_tx_res = safe_json<JsonRpcResponse<TendermintEvent<TxResultWrapper>>>(d_event.data as string)?.result.data.value.TxResult;
+			const g_tx_res = parse_json_safe<JsonRpcResponse<TendermintEvent<TxResultWrapper>>>(d_event.data as string)?.result.data.value.TxResult;
 
 			// return parsed result
 			fk_resolve([g_tx_res? g_tx_res.result?.code ?? 0: -1, sx_res, g_tx_res]);
@@ -414,7 +412,7 @@ export const query_secret_contract_infer: QueryContractInfer = async(
 	return [
 		a_response[0]
 			? __UNDEFINED
-			: odv(a_response[2] as JsonObject)[0]! as JsonObject,
+			: values(a_response[2] as JsonObject)[0]! as JsonObject,
 		...a_response,
 	];
 };
@@ -539,7 +537,7 @@ export const exec_secret_contract = async<
 		}
 
 		console.debug('tx: ', g_tx_res);
-		console.debug('data: ', safe_json(s_plaintext) || s_plaintext);
+		console.debug('data: ', parse_json_safe(s_plaintext) || s_plaintext);
 		console.groupEnd();
 	}
 

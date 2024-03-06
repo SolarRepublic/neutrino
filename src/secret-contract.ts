@@ -179,7 +179,7 @@ export const SecretContract = async<
 	}
 
 
-	// methods
+	// properties and methods
 	return {
 		// lcd endpoint
 		lcd: p_lcd,

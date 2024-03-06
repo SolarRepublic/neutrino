@@ -3,7 +3,8 @@ import {
 	base64_to_bytes,
 } from '@blake.regalia/belt';
 
-import chai, {expect} from 'chai';
+import * as chai from 'chai';
+const {expect} = chai;
 
 import chai_bites from 'chai-bites';
 import {

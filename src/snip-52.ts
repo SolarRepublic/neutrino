@@ -5,21 +5,14 @@ import type {AuthSecret, MsgNotificationSeedUpdate, NotificationSeedUpdate, Noti
 import type {Wallet} from './wallet.js';
 import type {CborValue} from '@blake.regalia/belt';
 import type {Snip52, ContractInterface} from '@solar-republic/contractor';
-
-
 import type {CwBase64, TrustedContextUrl} from '@solar-republic/types';
 
-import {hmac, base64_to_bytes, text_to_bytes, bytes_to_base64, sha256, bigint_to_bytes_be, bytes_to_bigint_be, safe_json, cbor_decode_trivial} from '@blake.regalia/belt';
-
-import {die} from '@solar-republic/cosmos-grpc';
+import {hmac, base64_to_bytes, text_to_bytes, bytes_to_base64, sha256, biguint_to_bytes_be, bytes_to_biguint_be, parse_json_safe, cbor_decode_trivial, die} from '@blake.regalia/belt';
 
 import {query_secret_contract_infer, subscribe_tendermint_events} from './app-layer.js';
-
 import {chacha20_poly1305_open} from './chacha20-poly1305.js';
 import {XN_16} from './constants.js';
 import {sign_amino} from './wallet.js';
-
-
 
 export type NotificationCallback = (z_data: CborValue) => void;
 
@@ -78,7 +71,7 @@ export const subscribe_snip52_channels = async<
 			let si_notification = await next_id();
 
 			// prep channel hash
-			let xg_hash = bytes_to_bigint_be((await sha256(text_to_bytes(si_channel))).subarray(0, 12));
+			let xg_hash = bytes_to_biguint_be((await sha256(text_to_bytes(si_channel))).subarray(0, 12));
 
 			// ensure it is a match with the next expected
 			if(si_notification !== g_channel.next_id) die('Failed to derive accurate notification ID');
@@ -106,7 +99,7 @@ export const subscribe_snip52_channels = async<
 	// on contract execution
 	const d_ws = await subscribe_tendermint_events(p_rpc, `wasm.contract_address='${k_contract.addr}'`, async(d_event) => {
 		// parse message frame
-		const g_jsonrpc_result = safe_json<JsonRpcResponse<TendermintEvent<TxResultWrapper>>>(d_event.data as string)!.result;
+		const g_jsonrpc_result = parse_json_safe<JsonRpcResponse<TendermintEvent<TxResultWrapper>>>(d_event.data as string)!.result;
 		let h_events = g_jsonrpc_result.events;
 
 		// check each channel
@@ -124,7 +117,7 @@ export const subscribe_snip52_channels = async<
 				let atu8_payload = base64_to_bytes(a_received[0]);
 
 				// create nonce
-				let atu8_nonce = bigint_to_bytes_be(xg_hash ^ xg_counter, 12);
+				let atu8_nonce = biguint_to_bytes_be(xg_hash ^ xg_counter, 12);
 
 				// decrypt notification data, splitting payload between tag and ciphertext
 				const atu8_message = chacha20_poly1305_open(atu8_seed, atu8_nonce, atu8_payload.subarray(-XN_16), atu8_payload.subarray(0, -XN_16), atu8_aad);

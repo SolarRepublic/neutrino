@@ -1,7 +1,5 @@
 /* eslint-disable prefer-const */
-import {bytes, bytes_to_base64, dataview} from '@blake.regalia/belt';
-
-import {die} from '@solar-republic/cosmos-grpc';
+import {bytes, bytes_to_base64, dataview, die} from '@blake.regalia/belt';
 
 import {chacha20} from './chacha20.js';
 import {poly1305} from './poly1305.js';
