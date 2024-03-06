@@ -1,7 +1,6 @@
-import type {JsonRpcResponse, TendermintEvent} from './types';
+import type {JsonRpcResponse, TendermintEvent, TxResultWrapper} from './types';
 import type {StringFilter} from './util';
 import type {Dict, JsonObject, Promisable} from '@blake.regalia/belt';
-import type {TendermintAbciTxResult} from '@solar-republic/cosmos-grpc/tendermint/abci/types';
 import type {TrustedContextUrl} from '@solar-republic/types';
 
 import {parse_json_safe, entries, remove} from '@blake.regalia/belt';
@@ -10,13 +9,13 @@ import {TendermintWs} from './tendermint-ws';
 import {string_matches_filter} from './util';
 
 export type EventListener<
-	g_data extends JsonObject=TendermintAbciTxResult,
+	g_data extends JsonObject=TxResultWrapper,
 > = (g_data: g_data, h_events: Dict<string[]>) => void;
 
 export type EventUnlistener = () => void;
 
 export type TendermintEventFilter<
-	g_data extends JsonObject=TendermintAbciTxResult,
+	g_data extends JsonObject=TxResultWrapper,
 > = {
 	/**
 	 * Returns the current {@link WebSocket}.
@@ -45,7 +44,7 @@ export type TendermintEventFilter<
  */
 // eslint-disable-next-line @typescript-eslint/naming-convention
 export const TendermintEventFilter = async<
-	g_data extends JsonObject=TendermintAbciTxResult,
+	g_data extends JsonObject=TxResultWrapper,
 >(
 	p_rpc: TrustedContextUrl,
 	sx_query=`tm.event='Tx'`,
