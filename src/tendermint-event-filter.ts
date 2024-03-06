@@ -1,6 +1,6 @@
 import type {JsonRpcResponse, TendermintEvent} from './types';
 import type {StringFilter} from './util';
-import type {Dict} from '@blake.regalia/belt';
+import type {Dict, JsonObject} from '@blake.regalia/belt';
 import type {TendermintAbciTxResult} from '@solar-republic/cosmos-grpc/tendermint/abci/types';
 import type {TrustedContextUrl} from '@solar-republic/types';
 
@@ -9,11 +9,15 @@ import {parse_json_safe, entries, remove} from '@blake.regalia/belt';
 import {subscribe_tendermint_events} from './app-layer';
 import {string_matches_filter} from './util';
 
-export type TxListener = (g_txres: TendermintAbciTxResult, h_events: Dict<string[]>) => void;
+export type EventListener<
+	g_data extends JsonObject=TendermintAbciTxResult,
+> = (g_data: g_data, h_events: Dict<string[]>) => void;
 
-export type TxUnlistener = () => void;
+export type EventUnlistener = () => void;
 
-export type TendermintTxEventFilter = {
+export type TendermintEventFilter<
+	g_data extends JsonObject=TendermintAbciTxResult,
+> = {
 	/**
 	 * {@link WebSocket} created during construction.
 	 */
@@ -29,7 +33,7 @@ export type TendermintTxEventFilter = {
 	when(
 		si_key: string,
 		z_filter: StringFilter,
-		f_listener: TxListener,
+		f_listener: EventListener<g_data>,
 	): void;
 };
 
@@ -40,19 +44,21 @@ export type TendermintTxEventFilter = {
  * To terminate the connecting, callers should close the WebSocket via `.ws.close()`.
  */
 // eslint-disable-next-line @typescript-eslint/naming-convention
-export const TendermintTxEventFilter = async(
+export const TendermintEventFilter = async<
+	g_data extends JsonObject=TendermintAbciTxResult,
+>(
 	p_rpc: TrustedContextUrl,
 	sx_query=`tm.event='Tx'`
-): Promise<TendermintTxEventFilter> => {
+): Promise<TendermintEventFilter<g_data>> => {
 	const h_filters: Dict<Readonly<[
 		z_filter: StringFilter,
-		f_listener: TxListener,
+		f_listener: EventListener<g_data>,
 	]>[]> = {};
 
 	// subscribe to Tx events
 	const d_ws = await subscribe_tendermint_events(p_rpc, sx_query, (d_event) => {
 		// parse event JSON
-		const g_result = parse_json_safe<JsonRpcResponse<TendermintEvent<TendermintAbciTxResult>>>(d_event.data)?.result;
+		const g_result = parse_json_safe<JsonRpcResponse<TendermintEvent<g_data>>>(d_event.data)?.result;
 
 		// ignore null events and parsing errors
 		if(g_result) {
@@ -90,7 +96,7 @@ export const TendermintTxEventFilter = async(
 		ws: d_ws,
 
 		// adds event listeners
-		when(si_key: string, z_value: StringFilter, f_listener: TxListener): TxUnlistener {
+		when(si_key: string, z_value: StringFilter, f_listener: EventListener<g_data>): EventUnlistener {
 			const a_party = [z_value, f_listener] as const;
 
 			const a_filters = h_filters[si_key] ??= [];
