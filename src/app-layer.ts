@@ -105,10 +105,7 @@ export const subscribe_tendermint_events = (
 				},
 			}));
 		},
-	} as {
-		onmessage: (this: WebSocket, d_event: WebSocketEventMap['message']) => void;
-		onopen: (this: WebSocket, d_event: WebSocketEventMap['open']) => void;
-	}));
+	} as Pick<WebSocket, 'onmessage' | 'onopen'>));
 
 /**
  * Broadcast a transaction to the network for its result

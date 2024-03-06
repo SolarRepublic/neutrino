@@ -1,12 +1,12 @@
 import type {JsonRpcResponse, TendermintEvent} from './types';
 import type {StringFilter} from './util';
-import type {Dict, JsonObject} from '@blake.regalia/belt';
+import type {Dict, JsonObject, Promisable} from '@blake.regalia/belt';
 import type {TendermintAbciTxResult} from '@solar-republic/cosmos-grpc/tendermint/abci/types';
 import type {TrustedContextUrl} from '@solar-republic/types';
 
 import {parse_json_safe, entries, remove} from '@blake.regalia/belt';
 
-import {subscribe_tendermint_events} from './app-layer';
+import {TendermintWs} from './tendermint-ws';
 import {string_matches_filter} from './util';
 
 export type EventListener<
@@ -19,9 +19,9 @@ export type TendermintEventFilter<
 	g_data extends JsonObject=TendermintAbciTxResult,
 > = {
 	/**
-	 * {@link WebSocket} created during construction.
+	 * Returns the current {@link WebSocket}.
 	 */
-	ws: WebSocket;
+	ws(): WebSocket;
 
 	/**
 	 * Adds a listener to be called when the specified event key is seen and has at least one value matching
@@ -48,7 +48,8 @@ export const TendermintEventFilter = async<
 	g_data extends JsonObject=TendermintAbciTxResult,
 >(
 	p_rpc: TrustedContextUrl,
-	sx_query=`tm.event='Tx'`
+	sx_query=`tm.event='Tx'`,
+	fk_restart?: (d_event: CloseEvent) => Promisable<boolean | 1 | ((d_ws: WebSocket) => Promisable<void>)>
 ): Promise<TendermintEventFilter<g_data>> => {
 	const h_filters: Dict<Readonly<[
 		z_filter: StringFilter,
@@ -56,7 +57,7 @@ export const TendermintEventFilter = async<
 	]>[]> = {};
 
 	// subscribe to Tx events
-	const d_ws = await subscribe_tendermint_events(p_rpc, sx_query, (d_event) => {
+	const k_ws = await TendermintWs(p_rpc, sx_query, (d_event) => {
 		// parse event JSON
 		const g_result = parse_json_safe<JsonRpcResponse<TendermintEvent<g_data>>>(d_event.data)?.result;
 
@@ -88,12 +89,12 @@ export const TendermintEventFilter = async<
 				}
 			}
 		}
-	});
+	}, fk_restart);
 
 	// properties and methods
 	return {
 		// the WebSocket
-		ws: d_ws,
+		ws: () => k_ws.ws(),
 
 		// adds event listeners
 		when(si_key: string, z_value: StringFilter, f_listener: EventListener<g_data>): EventUnlistener {
