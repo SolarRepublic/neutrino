@@ -1,11 +1,11 @@
 import type {JsonRpcResponse, TendermintEvent, TxResultWrapper} from './types';
 import type {StringFilter} from './util';
-import type {Dict, JsonObject, Promisable} from '@blake.regalia/belt';
+import type {Dict, JsonObject} from '@blake.regalia/belt';
 import type {TrustedContextUrl} from '@solar-republic/types';
 
 import {parse_json_safe, entries, remove} from '@blake.regalia/belt';
 
-import {TendermintWs} from './tendermint-ws';
+import {TendermintWs, type TendermintWsRestartParam} from './tendermint-ws';
 import {string_matches_filter} from './util';
 
 export type EventListener<
@@ -13,6 +13,7 @@ export type EventListener<
 > = (g_data: g_data, h_events: Dict<string[]>) => void;
 
 export type EventUnlistener = () => void;
+
 
 export type TendermintEventFilter<
 	g_data extends JsonObject=TxResultWrapper,
@@ -33,7 +34,7 @@ export type TendermintEventFilter<
 		si_key: string,
 		z_filter: StringFilter,
 		f_listener: EventListener<g_data>,
-	): void;
+	): EventUnlistener;
 };
 
 /**
@@ -48,7 +49,7 @@ export const TendermintEventFilter = async<
 >(
 	p_rpc: TrustedContextUrl,
 	sx_query=`tm.event='Tx'`,
-	fk_restart?: (d_event: CloseEvent) => Promisable<boolean | 1 | ((d_ws: WebSocket) => Promisable<void>)>
+	z_restart?: TendermintWsRestartParam
 ): Promise<TendermintEventFilter<g_data>> => {
 	const h_filters: Dict<Readonly<[
 		z_filter: StringFilter,
@@ -88,7 +89,7 @@ export const TendermintEventFilter = async<
 				}
 			}
 		}
-	}, fk_restart);
+	}, z_restart);
 
 	// properties and methods
 	return {
