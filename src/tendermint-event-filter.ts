@@ -1,19 +1,20 @@
 import type {JsonRpcResponse, TendermintEvent, TxResultWrapper} from './types';
 import type {StringFilter} from './util';
-import type {Dict, JsonObject} from '@blake.regalia/belt';
+import type {Dict, JsonObject, Promisable} from '@blake.regalia/belt';
 import type {TrustedContextUrl} from '@solar-republic/types';
 
-import {parse_json_safe, entries, remove} from '@blake.regalia/belt';
+import {parse_json_safe, entries, remove, try_sync, values, is_function} from '@blake.regalia/belt';
 
 import {TendermintWs, type TendermintWsRestartParam} from './tendermint-ws';
 import {string_matches_filter} from './util';
 
 export type EventListener<
 	g_data extends JsonObject=TxResultWrapper,
-> = (g_data: g_data, h_events: Dict<string[]>) => void;
+> = (g_data: g_data, h_events: Dict<string[]>) => Promisable<void>;
 
 export type EventUnlistener = () => void;
 
+export const SX_QUERY_TM_EVENT_TX = `tm.event='Tx'`;
 
 export type TendermintEventFilter<
 	g_data extends JsonObject=TxResultWrapper,
@@ -34,6 +35,7 @@ export type TendermintEventFilter<
 		si_key: string,
 		z_filter: StringFilter,
 		f_listener: EventListener<g_data>,
+		f_restarted?: (() => Promisable<void>) | undefined,
 	): EventUnlistener;
 };
 
@@ -48,12 +50,14 @@ export const TendermintEventFilter = async<
 	g_data extends JsonObject=TxResultWrapper,
 >(
 	p_rpc: TrustedContextUrl,
-	sx_query=`tm.event='Tx'`,
-	z_restart?: TendermintWsRestartParam
+	sx_query=SX_QUERY_TM_EVENT_TX,
+	z_restart?: TendermintWsRestartParam | undefined,
+	dc_ws?: typeof WebSocket
 ): Promise<TendermintEventFilter<g_data>> => {
 	const h_filters: Dict<Readonly<[
 		z_filter: StringFilter,
 		f_listener: EventListener<g_data>,
+		f_restarted: (() => Promisable<void>) | undefined,
 	]>[]> = {};
 
 	// subscribe to Tx events
@@ -79,7 +83,8 @@ export const TendermintEventFilter = async<
 							// matches filter
 							if(string_matches_filter(s_value, z_filter)) {
 								// call listener
-								f_listener(g_result.data.value, g_result.events);
+								// eslint-disable-next-line @typescript-eslint/no-floating-promises
+								try_sync(() => f_listener(g_result.data.value, g_result.events));
 
 								// continue with next party
 								continue FINDING_PARTIES;
@@ -89,7 +94,20 @@ export const TendermintEventFilter = async<
 				}
 			}
 		}
-	}, z_restart);
+	}, z_restart? (d_event) => {
+		// each filter
+		for(const a_parties of values(h_filters)) {
+			// each party
+			for(const a_party of a_parties) {
+				// notify restart handler if defined
+				// eslint-disable-next-line @typescript-eslint/no-floating-promises
+				try_sync(() => a_party[2]?.());
+			}
+		}
+
+		// bubble
+		return is_function(z_restart)? z_restart(d_event): z_restart;
+	}: z_restart, dc_ws);
 
 	// properties and methods
 	return {
@@ -97,8 +115,13 @@ export const TendermintEventFilter = async<
 		ws: () => k_ws.ws(),
 
 		// adds event listeners
-		when(si_key: string, z_value: StringFilter, f_listener: EventListener<g_data>): EventUnlistener {
-			const a_party = [z_value, f_listener] as const;
+		when(
+			si_key: string,
+			z_value: StringFilter,
+			f_listener: EventListener<g_data>,
+			f_restarted?: (() => Promisable<void>) | undefined
+		): EventUnlistener {
+			const a_party = [z_value, f_listener, f_restarted] as const;
 
 			const a_filters = h_filters[si_key] ??= [];
 

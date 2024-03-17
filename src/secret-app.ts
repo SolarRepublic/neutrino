@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/naming-convention */
 
 import type {CreateQueryArgsAndAuthParams, MergeTuple} from './inferencing.js';
 import type {SecretContract} from './secret-contract.js';
@@ -103,7 +104,14 @@ export interface SecretApp<
 	]>;
 }
 
-export const SecretApp = <
+export const SecretApp: <
+	g_interface extends ContractInterface,
+>(
+	k_wallet: Wallet<'secret'>,
+	k_contract: SecretContract<g_interface>,
+	xn_gas_price: number,
+	sa_granter?: WeakSecretAccAddr
+) => SecretApp<g_interface> = <
 	g_interface extends ContractInterface,
 >(
 	k_wallet: Wallet<'secret'>,

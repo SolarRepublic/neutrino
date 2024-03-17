@@ -1,6 +1,6 @@
 import type {Nilable} from '@blake.regalia/belt';
 
-import {biguint_to_bytes_be, bytes, bytes_to_biguint_be, concat2, die} from '@blake.regalia/belt';
+import {SI_HASH_ALGORITHM_SHA256, biguint_to_bytes_be, bytes, bytes_to_biguint_be, concat2, die, hmac} from '@blake.regalia/belt';
 
 import {random_32} from './util.js';
 
@@ -424,15 +424,7 @@ export const verify = (atu8_signature: Uint8Array, atu8_hash: Uint8Array, atu8_p
 	return mod(a_aff_r[0], XG_CURVE_ORDER) === xg_r;
 };
 
-const hmac_sha256 = async(atu8_key: Uint8Array, atu8_data: Uint8Array) => {
-	const d_key = await crypto.subtle.importKey('raw', atu8_key, {
-		name: 'HMAC',
-		hash: 'SHA-256',
-	}, false, ['sign']);
-
-	return bytes(await crypto.subtle.sign('HMAC', d_key, atu8_data));
-};
-
+const hmac_sha256 = (atu8_key: Uint8Array, atu8_data: Uint8Array) => hmac(atu8_key, atu8_data, SI_HASH_ALGORITHM_SHA256);
 
 
 // let A_PRECOMPUTED: EcPoint[] | undefined;

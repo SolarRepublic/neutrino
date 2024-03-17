@@ -27,8 +27,8 @@
   ],
   "scripts": {
     "clean": "rm -rf dist/*",
-    "build:mjs": "tsc -p tsconfig.mjs.json && npx tsc-esm-fix --target='dist/mjs'",
-    "build:cjs": "tsc -p tsconfig.cjs.json && npx tsc-esm-fix --target='dist/cjs'",
+    "build:mjs": "yarn tsc -p tsconfig.mjs.json && npx tsc-esm-fix --target='dist/mjs'",
+    "build:cjs": "yarn tsc -p tsconfig.cjs.json && npx tsc-esm-fix --target='dist/cjs'",
     "build": "yarn build:mjs && yarn build:cjs",
     "preview": "js-beautify dist/main.mjs > dist/main-pretty.mjs",
     "test": "node --loader ts-node/esm",
@@ -36,21 +36,21 @@
     "debug": "node --inspect-brk --loader ts-node/esm"
   },
   "devDependencies": {
-    "@blake.regalia/belt": "^0.32.6",
+    "@blake.regalia/belt": "^0.33.0",
     "@blake.regalia/eslint-config-elite": "^0.4.4",
     "@blake.regalia/tsconfig": "^0.2.0",
-    "@cosmjs/amino": "^0.32.2",
+    "@cosmjs/amino": "^0.32.3",
     "@nfps.dev/rollup-plugin-microweb": "^0.3.5",
     "@noble/secp256k1": "^2.0.0",
     "@rollup/plugin-commonjs": "^25.0.7",
     "@rollup/plugin-replace": "^5.0.5",
-    "@solar-republic/contractor": "^0.7.2",
+    "@solar-republic/contractor": "^0.8.8",
     "@solar-republic/cosmos-grpc": "^0.15.0",
-    "@solar-republic/types": "^0.2.6",
+    "@solar-republic/types": "^0.2.7",
     "@types/chai": "^4.3.12",
-    "@types/node": "^20.11.24",
-    "@types/web": "^0.0.140",
-    "@typescript-eslint/parser": "^7.1.1",
+    "@types/node": "^20.11.28",
+    "@types/web": "^0.0.142",
+    "@typescript-eslint/parser": "^7.2.0",
     "chai": "^5.1.0",
     "chai-bites": "^0.1.2",
     "curve25519-js": "^0.0.4",
@@ -58,7 +58,7 @@
     "eslint": "^8.57.0",
     "isomorphic-ws": "^5.0.0",
     "js-beautify": "^1.15.1",
-    "rollup": "^4.12.1",
+    "rollup": "^4.13.0",
     "rollup-plugin-ignore": "^1.0.10",
     "ts-node": "^10.9.2",
     "ts-toolbelt": "^9.6.0",
@@ -69,7 +69,7 @@
     "ws": "^8.16.0"
   },
   "dependencies": {
-    "@blake.regalia/belt": "^0.32.6"
+    "@blake.regalia/belt": "^0.33.0"
   },
   "publishConfig": {
     "access": "public"

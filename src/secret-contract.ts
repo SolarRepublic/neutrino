@@ -120,7 +120,13 @@ export type SecretContract<
  * @returns 
  */
 // eslint-disable-next-line @typescript-eslint/naming-convention
-export const SecretContract = async<
+export const SecretContract: <
+	g_interface extends ContractInterface=ContractInterface,
+>(
+	p_lcd: TrustedContextUrl,
+	sa_contract: WeakSecretAccAddr,
+	atu8_seed?: Nilable<Uint8Array>,
+) => Promise<SecretContract<g_interface>> = async<
 	g_interface extends ContractInterface=ContractInterface,
 >(
 	p_lcd: TrustedContextUrl,

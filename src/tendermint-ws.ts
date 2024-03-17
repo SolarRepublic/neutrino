@@ -26,7 +26,8 @@ export const TendermintWs = async(
 	p_rpc: TrustedContextUrl,
 	sx_query: string,
 	fk_message: (d_event: MessageEvent<NaiveJsonString>) => any,
-	z_restart?: TendermintWsRestartParam
+	z_restart?: TendermintWsRestartParam | undefined,
+	dc_ws?: typeof WebSocket
 ): Promise<TendermintWs> => {
 	let d_ws!: WebSocket;
 
@@ -34,7 +35,7 @@ export const TendermintWs = async(
 	let b_restart_fn = is_function(z_restart);
 
 	// connector
-	let f_reconnect = async() => assign(d_ws=await subscribe_tendermint_events(p_rpc, sx_query, fk_message), {
+	let f_reconnect = async() => assign(d_ws=await subscribe_tendermint_events(p_rpc, sx_query, fk_message, dc_ws), {
 		// close event
 		async onclose(d_event) {
 			// notify caller

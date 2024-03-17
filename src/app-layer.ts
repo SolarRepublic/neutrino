@@ -69,10 +69,11 @@ const without_throwing = <
 export const subscribe_tendermint_events = (
 	p_rpc: TrustedContextUrl | `wss://${string}`,
 	sx_query: string,
-	fk_message: (d_event: MessageEvent<NaiveJsonString>) => any
+	fk_message: (d_event: MessageEvent<NaiveJsonString>) => any,
+	dc_ws=WebSocket
 ): Promise<WebSocket> => new Promise((fk_resolve, fe_reject) => assign(
 	// normalize protocol from http(s) => ws and append /websocket to path
-	new WebSocket('ws'+p_rpc.replace(/^(http|ws)/, '')+'/websocket'), {
+	new dc_ws('ws'+p_rpc.replace(/^(http|ws)/, '')+'/websocket'), {
 		// first message should be subscription confirmation
 		onmessage(g_msg) {
 			// parse message
@@ -239,7 +240,14 @@ export const broadcast_result = async(
  *  - [3]: `h_answer?: JsonObject` - contract response as JSON object on success
  */
 // eslint-disable-next-line @typescript-eslint/naming-convention
-export const query_secret_contract = async<
+export const query_secret_contract: <
+	g_interface extends ContractInterface,
+	h_variants extends ContractInterface.MsgAndAnswer<g_interface, 'queries'>,
+	g_variant extends h_variants[keyof h_variants],
+>(
+	k_contract: SecretContract<g_interface>,
+	h_query: g_variant['msg']
+) => Promise<[xc_code: number, s_error: string, h_answer?: g_variant['answer']]> = async<
 	g_interface extends ContractInterface,
 	h_variants extends ContractInterface.MsgAndAnswer<g_interface, 'queries'>,
 	g_variant extends h_variants[keyof h_variants],
@@ -437,7 +445,27 @@ export const query_secret_contract_infer: QueryContractInfer = async(
  * 
  * @throws a {@link BroadcastResultErr}
  */
-export const exec_secret_contract = async<
+export const exec_secret_contract: <
+	g_interface extends ContractInterface,
+	h_group extends ContractInterface.MsgAndAnswer<g_interface, 'executions'>,
+	as_methods extends Extract<keyof h_group, string>,
+>(
+	k_contract: SecretContract<g_interface>,
+	k_wallet: Wallet<'secret'>,
+	h_exec: ContractInterface extends g_interface? JsonObject: {
+		[si_method in as_methods]: h_group[si_method]['msg'];
+	},
+	a_fees: [SlimCoin, ...SlimCoin[]],
+	sg_limit: WeakUint128Str,
+	sa_granter?: WeakSecretAccAddr | '',
+	a_funds?: SlimCoin[],
+	s_memo?: string
+) => Promise<[
+	xc_code: number,
+	s_res: string,
+	g_tx_res?: TendermintAbciTxResult | undefined,
+	si_txn?: string,
+]> = async<
 	g_interface extends ContractInterface,
 	h_group extends ContractInterface.MsgAndAnswer<g_interface, 'executions'>,
 	as_methods extends Extract<keyof h_group, string>,

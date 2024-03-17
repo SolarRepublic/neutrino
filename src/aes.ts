@@ -40,8 +40,8 @@ const double_block = (atu8_block: Uint8Array) => {
 	xb_carry = 0;
 };
 
-// XOR two buffers, replacing 'a' in-place and up to len(b)
-const xor_buffers = (atu8_a: Uint8Array, atu8_b: Uint8Array) => {
+// XOR two byte streams, replacing 'a' in-place and up to len(b)
+const xor_bytes_in_place = (atu8_a: Uint8Array, atu8_b: Uint8Array) => {
 	for(let ib_each=0; ib_each<atu8_b.length; ib_each++) {
 		atu8_a[ib_each] ^= atu8_b[ib_each];
 	}
@@ -75,7 +75,7 @@ export const aes_cmac_init = async(d_key_mac: CryptoKey): Promise<(atu8_data: Ui
 		// last block requires padding
 		if(nb_last || !nl_blocks) {
 			// M_last := {ANS} XOR K2
-			xor_buffers(atu8_last, atu8_k2);
+			xor_bytes_in_place(atu8_last, atu8_k2);
 
 			// padding(M_n)
 			atu8_last[nb_last] ^= 0x80;
@@ -83,7 +83,7 @@ export const aes_cmac_init = async(d_key_mac: CryptoKey): Promise<(atu8_data: Ui
 		// no padding needed; xor with k1
 		else {
 			// M_last := M_n XOR K1
-			xor_buffers(atu8_last, atu8_k1);
+			xor_bytes_in_place(atu8_last, atu8_k1);
 		}
 
 		// X := const_Zero
@@ -92,14 +92,14 @@ export const aes_cmac_init = async(d_key_mac: CryptoKey): Promise<(atu8_data: Ui
 		// for i := 1 to n-1
 		for(let i_block=0; i_block<nl_blocks-1; i_block++) {
 			// Y := X XOR M_i
-			xor_buffers(atu8_block, atu8_data.subarray(i_block * NB_AES_BLOCK));
+			xor_bytes_in_place(atu8_block, atu8_data.subarray(i_block * NB_AES_BLOCK));
 
 			// X := AES-128(K,Y)
 			atu8_block = await aes_cbc(d_key_mac, atu8_block);
 		}
 
 		// Y := M_last XOR X
-		xor_buffers(atu8_block, atu8_last);
+		xor_bytes_in_place(atu8_block, atu8_last);
 
 		// T := AES-128(K,Y)
 		return await aes_cbc(d_key_mac, atu8_block);
@@ -119,7 +119,7 @@ export const s2v = async(d_key_rkd: CryptoKey, atu8_plaintext: Uint8Array, a_ad=
 		double_block(atu8_cmac);
 
 		// D = {ANS} xor AES-CMAC(K, Si)
-		xor_buffers(atu8_cmac, await f_cmac(atu8_ad));
+		xor_bytes_in_place(atu8_cmac, await f_cmac(atu8_ad));
 	}
 
 	// cache plaintext byte count
@@ -132,7 +132,7 @@ export const s2v = async(d_key_rkd: CryptoKey, atu8_plaintext: Uint8Array, a_ad=
 	if(nb_plaintext >= NB_AES_BLOCK) {
 		// Sn_end xor D
 		atu8_sn.set(atu8_plaintext.subarray(nb_plaintext - NB_AES_BLOCK));
-		xor_buffers(atu8_sn, atu8_cmac);
+		xor_bytes_in_place(atu8_sn, atu8_cmac);
 
 		// T = Sn xorend D
 		atu8_cmac = atu8_plaintext.slice();
@@ -147,7 +147,7 @@ export const s2v = async(d_key_rkd: CryptoKey, atu8_plaintext: Uint8Array, a_ad=
 		atu8_sn[nb_plaintext] = 0x80;
 
 		// T = dbl(D) xor pad(Sn)
-		xor_buffers(atu8_cmac, atu8_sn);
+		xor_bytes_in_place(atu8_cmac, atu8_sn);
 	}
 
 	// V = AES-CMAC(K, T)
