@@ -5,6 +5,7 @@ export * from './aes.js';
 export * from './app-layer.js';
 export * from './chacha20-poly1305.js';
 export * from './chacha20.js';
+export * from './config.js';
 export * from './poly1305.js';
 export * from './ripemd160.js';
 export * from './secp256k1.js';

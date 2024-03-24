@@ -52,7 +52,7 @@ export const TendermintEventFilter = async<
 	p_rpc: TrustedContextUrl,
 	sx_query=SX_QUERY_TM_EVENT_TX,
 	z_restart?: TendermintWsRestartParam | undefined,
-	dc_ws?: typeof WebSocket
+	z_ws?: TendermintWs | typeof WebSocket
 ): Promise<TendermintEventFilter<g_data>> => {
 	const h_filters: Dict<Readonly<[
 		z_filter: StringFilter,
@@ -61,53 +61,55 @@ export const TendermintEventFilter = async<
 	]>[]> = {};
 
 	// subscribe to Tx events
-	const k_ws = await TendermintWs(p_rpc, sx_query, (d_event) => {
-		// parse event JSON
-		const g_result = parse_json_safe<JsonRpcResponse<TendermintEvent<g_data>>>(d_event.data)?.result;
+	const k_ws = z_ws instanceof TendermintWs
+		? z_ws as TendermintWs
+		: await TendermintWs(p_rpc, sx_query, (d_event) => {
+			// parse event JSON
+			const g_result = parse_json_safe<JsonRpcResponse<TendermintEvent<g_data>>>(d_event.data)?.result;
 
-		// ignore null events and parsing errors
-		if(g_result) {
-			// prep values
-			let a_values: string[];
+			// ignore null events and parsing errors
+			if(g_result) {
+				// prep values
+				let a_values: string[];
 
-			// each filter
-			for(const [si_key, a_parties] of entries(h_filters)) {
-				// values exist
-				// eslint-disable-next-line no-cond-assign
-				if(a_values=g_result.events[si_key]) {
-					// each interested party
-					FINDING_PARTIES:
-					for(const [z_filter, f_listener] of a_parties) {
-						// each value
-						for(const s_value of a_values) {
-							// matches filter
-							if(string_matches_filter(s_value, z_filter)) {
-								// call listener
-								// eslint-disable-next-line @typescript-eslint/no-floating-promises
-								try_sync(() => f_listener(g_result.data.value, g_result.events));
+				// each filter
+				for(const [si_key, a_parties] of entries(h_filters)) {
+					// values exist
+					// eslint-disable-next-line no-cond-assign
+					if(a_values=g_result.events[si_key]) {
+						// each interested party
+						FINDING_PARTIES:
+						for(const [z_filter, f_listener] of a_parties) {
+							// each value
+							for(const s_value of a_values) {
+								// matches filter
+								if(string_matches_filter(s_value, z_filter)) {
+									// call listener
+									// eslint-disable-next-line @typescript-eslint/no-floating-promises
+									try_sync(() => f_listener(g_result.data.value, g_result.events));
 
-								// continue with next party
-								continue FINDING_PARTIES;
+									// continue with next party
+									continue FINDING_PARTIES;
+								}
 							}
 						}
 					}
 				}
 			}
-		}
-	}, z_restart? (d_event) => {
-		// each filter
-		for(const a_parties of values(h_filters)) {
-			// each party
-			for(const a_party of a_parties) {
-				// notify restart handler if defined
-				// eslint-disable-next-line @typescript-eslint/no-floating-promises
-				try_sync(() => a_party[2]?.());
+		}, z_restart? (d_event) => {
+			// each filter
+			for(const a_parties of values(h_filters)) {
+				// each party
+				for(const a_party of a_parties) {
+					// notify restart handler if defined
+					// eslint-disable-next-line @typescript-eslint/no-floating-promises
+					try_sync(() => a_party[2]?.());
+				}
 			}
-		}
 
-		// bubble
-		return is_function(z_restart)? z_restart(d_event): z_restart;
-	}: z_restart, dc_ws);
+			// bubble
+			return is_function(z_restart)? z_restart(d_event): z_restart;
+		}: z_restart, z_ws as typeof WebSocket | undefined);
 
 	// properties and methods
 	return {

@@ -2,26 +2,48 @@
 /* eslint-disable no-console */
 /* eslint-disable @typescript-eslint/naming-convention */
 
+import type {O} from 'ts-toolbelt';
+
 import type {CreateQueryArgsAndAuthParams} from './inferencing.js';
 import type {SecretContractQueryIntermediates, SecretContract} from './secret-contract.js';
-import type {AuthSecret, JsonRpcResponse, LcdRpcStruct, MsgQueryPermit, PermitConfig, TendermintEvent, TxResultWrapper, WeakSecretAccAddr} from './types.js';
+import type {TendermintWs} from './tendermint-ws.js';
+import type {AuthSecret, JsonRpcResponse, LcdRpcStruct, MsgQueryPermit, PermitConfig, TxResultWrapper, WeakSecretAccAddr} from './types.js';
 
 import type {Wallet} from './wallet.js';
-import type {JsonObject, Nilable, Promisable, NaiveJsonString} from '@blake.regalia/belt';
+import type {JsonObject, Nilable, Promisable, NaiveJsonString, Dict} from '@blake.regalia/belt';
 
 import type {ContractInterface} from '@solar-republic/contractor';
+
 import type {NetworkJsonResponse} from '@solar-republic/cosmos-grpc';
-import type {TendermintAbciTxResult} from '@solar-republic/cosmos-grpc/tendermint/abci/types';
-import type {SecretQueryPermit, SlimCoin, WeakAccountAddr, TrustedContextUrl, CwAccountAddr, CwUint32, WeakUint128Str} from '@solar-republic/types';
+import type {TendermintAbciExecTxResult} from '@solar-republic/cosmos-grpc/tendermint/abci/types';
+import type {SecretQueryPermit, SlimCoin, WeakAccountAddr, TrustedContextUrl, CwAccountAddr, CwUint32, WeakUint128Str, WeakUintStr} from '@solar-republic/types';
 
-import {__UNDEFINED, bytes_to_base64, timeout, base64_to_bytes, bytes_to_text, values, parse_json_safe, timeout_exec, die, assign} from '@blake.regalia/belt';
+import {__UNDEFINED, bytes_to_base64, timeout, base64_to_bytes, bytes_to_text, values, parse_json_safe, timeout_exec, die, assign, hex_to_bytes, is_number} from '@blake.regalia/belt';
+import {decodeCosmosBaseAbciTxMsgData, type CosmosBaseAbciTxResponse} from '@solar-republic/cosmos-grpc/cosmos/base/abci/v1beta1/abci';
 
-import {XC_PROTO_COSMOS_TX_BROADCAST_MODE_SYNC, submitCosmosTxBroadcastTx} from '@solar-republic/cosmos-grpc/cosmos/tx/v1beta1/service';
+import {XC_PROTO_COSMOS_TX_BROADCAST_MODE_SYNC, queryCosmosTxGetTx, submitCosmosTxBroadcastTx} from '@solar-republic/cosmos-grpc/cosmos/tx/v1beta1/service';
 
-import {decodeGoogleProtobufAny} from '@solar-republic/cosmos-grpc/google/protobuf/any';
+import {decodeSecretComputeMsgExecuteContractResponse} from '@solar-republic/cosmos-grpc/secret/compute/v1beta1/msg';
 
+import {GC_NEUTRINO} from './config.js';
+import {exec_fees} from './secret-app.js';
+import {SX_QUERY_TM_EVENT_TX, TendermintEventFilter, type EventUnlistener} from './tendermint-event-filter.js';
+import {index_abci_events} from './util.js';
 import {create_and_sign_tx_direct, sign_amino} from './wallet.js';
 
+/**
+ * A synthetic struct for carrying metadata associated with a transaction that may have succeeded or failed.
+ * The underlying source of data may have come from either {@link TendermintAbciExecTxResult} (Tendermint event)
+ * or {@link CosmosBaseAbciTxResponse} (Cosmos LCD tx query response).
+ */
+export type TxMeta = {
+	height: WeakUintStr;
+	gas_wanted: WeakUintStr;
+	gas_used: WeakUintStr;
+	log?: string | undefined;
+	code?: number;
+	codespace?: string;
+};
 
 export type RetryParams = [
 	xt_wait: number,
@@ -47,14 +69,6 @@ export const retry = async<w_out>(
 		throw die('Retried '+c_attempts+'x: '+f_broadcast, z_broadcast);
 	}
 };
-
-
-/**
- * Evaluates the given Promise, returning whatever value is resolved or rejected
- */
-const without_throwing = <
-	w_type extends NetworkJsonResponse,
->(dp_req: Promise<w_type>): Promise<w_type> => new Promise(fk_resolve => dp_req.then(fk_resolve, fk_resolve));
 
 
 /**
@@ -108,106 +122,145 @@ export const subscribe_tendermint_events = (
 		},
 	} as Pick<WebSocket, 'onmessage' | 'onopen'>));
 
+
+
 /**
  * Broadcast a transaction to the network for its result
- * @param gc_node 
- * @param atu8_raw 
- * @param si_txn 
- * @returns tuple of `[number, string, TxResponse?]`
+ * @param gc_node - 
+ * @param atu8_raw -  
+ * @param si_txn -
+ * @param z_stream - 
+ * @returns tuple of `[number, string,`{@link TxMeta `TxMeta`}`?, Uint8Array?, Dict<string[]>]`
  *  - [0]: `xc_code: number` - error code from chain, or non-OK HTTP status code from the LCD server.
  * 		A value of `0` indicates success. A value of `-1` indicates a JSON parsing error.
  *  - [1]: `sx_res: string` - raw response text from the initial broadcast request (result of CheckTx)
- *  - [2]: `tx_res?: `{@link TxResponse} - on success, the parsed transaction response JSON object
+ *  - [2]: `g_meta?:`{@link TxMeta `TxMeta`} - information about the tx
+ *  - [3]: `atu8_data?: Uint8Array` - on success, the tx response data
+ *  - [4]: `h_events?: Dict<string[]>` - all event attributes indexed by their full key path
  */
 export const broadcast_result = async(
 	gc_node: LcdRpcStruct,
 	atu8_raw: Uint8Array,
-	si_txn: string
+	si_txn: string,
+	z_stream?: TendermintEventFilter<TxResultWrapper> | TendermintWs | undefined
 ): Promise<[
 	xc_code: number,
 	sx_res: string,
-	g_tx_res?: Nilable<TxResultWrapper['TxResult']>,
+	g_meta?: TxMeta,
+	atu8_data?: Uint8Array,
+	h_events?: Dict<string[]>,
 ]> => new Promise(async(fk_resolve, fe_reject) => {
-	// prep websocket
-	let d_ws: WebSocket | undefined;
+	// event filter unlistener
+	let f_unlisten: EventUnlistener | undefined;
 
-	// prep periodic query
-	let i_periodic = 0;
+	// if set, indicates that LCD query should be repeated with this timeout value
+	let xt_polling: number | undefined;
+
+	// polling fallback using LCD query
+	let attempt_fallback_lcd_query = async() => {
+		// attempt tx query
+		try {
+			const [d_res, s_res, g_res] = await queryCosmosTxGetTx(gc_node.lcd, si_txn);
+
+			const g_tx_res = g_res.tx_response as O.Compulsory<CosmosBaseAbciTxResponse>;
+
+			// unlisten events filter
+			f_unlisten?.();
+
+			// resolve
+			return fk_resolve([
+				g_tx_res? g_tx_res.code ?? 0: -1,
+				s_res,
+				assign({
+					log: g_tx_res.raw_log,
+				}, g_tx_res),
+				hex_to_bytes(g_tx_res.data),
+				index_abci_events(g_tx_res.events),
+			]);
+		}
+		// not successful
+		catch(e_query) {
+			// tuple was thrown
+			if((e_query as NetworkJsonResponse)[0]) {
+				// destructure details
+				const [d_res, s_res, g_res] = e_query as NetworkJsonResponse<{
+					code: CwUint32;
+					message: string;
+				}>;
+
+				// destructure chain code
+				const xc_code = g_res?.code;
+
+				debugger;
+
+				// anything other than tx not found indicates a possible node error
+				if(!/tx not found/.test(g_res?.message || '')) {
+					// fe_reject(g_res.)
+				}
+
+				// // close resources
+				// f_shutdown();
+			}
+			// // network error
+			// else if() {
+
+			// }
+			else {
+				debugger;
+			}
+		}
+
+		// repeat
+		if(xt_polling) setTimeout(attempt_fallback_lcd_query, xt_polling);
+	};
+
+	// prep event filter
+	let k_tef = z_stream as TendermintEventFilter<TxResultWrapper>;
+
+	// normalize stream arg into event filter
+	if(!(z_stream as TendermintEventFilter | undefined)?.when) {
+		// attempt to create filter
+		const [k_tef_local] = await timeout_exec(
+			GC_NEUTRINO.WS_TIMEOUT,
+			// eslint-disable-next-line @typescript-eslint/no-unused-vars
+			() => TendermintEventFilter(gc_node.rpc, SX_QUERY_TM_EVENT_TX, _ => () => {
+				void attempt_fallback_lcd_query();
+			}, z_stream as TendermintWs | undefined)
+		);
+
+		// timed out waiting to connect
+		if(!k_tef_local) {
+			// start polling
+			setTimeout(attempt_fallback_lcd_query, xt_polling=GC_NEUTRINO.BLOCK_TIME);
+		}
+		// succeeded; set filter
+		else {
+			k_tef = k_tef_local!;
+		}
+	}
 
 	// prep broadcast response (result of CheckTx)
 	let sx_res = '';
 
-	// closes any open resources
-	const f_shutdown = () => {
-		// close websocket if it exists
-		d_ws?.close();
+	// listen for tx hash event
+	f_unlisten = k_tef?.when('tx.hash', si_txn, ({TxResult:g_txres}, h_events) => {
+		// unlisten events filter
+		f_unlisten!();
 
-		// cancel periodic queries
-		clearInterval(i_periodic);
-	};
+		// ref result struct
+		const g_result = g_txres.result! as O.Compulsory<TendermintAbciExecTxResult>;
 
-	// listen for tx event
-	try {
-		[d_ws] = await timeout_exec(30e3, () => subscribe_tendermint_events(gc_node.rpc, `tx.hash='${si_txn}'`, (d_event) => {
-			// close resources
-			f_shutdown();
-
-			// parse message frame
-			const g_tx_res = parse_json_safe<JsonRpcResponse<TendermintEvent<TxResultWrapper>>>(d_event.data as string)?.result.data.value.TxResult;
-
-			// return parsed result
-			fk_resolve([g_tx_res? g_tx_res.result?.code ?? 0: -1, sx_res, g_tx_res]);
-		}));
-	}
-	catch(e_subscribe) {}
-
-	// no websocket
-	if(!d_ws) {
-		return fe_reject(Error(`Failed to connect to Tendermint WebSocket`));
-
-		// TODO: are TxResult different between WebSocket message and query response?
-		// // fallback: start querying at interval
-		// i_periodic = (setInterval as Window['setInterval'])(async() => {
-		// 	// submit query
-		// 	const a_res = await without_throwing();
-
-		// 	// attempt query as usual
-		// 	try {
-		// 		const [d_res, s_res, g_res] = await queryCosmosTxGetTx(gc_node.lcd, si_txn);
-
-		// 		const g_tx_res = g_res.tx_response;
-
-		// 		return fk_resolve([g_tx_res? g_tx_res.code ?? 0: -1, s_res, g_tx_res!]);
-		// 	}
-		// 	// not successful
-		// 	catch(e_query) {
-		// 		// tuple was thrown
-		// 		if((e_query as NetworkJsonResponse)[0]) {
-		// 			// destructure details
-		// 			const [d_res, s_res, g_res] = e_query as NetworkJsonResponse<{
-		// 				code: CwUint32;
-		// 				message: string;
-		// 			}>;
-
-		// 			// destructure chain code
-		// 			const xc_code = g_res?.code;
-
-		// 			// error message
-		// 			const m_error = /encrypted: (.+?):/.exec(g_res?.message || '');
-		// 			if(m_error) {
-		// 	const g_res = a_res?.[2];
-
-		// 	// anything other than tx not found indicates a possible node error
-		// 	if(!/tx not found/.test(g_res?.message || '')) {
-		// 		fe_reject(g_res.)
-		// 	}
-
-		// 	// close resources
-		// 	f_shutdown();
-
-		// 	fk_resolve(g_res.);
-		// }, 6e3);
-	}
+		// return parsed result
+		fk_resolve([
+			g_txres?.result?.code ?? 0,
+			sx_res,
+			assign({
+				height: g_txres.height!,
+			}, g_result),
+			base64_to_bytes(g_result.data),
+			h_events,
+		]);
+	});
 
 	// attempt to submit tx
 	const [d_res, sx_res_broadcast, g_res] = await submitCosmosTxBroadcastTx(gc_node.lcd, atu8_raw, XC_PROTO_COSMOS_TX_BROADCAST_MODE_SYNC);
@@ -217,8 +270,8 @@ export const broadcast_result = async(
 
 	// not ok HTTP code, no parsed JSON, or non-zero response code
 	if(!d_res.ok || !g_res || g_res.tx_response?.code) {
-		// close resources
-		f_shutdown();
+		// unlisten events filter
+		f_unlisten();
 
 		// resolve with error
 		fk_resolve([
@@ -240,14 +293,7 @@ export const broadcast_result = async(
  *  - [3]: `h_answer?: JsonObject` - contract response as JSON object on success
  */
 // eslint-disable-next-line @typescript-eslint/naming-convention
-export const query_secret_contract: <
-	g_interface extends ContractInterface,
-	h_variants extends ContractInterface.MsgAndAnswer<g_interface, 'queries'>,
-	g_variant extends h_variants[keyof h_variants],
->(
-	k_contract: SecretContract<g_interface>,
-	h_query: g_variant['msg']
-) => Promise<[xc_code: number, s_error: string, h_answer?: g_variant['answer']]> = async<
+export const query_secret_contract = async<
 	g_interface extends ContractInterface,
 	h_variants extends ContractInterface.MsgAndAnswer<g_interface, 'queries'>,
 	g_variant extends h_variants[keyof h_variants],
@@ -322,6 +368,7 @@ export const format_secret_query = (
 	h_query: object,
 	z_auth?: Nilable<AuthSecret>
 ): JsonObject => (z_auth
+	// string or array
 	? (z_auth as string | any[]).at
 		// array?
 		? (z_auth as any[]).map
@@ -424,28 +471,29 @@ export const query_secret_contract_infer: QueryContractInfer = async(
 
 
 /**
- * Execute a Secret Contract method using BROADCAST_MODE_SYNC and wait for confirmation via JSONRPC.
- * More reliable than `exec_contract_unreliable` which may appear to fail if the chain's block time exceeds node's broadcast timeout.
+ * Execute a single Secret Contract method and wait for transaction confirmation.
  * @param k_contract - a {@link SecretContract} instance
  * @param k_wallet - the {@link Wallet} of the sender
  * @param h_exec - the execution message as a plain object (to be JSON-encoded)
- * @param a_fees - an Array of {@link SlimCoin} describing the amounts and denoms of fees
- * @param sg_limit - the u128 gas limit to set for the transaction
+ * @param z_fees - either a gas price or an Array of {@link SlimCoin} describing the amounts and denoms of fees
+ * @param z_limit - the u128 gas limit to set for the transaction
  * @param sa_granter - optional granter address to use to pay for gas fee
  * @param a_funds - optional Array of {@link SlimCoin} of funds to send into the contract with the tx
  * @param s_memo - optional memo field
  * @returns tuple of `[number, string, TxResponse?]`
  *  - [0]: `xc_code: number` - error code from chain, or non-OK HTTP status code from the LCD server.
  * 		A value of `0` indicates success.
- *  - [1]: `s_res: string` - message text. on success, will be the contract's response as a JSON string.
+ *  - [1]: `s_res: string` - message text. on success, will be the contract's raw response string.
  * 		on error, will be either the error string from HTTP response text, chain error message,
  * 		or contract error as a JSON string.
- *  - [2]: `g_tx_res?: `{@link TxResponse} - on success, the parsed transaction response JSON object
- *  - [3]: `si_txn?: string` - the transaction hash if a broadcast attempt was made
+ *  - [2]: `g_res?: JsonObject` - on success, the parsed contract's response JSON object
+ *  - [3]: `g_meta?:`{@link TxMeta `TxMeta`} - information about the tx
+ *  - [4]: `h_events?: Dict<string[]>` - all event attributes indexed by their full key path
+ *  - [5]: `si_txn?: string` - the transaction hash if a broadcast attempt was made
  * 
  * @throws a {@link BroadcastResultErr}
  */
-export const exec_secret_contract: <
+export const exec_secret_contract = async<
 	g_interface extends ContractInterface,
 	h_group extends ContractInterface.MsgAndAnswer<g_interface, 'executions'>,
 	as_methods extends Extract<keyof h_group, string>,
@@ -453,38 +501,20 @@ export const exec_secret_contract: <
 	k_contract: SecretContract<g_interface>,
 	k_wallet: Wallet<'secret'>,
 	h_exec: ContractInterface extends g_interface? JsonObject: {
-		[si_method in as_methods]: h_group[si_method]['msg'];
+		[si_each in as_methods]: h_group[si_each]['msg'];
 	},
-	a_fees: [SlimCoin, ...SlimCoin[]],
-	sg_limit: WeakUint128Str,
-	sa_granter?: WeakSecretAccAddr | '',
-	a_funds?: SlimCoin[],
-	s_memo?: string
-) => Promise<[
-	xc_code: number,
-	s_res: string,
-	g_tx_res?: TendermintAbciTxResult | undefined,
-	si_txn?: string,
-]> = async<
-	g_interface extends ContractInterface,
-	h_group extends ContractInterface.MsgAndAnswer<g_interface, 'executions'>,
-	as_methods extends Extract<keyof h_group, string>,
->(
-	k_contract: SecretContract<g_interface>,
-	k_wallet: Wallet<'secret'>,
-	h_exec: ContractInterface extends g_interface? JsonObject: {
-		[si_method in as_methods]: h_group[si_method]['msg'];
-	},
-	a_fees: [SlimCoin, ...SlimCoin[]],
-	sg_limit: WeakUint128Str,
+	z_fees: [SlimCoin, ...SlimCoin[]] | number,
+	z_limit: WeakUint128Str | bigint,
 	sa_granter?: WeakSecretAccAddr | '',
 	a_funds?: SlimCoin[],
 	s_memo?: string
 ): Promise<[
 	xc_code: number,
 	s_res: string,
-	g_tx_res?: TendermintAbciTxResult | undefined,
-	si_txn?: string,
+	g_res?: undefined | (ContractInterface extends g_interface? JsonObject: h_group[as_methods]['answer']),
+	g_meta?: TxMeta | undefined,
+	h_events?: Dict<string[]> | undefined,
+	si_txn?: string | undefined,
 ]> => {
 	// prep plaintext
 	let s_plaintext;
@@ -493,29 +523,43 @@ export const exec_secret_contract: <
 	let [atu8_msg, atu8_nonce] = await k_contract.exec(h_exec, k_wallet.addr, a_funds);
 
 	// sign in direct mode
-	let [atu8_tx_raw, , si_txn] = await create_and_sign_tx_direct(k_wallet, [atu8_msg], a_fees, sg_limit, 0, s_memo, sa_granter);
+	let [atu8_tx_raw, , si_txn] = await create_and_sign_tx_direct(
+		k_wallet,
+		[atu8_msg],
+		is_number(z_fees)? exec_fees(z_limit, z_fees): z_fees,
+		z_limit+'' as WeakUint128Str,
+		0,
+		s_memo,
+		sa_granter
+	);
 
 	// debug info
 	if(import.meta.env?.DEV) {
 		console.groupCollapsed(`🗳️ ${Object.keys(h_exec)[0]}`);
 		console.debug([
 			`Executing contract ${k_contract.addr} (${k_contract.info.label}) from ${k_wallet.addr}`,
-			`  limit: ${sg_limit} ┃ hash: ${si_txn}`,
+			`  limit: ${z_limit} ┃ hash: ${si_txn}`,
 		].join('\n'));
 		console.debug(h_exec);
 		console.groupEnd();
 	}
 
 	// broadcast to chain
-	let [xc_error, sx_res, g_tx_res] = await broadcast_result(k_wallet, atu8_tx_raw, si_txn);
+	let [xc_error, sx_res, g_meta, atu8_data, h_events] = await broadcast_result(k_wallet, atu8_tx_raw, si_txn);
 
 	// invalid json
 	if(xc_error < 0) return [xc_error, sx_res];
 
 	// no errors
 	if(!xc_error) {
-		// // parse data
-		let [s_type, atu8_ciphertext] = decodeGoogleProtobufAny(base64_to_bytes(g_tx_res!.result!.data!));
+		// decode tx msg data
+		let [a_data, a_msg_responses] = decodeCosmosBaseAbciTxMsgData(atu8_data!);
+
+		// parse 0th message response, select field depending on cosmos-sdk < or >= 0.46
+		let [s_type, atu8_payload] = a_msg_responses? a_msg_responses[0]: a_data![0];
+
+		// decode payload
+		const [atu8_ciphertext] = decodeSecretComputeMsgExecuteContractResponse(atu8_payload!);
 
 		// decrypt ciphertext
 		const atu8_plaintext = await k_contract.wasm.decrypt(atu8_ciphertext!, atu8_nonce);
@@ -525,49 +569,55 @@ export const exec_secret_contract: <
 	}
 	// error
 	else {
-		const s_error = g_tx_res?.result?.log ?? sx_res;
+		const s_error = g_meta?.log ?? sx_res;
 
 		// encrypted error message
 		const m_response = /(\d+):(?: \w+:)*? encrypted: (.+?): (.+?) contract/.exec(s_error);
 		if(m_response) {
+			// destructure match
 			const [, s_index, sb64_encrypted, si_action] = m_response;
 
+			// decrypt message from contract
 			const atu8_plaintext = await k_contract.wasm.decrypt(base64_to_bytes(sb64_encrypted), atu8_nonce);
 
+			// decode bytes
 			s_plaintext = bytes_to_text(atu8_plaintext);
 		}
 
 		// debug info
 		if(import.meta.env?.DEV) {
 			console.groupCollapsed(`❌ ${Object.keys(h_exec)[0]} [code: ${xc_error}]`);
-			console.debug('tx: ', g_tx_res);
+			console.debug('meta: ', g_meta);
+			console.debug('txhash: ', h_events?.['tx.hash'][0]);
 			console.debug('data: ', s_plaintext ?? s_error);
 			console.groupEnd();
 		}
 
-		return [xc_error, s_plaintext ?? s_error, void 0, si_txn];
+		// entuple error
+		return [xc_error, s_plaintext ?? s_error, __UNDEFINED, __UNDEFINED, __UNDEFINED, si_txn];
 	}
 
 	// debug info
 	if(import.meta.env?.DEV) {
 		console.groupCollapsed(`✅ ${Object.keys(h_exec)[0]}`);
 
-		if(g_tx_res) {
+		if(g_meta) {
 			const {
 				gas_used: sg_used,
 				gas_wanted: sg_wanted,
-			} = g_tx_res.result!;
+			} = g_meta;
 
-			console.log(`gas used/wanted: ${sg_used}/${sg_wanted}  (${+sg_wanted! - +sg_used!}) wasted)`);
+			console.debug(`gas used/wanted: ${sg_used}/${sg_wanted}  (${+sg_wanted - +sg_used}) wasted)`);
 		}
 
-		console.debug('tx: ', g_tx_res);
+		console.debug('meta: ', g_meta);
+		console.debug('txhash: ', h_events?.['tx.hash'][0]);
 		console.debug('data: ', parse_json_safe(s_plaintext) || s_plaintext);
 		console.groupEnd();
 	}
 
-	// return as tuple
-	return [xc_error, s_plaintext, g_tx_res!, si_txn];
+	// entuple results
+	return [xc_error, s_plaintext, parse_json_safe(s_plaintext), g_meta, h_events, si_txn];
 };
 
 

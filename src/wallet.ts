@@ -1,6 +1,8 @@
 /* eslint-disable prefer-const */
 
 
+import type {S} from 'ts-toolbelt';
+
 import type {CwSecretAccAddr, LcdRpcStruct, SlimAuthInfo, TypedAminoMsg, TypedStdSignDoc, WeakSecretAccAddr} from './types.js';
 
 import type {Nilable} from '@blake.regalia/belt';
@@ -80,13 +82,13 @@ export const pubkey_to_bech32 = async<
  * @returns 
  */
 // eslint-disable-next-line @typescript-eslint/naming-convention
-export const Wallet = async<s_hrp extends string>(
+export const Wallet = async<s_hrp extends string, si_chain extends string>(
 	atu8_sk: Uint8Array,
-	si_chain: string,
+	si_chain: si_chain,
 	p_lcd: TrustedContextUrl,
 	p_rpc: TrustedContextUrl,
 	s_hrp: s_hrp=si_chain.replace(/-.*/, '') as s_hrp
-): Promise<Wallet<s_hrp>> => {
+): Promise<Wallet<string extends s_hrp? S.Split<si_chain, '-'>[0]: s_hrp>> => {
 	// obtain public key
 	const atu8_pk33 = sk_to_pk(atu8_sk);
 

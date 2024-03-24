@@ -5,17 +5,17 @@ import type {SecretContract} from './secret-contract.js';
 import type {AuthSecret, TxResultWrapper, WeakSecretAccAddr} from './types.js';
 import type {Wallet} from './wallet.js';
 
-import type {JsonObject, Nilable} from '@blake.regalia/belt';
+import type {Dict, JsonObject, Nilable} from '@blake.regalia/belt';
 import type {ContractInterface} from '@solar-republic/contractor';
 import type {SlimCoin} from '@solar-republic/types';
 
 import {__UNDEFINED, values, parse_json_safe} from '@blake.regalia/belt';
 
-import {exec_secret_contract, query_secret_contract_infer} from './app-layer.js';
+import {exec_secret_contract, query_secret_contract_infer, type TxMeta} from './app-layer.js';
 
 
-export const exec_fees = (xg_limit: bigint|`${bigint}`, x_gas_price: number, s_denom='uscrt') => [[
-	''+Math.ceil(Number(xg_limit) * x_gas_price), s_denom],
+export const exec_fees = (z_limit: number|bigint|`${bigint}`, x_gas_price: number, s_denom='uscrt'): [SlimCoin] => [[
+	''+Math.ceil(Number(z_limit) * x_gas_price), s_denom],
 ] as [SlimCoin];
 
 type ConvertAuth<a_tuple extends [any?, any?]> = MergeTuple<a_tuple extends [any, any]
@@ -31,8 +31,19 @@ type ConvertAuth<a_tuple extends [any?, any?]> = MergeTuple<a_tuple extends [any
 export interface SecretApp<
 	g_interface extends ContractInterface=ContractInterface,
 > {
-	price(xn_price: number): void;
-	granter(sa_granter: WeakSecretAccAddr): void;
+	/**
+	 * A getter/setter function for gas price
+	 * @param xn_price - if set, replaces the gas price
+	 * @returns the new/current gas price
+	 */
+	price(xn_price?: number): number;
+
+	/**
+	 * A getter/setter function for granter address
+	 * @param sa_granter - if set, replaces the granter address. pass an empty string `''` to unset
+	 * @returns the new/current granter address
+	 */
+	granter(sa_granter?: WeakSecretAccAddr | ''): WeakSecretAccAddr | '' | undefined;
 
 	/**
 	 * Query a Secret Contract method and automatically apply an auth secret if one is provided.
@@ -99,28 +110,23 @@ export interface SecretApp<
 		w_result: h_group[as_methods]['response'] | undefined,
 		xc_code: number,
 		s_response: string,
-		g_tx: TxResultWrapper['TxResult'] | undefined,
+		g_meta: TxMeta | undefined,
+		h_events: Dict<string[]> | undefined,
 		si_txn: string | undefined,
 	]>;
 }
 
-export const SecretApp: <
+export const SecretApp = <
 	g_interface extends ContractInterface,
 >(
 	k_wallet: Wallet<'secret'>,
 	k_contract: SecretContract<g_interface>,
-	xn_gas_price: number,
-	sa_granter?: WeakSecretAccAddr
-) => SecretApp<g_interface> = <
-	g_interface extends ContractInterface,
->(
-	k_wallet: Wallet<'secret'>,
-	k_contract: SecretContract<g_interface>,
-	xn_gas_price: number,
-	sa_granter?: WeakSecretAccAddr
+	x_gas_price: number,
+	sa_granter?: WeakSecretAccAddr | '' | undefined
 ): SecretApp<g_interface> => ({
-	price: (xn_price: number) => xn_gas_price = xn_price,
-	granter: (sa_granter_new: WeakSecretAccAddr) => sa_granter = sa_granter_new,
+	price: (x_price=x_gas_price) => x_gas_price = x_price,
+
+	granter: (sa_granter_new=sa_granter) => sa_granter = sa_granter_new,
 
 	query: (
 		si_method: string,
@@ -140,19 +146,19 @@ export const SecretApp: <
 		a_funds?: SlimCoin[],
 		s_memo?: string
 	) => {
-		const [xc_code, s_res, g_tx, si_txn] = await exec_secret_contract(
+		// execute the contract
+		const [xc_code, s_res, g_res, g_meta, h_events, si_txn] = await exec_secret_contract(
 			k_contract as SecretContract,
 			k_wallet,
 			{[si_method]:h_args},
-			exec_fees(xg_limit, xn_gas_price),
+			exec_fees(xg_limit, x_gas_price),
 			xg_limit+'' as `${bigint}`,
 			sa_granter,
 			a_funds,
 			s_memo
 		);
 
-		const g_ans = parse_json_safe<JsonObject>(s_res) || {};
-
-		return [xc_code? __UNDEFINED: g_ans? values(g_ans)[0] as JsonObject: g_ans, xc_code, s_res, g_tx, si_txn];
+		// entuple results
+		return [xc_code? __UNDEFINED: g_res? values(g_res)[0] as JsonObject: g_res, xc_code, s_res, g_meta, h_events, si_txn];
 	},
 });
