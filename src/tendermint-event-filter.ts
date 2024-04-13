@@ -25,14 +25,6 @@ export type TendermintEventFilter<
 	ws(): WebSocket;
 
 	/**
-	 * Adds a listener to be called unconditionally
-	 * @param f_listener - the callback to execute when a message is received
-	 */
-	any(
-		f_listener: EventListener<g_data>,
-	): EventUnlistener;
-
-	/**
 	 * Adds a listener to be called when the specified event key is seen and has at least one value matching
 	 * the given filter. Returns a function that can be called to remove the listener.
 	 * @param si_key - the event attribute key to find
@@ -63,9 +55,6 @@ export const TendermintEventFilter = async<
 	z_restart?: TendermintWsRestartParam | undefined,
 	z_ws?: TendermintWs | typeof WebSocket
 ): Promise<TendermintEventFilter<g_data>> => {
-	// list of unconditional listeners
-	const a_unconditionals: EventListener<g_data>[] = [];
-
 	// dict of filters by event key
 	const h_filters: Dict<Readonly<[
 		z_filter: StringFilter,
@@ -84,13 +73,6 @@ export const TendermintEventFilter = async<
 			if(g_result) {
 				// prep values
 				let a_values: string[];
-
-				// each unconditional listener
-				for(const f_listener of a_unconditionals) {
-					// call listener
-					// eslint-disable-next-line @typescript-eslint/no-floating-promises
-					try_sync(() => f_listener(g_result.data.value, g_result.events));
-				}
 
 				// each filter
 				for(const [si_key, a_parties] of entries(h_filters)) {
@@ -137,15 +119,6 @@ export const TendermintEventFilter = async<
 	return {
 		// the WebSocket
 		ws: () => k_ws.ws(),
-
-		// any messages
-		any(f_listener): EventUnlistener {
-			// add listener
-			a_unconditionals.push(f_listener);
-
-			// return unlistener
-			return () => remove(a_unconditionals, f_listener);
-		},
 
 		// adds event listeners
 		when(si_key, z_value, f_listener, f_restarted): EventUnlistener {
