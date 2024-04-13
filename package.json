@@ -1,6 +1,6 @@
 {
   "name": "@solar-republic/neutrino",
-  "version": "1.2.4",
+  "version": "1.2.5",
   "description": "Ultra light-weight client library for Secret Network",
   "homepage": "https://starshell.net/",
   "repository": "github:SolarRepublic/neutrino",
