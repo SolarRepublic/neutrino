@@ -3,7 +3,7 @@ import type {StringFilter} from './util';
 import type {Dict, JsonObject, Promisable} from '@blake.regalia/belt';
 import type {TrustedContextUrl} from '@solar-republic/types';
 
-import {parse_json_safe, entries, remove, try_sync, values, is_function} from '@blake.regalia/belt';
+import {parse_json_safe, entries, remove, try_sync, values, is_function, die} from '@blake.regalia/belt';
 
 import {TendermintWs, type TendermintWsRestartParam} from './tendermint-ws';
 import {string_matches_filter} from './util';
@@ -25,17 +25,26 @@ export type TendermintEventFilter<
 	ws(): WebSocket;
 
 	/**
+	 * Adds a listener to be called unconditionally
+	 * @param f_listener - the callback to execute when a message is received
+	 */
+	any(
+		f_listener: EventListener<g_data>,
+	): EventUnlistener;
+
+	/**
 	 * Adds a listener to be called when the specified event key is seen and has at least one value matching
 	 * the given filter. Returns a function that can be called to remove the listener.
 	 * @param si_key - the event attribute key to find
 	 * @param z_filter - a {@link StringFilter} to test against each attribute value when searching for a match
 	 * @param f_listener - the callback to execute when a match is found
+	 * @param f_restarted - optional handler for when the socket restarts
 	 */
 	when(
 		si_key: string,
 		z_filter: StringFilter,
 		f_listener: EventListener<g_data>,
-		f_restarted?: (() => Promisable<void>) | undefined,
+		f_restarted?: ((d_ws: WebSocket) => Promisable<void>) | undefined,
 	): EventUnlistener;
 };
 
@@ -54,10 +63,14 @@ export const TendermintEventFilter = async<
 	z_restart?: TendermintWsRestartParam | undefined,
 	z_ws?: TendermintWs | typeof WebSocket
 ): Promise<TendermintEventFilter<g_data>> => {
+	// list of unconditional listeners
+	const a_unconditionals: EventListener<g_data>[] = [];
+
+	// dict of filters by event key
 	const h_filters: Dict<Readonly<[
 		z_filter: StringFilter,
 		f_listener: EventListener<g_data>,
-		f_restarted: (() => Promisable<void>) | undefined,
+		f_restarted: ((d_ws: WebSocket) => Promisable<void>) | undefined,
 	]>[]> = {};
 
 	// subscribe to Tx events
@@ -71,6 +84,13 @@ export const TendermintEventFilter = async<
 			if(g_result) {
 				// prep values
 				let a_values: string[];
+
+				// each unconditional listener
+				for(const f_listener of a_unconditionals) {
+					// call listener
+					// eslint-disable-next-line @typescript-eslint/no-floating-promises
+					try_sync(() => f_listener(g_result.data.value, g_result.events));
+				}
 
 				// each filter
 				for(const [si_key, a_parties] of entries(h_filters)) {
@@ -96,19 +116,21 @@ export const TendermintEventFilter = async<
 					}
 				}
 			}
-		}, z_restart? (d_event) => {
+		}, z_restart? d_event => async(d_ws) => {
 			// each filter
 			for(const a_parties of values(h_filters)) {
 				// each party
 				for(const a_party of a_parties) {
 					// notify restart handler if defined
-					// eslint-disable-next-line @typescript-eslint/no-floating-promises
-					try_sync(() => a_party[2]?.());
+					void try_sync(() => a_party[2]?.(d_ws));
 				}
 			}
 
-			// bubble
-			return is_function(z_restart)? z_restart(d_event): z_restart;
+			// forward restart signal to restart handler
+			const z_returned = is_function(z_restart)? await z_restart(d_event): z_restart;
+
+			// apply callback if returned
+			if(is_function(z_returned)) void z_returned(d_ws);
 		}: z_restart, z_ws as typeof WebSocket | undefined);
 
 	// properties and methods
@@ -116,19 +138,27 @@ export const TendermintEventFilter = async<
 		// the WebSocket
 		ws: () => k_ws.ws(),
 
+		// any messages
+		any(f_listener): EventUnlistener {
+			// add listener
+			a_unconditionals.push(f_listener);
+
+			// return unlistener
+			return () => remove(a_unconditionals, f_listener);
+		},
+
 		// adds event listeners
-		when(
-			si_key: string,
-			z_value: StringFilter,
-			f_listener: EventListener<g_data>,
-			f_restarted?: (() => Promisable<void>) | undefined
-		): EventUnlistener {
+		when(si_key, z_value, f_listener, f_restarted): EventUnlistener {
+			// construct party tuple
 			const a_party = [z_value, f_listener, f_restarted] as const;
 
+			// upsert filter key
 			const a_filters = h_filters[si_key] ??= [];
 
+			// add party to filter
 			a_filters.push(a_party);
 
+			// return unlistener
 			return () => remove(a_filters, a_party);
 		},
 	};

@@ -1,28 +1,27 @@
 /* eslint-disable @typescript-eslint/naming-convention */
-
-import type {CreateQueryArgsAndAuthParams, MergeTuple} from './inferencing.js';
+import type {CreateQueryArgsAndAuthParams} from './inferencing.js';
 import type {SecretContract} from './secret-contract.js';
-import type {AuthSecret, TxResultWrapper, WeakSecretAccAddr} from './types.js';
+import type {AuthSecret, WeakSecretAccAddr} from './types.js';
 import type {Wallet} from './wallet.js';
 
-import type {Dict, JsonObject, Nilable} from '@blake.regalia/belt';
+import type {Dict, JsonObject} from '@blake.regalia/belt';
 import type {ContractInterface} from '@solar-republic/contractor';
 import type {SlimCoin} from '@solar-republic/types';
 
-import {__UNDEFINED, values, parse_json_safe} from '@blake.regalia/belt';
+import {__UNDEFINED, values} from '@blake.regalia/belt';
 
-import {exec_secret_contract, query_secret_contract_infer, type TxMeta} from './app-layer.js';
+import {exec_secret_contract, query_secret_contract, type TxMeta} from './app-layer.js';
 
-
+/**
+ * Given a limit, gas price, and denom (defaults to 'uscrt'), produces an array containing a single {@link SlimCoin} tuple
+ * @param z_limit 
+ * @param x_gas_price 
+ * @param s_denom 
+ * @returns 
+ */
 export const exec_fees = (z_limit: number|bigint|`${bigint}`, x_gas_price: number, s_denom='uscrt'): [SlimCoin] => [[
 	''+Math.ceil(Number(z_limit) * x_gas_price), s_denom],
 ] as [SlimCoin];
-
-type ConvertAuth<a_tuple extends [any?, any?]> = MergeTuple<a_tuple extends [any, any]
-	? [h_args: a_tuple[0], xc_auth: 1]
-	: undefined extends a_tuple[1]
-		? [h_args: a_tuple[0], xc_auth?: 0]
-		: [h_args: a_tuple[0], xc_auth: 1]>;
 
 /**
  * Simple wrapper for querying and executing a Secret contract. Binds Wallet and SecretContract, as well
@@ -31,6 +30,9 @@ type ConvertAuth<a_tuple extends [any?, any?]> = MergeTuple<a_tuple extends [any
 export interface SecretApp<
 	g_interface extends ContractInterface=ContractInterface,
 > {
+	readonly wallet: Wallet;
+	readonly contract: SecretContract;
+
 	/**
 	 * A getter/setter function for gas price
 	 * @param xn_price - if set, replaces the gas price
@@ -124,18 +126,22 @@ export const SecretApp = <
 	x_gas_price: number,
 	sa_granter?: WeakSecretAccAddr | '' | undefined
 ): SecretApp<g_interface> => ({
+	wallet: k_wallet,
+	contract: k_contract,
+
 	price: (x_price=x_gas_price) => x_gas_price = x_price,
 
 	granter: (sa_granter_new=sa_granter) => sa_granter = sa_granter_new,
 
 	query: (
 		si_method: string,
-		h_args: Nilable<JsonObject>=__UNDEFINED,
-		z_auth: Nilable<AuthSecret>=__UNDEFINED
-	) => query_secret_contract_infer(
+		h_args=__UNDEFINED as any,
+		z_auth=__UNDEFINED as any
+	) => query_secret_contract(
 		k_contract as SecretContract,
 		si_method,
-		h_args || {},
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+		(h_args || {}) as any,
 		z_auth
 	),
 

@@ -58,12 +58,11 @@ export type MergeTuple<a_tuple extends [any?, any?]> = {
 // strips the relevant auth fields from args and returns auth type
 type InferQueryArgsAndAuthWithoutPermit<
 	h_args extends JsonObject,
-	si_method extends string='',
 > = h_args extends WeakViewerInfo
 	// ViewerInfo auth
 	? [ReduceSafe<1, Omit<h_args, 'viewer'>>, AuthSecret_ViewerInfo]
 	// other
-	: h_args[si_method] extends {key: string}
+	: h_args extends {key: string}
 		// basic snip anonymous 'key' auth
 		? [ReduceSafe<1, Omit<h_args, 'key'>>, string]
 		// neither auth
@@ -76,7 +75,7 @@ type InferQueryArgsAndAuth<
 	h_args extends JsonObject,
 	si_method extends string='',
 	b_generic extends 0|1=0,
-> = InferQueryArgsAndAuthWithoutPermit<h_args, si_method> extends [infer h_args0, infer z_auth0]
+> = InferQueryArgsAndAuthWithoutPermit<h_args> extends [infer h_args0, infer z_auth0]
 	? h_args0 extends JsonObject
 		// args is now cast
 		? ExtractProperty<h_variants, 'with_permit'> extends {
@@ -119,7 +118,7 @@ type InferQueryArgsAndAuth<
 	}[b_generic];
 
 /**
- * Creates the parameter types `h_args` and `z_auth` for `query_contract_infer()`
+ * Creates the parameter types `h_args` and `z_auth` for `query_secret_contract()`
  */
 export type CreateQueryArgsAndAuthParams<
 	h_variants extends WeakVariants,
@@ -145,3 +144,4 @@ export type CreateQueryArgsAndAuthParams<
 		: never
 	// destructuring failed
 	: [never, never]>;
+

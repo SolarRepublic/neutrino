@@ -1,6 +1,6 @@
 import type {Nilable} from '@blake.regalia/belt';
 
-import {SI_HASH_ALGORITHM_SHA256, biguint_to_bytes_be, bytes, bytes_to_biguint_be, concat2, die, hmac} from '@blake.regalia/belt';
+import {SI_HASH_ALGORITHM_SHA256, biguint_to_bytes_be, bytes, bytes_to_biguint_be, concat2, die, hmac, is_bigint} from '@blake.regalia/belt';
 
 import {random_32} from './util.js';
 
@@ -249,7 +249,7 @@ const invert = (xg_value: bigint, xg_md=XG_FIELD_PRIME): bigint => {
 };
 
 const normalize_sk = (z_sk: Uint8Array | bigint): bigint => {
-	if('bigint' !== typeof z_sk) z_sk = bytes_to_biguint_be(z_sk);
+	if(!is_bigint(z_sk)) z_sk = bytes_to_biguint_be(z_sk);
 
 	return is_group_element(z_sk)? z_sk: die('Invalid private key');
 };

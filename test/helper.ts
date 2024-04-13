@@ -1,6 +1,6 @@
 import type {Promisable} from '@blake.regalia/belt';
 
-import {entries} from '@blake.regalia/belt';
+import {is_string, map_entries} from '@blake.regalia/belt';
 
 /* eslint-disable @typescript-eslint/naming-convention */
 const SX_ANSI_GREEN = '\x1b[32m';
@@ -19,7 +19,7 @@ export function pass(s_test: string): void {
 }
 
 function error(s_test: string, ...a_args: Array<string | object>) {
-	const a_rest = a_args.map(z => 'string' === typeof z? z: entries(z).map(([si, w]) => `\n\t${si}: ${w}`).join('\n'));
+	const a_rest = a_args.map(z => is_string(z)? z: map_entries(z, ([si, w]) => `\n\t${si}: ${w}`).join('\n'));
 	console.error(`${s_test}: ${a_rest.join('; ')}`);
 }
 

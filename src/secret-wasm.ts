@@ -10,6 +10,7 @@ import {
 	concat2,
 	text_to_bytes,
 	die,
+	stringify_json,
 } from '@blake.regalia/belt';
 
 import {aes_128_siv_decrypt, aes_128_siv_encrypt} from './aes-128-siv.js';
@@ -65,7 +66,7 @@ export const SecretWasm = (atu8_consensus_pk: Uint8Array, atu8_seed?: Nilable<Ui
 
 		async encodeMsg(sb16_code_hash, g_msg, nb_msg_block) {
 			// construct payload
-			const atu8_payload = text_to_bytes(sb16_code_hash.toUpperCase()+JSON.stringify(g_msg));
+			const atu8_payload = text_to_bytes(sb16_code_hash.toUpperCase()+stringify_json(g_msg));
 
 			// pad to make multiple of block size
 			const nb_payload = atu8_payload.byteLength;

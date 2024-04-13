@@ -1,12 +1,18 @@
-import type {Dict, JsonObject, Nilable} from '@blake.regalia/belt';
+import type {AsJson, Dict, JsonObject, JsonValue, Nilable} from '@blake.regalia/belt';
 import type {AminoMsg, Coin, StdSignDoc} from '@cosmjs/amino';
 import type {SecretAccAddr} from '@solar-republic/contractor';
 import type {TendermintAbciTxResult} from '@solar-republic/cosmos-grpc/tendermint/abci/types';
-import type {WeakUint128Str, CwUint128, CwBase64, CwAccountAddr, WeakAccountAddr, TrustedContextUrl, SecretQueryPermit} from '@solar-republic/types';
+import type {WeakUint128Str, CwUint128, CwBase64, CwAccountAddr, WeakAccountAddr, TrustedContextUrl, SecretQueryPermit, CwUint32} from '@solar-republic/types';
 
 export type WeakSecretAccAddr = WeakAccountAddr<'secret'>;
 
 export type CwSecretAccAddr = CwAccountAddr<'secret'>;
+
+export type CosmosQueryError = AsJson<{
+	code: CwUint32;
+	message: string;
+	details: unknown[];
+}>;
 
 export type ContractInfo = {
 	code_id: WeakUint128Str;
@@ -112,8 +118,13 @@ export type JsonRpcResponse<
 	w_result extends JsonObject,
 > = {
 	jsonrpc: '2.0';
-	id: string;
-	result: w_result;
+	id: string | number;
+	result?: w_result;
+	error?: {
+		code: number;
+		message: string;
+		data?: JsonValue;
+	};
 };
 
 

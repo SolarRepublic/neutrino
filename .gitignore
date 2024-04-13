@@ -1,4 +1,5 @@
 # build files
+/docs
 **/node_modules
 **/dist
 **/build

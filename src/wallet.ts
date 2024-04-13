@@ -3,19 +3,19 @@
 
 import type {S} from 'ts-toolbelt';
 
-import type {CwSecretAccAddr, LcdRpcStruct, SlimAuthInfo, TypedAminoMsg, TypedStdSignDoc, WeakSecretAccAddr} from './types.js';
+import type {CosmosQueryError, CwSecretAccAddr, LcdRpcStruct, SlimAuthInfo, TypedAminoMsg, TypedStdSignDoc, WeakSecretAccAddr} from './types.js';
 
-import type {Nilable} from '@blake.regalia/belt';
+import type {AsJson, Nilable} from '@blake.regalia/belt';
 import type {ProtoEnumCosmosTxSigningSignMode} from '@solar-republic/cosmos-grpc/cosmos/tx/signing/v1beta1/signing';
 import type {CwUint128, CwHexUpper, CwAccountAddr, TrustedContextUrl, SlimCoin, WeakUint128Str, CwUint64} from '@solar-republic/types';
 
-import {text_to_bytes, bytes_to_hex, sha256, canonicalize_json} from '@blake.regalia/belt';
+import {text_to_bytes, bytes_to_hex, sha256, canonicalize_json, stringify_json, die} from '@blake.regalia/belt';
 
 import {any, restruct_coin} from '@solar-republic/cosmos-grpc';
 import {destructCosmosAuthBaseAccount} from '@solar-republic/cosmos-grpc/cosmos/auth/v1beta1/auth';
 import {destructCosmosAuthQueryAccountResponse, queryCosmosAuthAccount} from '@solar-republic/cosmos-grpc/cosmos/auth/v1beta1/query';
 import {encodeCosmosCryptoSecp256k1PubKey} from '@solar-republic/cosmos-grpc/cosmos/crypto/secp256k1/keys';
-import {XC_PROTO_COSMOS_TX_SIGNING_SIGN_MODE_DIRECT} from '@solar-republic/cosmos-grpc/cosmos/tx/signing/v1beta1/signing';
+import {XC_PROTO_COSMOS_TX_SIGNING_SIGN_MODE_DIRECT, XC_PROTO_COSMOS_TX_SIGNING_SIGN_MODE_LEGACY_AMINO_JSON} from '@solar-republic/cosmos-grpc/cosmos/tx/signing/v1beta1/signing';
 
 import {encodeCosmosTxAuthInfo, encodeCosmosTxFee, encodeCosmosTxModeInfo, encodeCosmosTxModeInfoSingle, encodeCosmosTxSignDoc, encodeCosmosTxSignerInfo, encodeCosmosTxTxBody, encodeCosmosTxTxRaw} from '@solar-republic/cosmos-grpc/cosmos/tx/v1beta1/tx';
 import {bech32_encode} from '@solar-republic/crypto';
@@ -116,32 +116,37 @@ export const Wallet = async<s_hrp extends string, si_chain extends string>(
  */
 // eslint-disable-next-line @typescript-eslint/naming-convention
 export const auth = async(g_wallet: Pick<Wallet, 'lcd' | 'addr'>, a_auth?: Nilable<SlimAuthInfo> | 0): Promise<SlimAuthInfo> => {
+	let sg_account: CwUint64 | undefined;
+	let sg_sequence: CwUint64 | undefined;
+
 	// resolve auth data
 	if(!a_auth) {
-		let sg_account: CwUint64 | undefined;
-		let sg_sequence: CwUint64 | undefined;
+		// submit gRPC-gateway query and destructure the response, extracting the response JSON
+		let [d_res, s_res, g_res] = await queryCosmosAuthAccount(g_wallet.lcd, g_wallet.addr);
 
-		try {
-			// submit gRPC-gateway query and destructure the response, extracting the response JSON
-			let [,, g_res] = await queryCosmosAuthAccount(g_wallet.lcd, g_wallet.addr);
+		// JSON response
+		if(g_res) {
+			// ok status
+			if(d_res.ok) {
+				// destructure the response JSON to get the account struct
+				let g_account = destructCosmosAuthQueryAccountResponse(g_res)[0];
 
-			// destructure the response JSON to get the account struct
-			let g_account = destructCosmosAuthQueryAccountResponse(g_res)[0];
-
-			// destructure the account struct to get its account and sequence numbers
-			[,, sg_account, sg_sequence] = destructCosmosAuthBaseAccount(g_account!);
+				// destructure the account struct to get its account and sequence numbers
+				[,, sg_account, sg_sequence] = destructCosmosAuthBaseAccount(g_account!);
+			}
+			// anything other than account not found
+			else if(5 !== (g_res as CosmosQueryError).code) {
+				die((g_res as CosmosQueryError).message);
+			}
 		}
-		catch(e_auth) {
-			// TODO: handle account does not exist
-
+		// no data
+		else {
+			die(s_res, d_res);
 		}
-
-		// entuple auth data
-		a_auth = [sg_account, sg_sequence];
 	}
 
 	// return auth data as a tuple (possibly [undefined x 2])
-	return a_auth;
+	return a_auth || [sg_account, sg_sequence];
 };
 
 
@@ -196,7 +201,7 @@ export const sign_amino = async<
 
 	// prepare message
 	const atu8_signdoc = text_to_bytes(
-		JSON.stringify(g_signdoc)
+		stringify_json(g_signdoc as AsJson<g_signed>)
 			.replace(/&/g, '\\u0026')
 			.replace(/</g, '\\u003c')
 			.replace(/>/g, '\\u003e'));
@@ -368,3 +373,50 @@ export const create_and_sign_tx_direct = async(
 	// return tuple of raw tx bytes, sign doc, and tx hash id
 	return [atu8_raw, atu8_signdoc, si_txn];
 };
+
+// /**
+//  * Signs a message in AMINO mode
+//  * @param k_wallet 
+//  * @param a_msgs 
+//  * @param a_fees 
+//  * @param sg_limit 
+//  * @param sa_granter 
+//  * @param sa_payer 
+//  * @param s_memo 
+//  * @param a_auth 
+//  * @returns 
+//  */
+// export const create_and_sign_tx_amino = async(
+// 	k_wallet: Wallet,
+// 	a_msgs: TypedAminoMsg[],
+// 	a_fees: SlimCoin[],
+// 	sg_limit: WeakUint128Str,
+// 	a_auth?: Nilable<SlimAuthInfo> | 0,  // eslint-disable-line @typescript-eslint/naming-convention
+// 	s_memo?: string,
+// 	sa_granter?: Emptyable<WeakSecretAccAddr>,
+// 	sa_payer?: Emptyable<WeakSecretAccAddr>
+// ): Promise<[
+// 	atu8_raw: Uint8Array,
+// 	atu8_signdoc: Uint8Array,
+// 	si_txn: CwHexUpper,
+// ]> => {
+// 	// create tx
+// 	const [
+// 		atu8_auth,
+// 		atu8_body,
+// 		sg_account,
+// 	] = await create_tx_body(XC_PROTO_COSMOS_TX_SIGNING_SIGN_MODE_LEGACY_AMINO_JSON, k_wallet, a_msgs, a_fees, sg_limit, a_auth, s_memo, sa_granter, sa_payer);
+
+// 	// sign direct
+// 	const [atu8_signature, atu8_signdoc] = await sign_amino(k_wallet, a_msgs, a_fees, sg_limit, a_auth, s_memo, sa_granter, sa_payer);
+// 	 atu8_auth, atu8_body, sg_account);
+
+// 	// encode txraw
+// 	const atu8_raw = encodeCosmosTxTxRaw(atu8_body, atu8_auth, [atu8_signature]);
+
+// 	// compute transaction hash id
+// 	const si_txn = bytes_to_hex(await sha256(atu8_raw)).toUpperCase();
+
+// 	// return tuple of raw tx bytes, sign doc, and tx hash id
+// 	return [atu8_raw, atu8_signdoc, si_txn];
+// };

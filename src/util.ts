@@ -1,8 +1,9 @@
 /* eslint-disable prefer-const */
 
+import type {NetworkJsonResponse} from '@solar-republic/cosmos-grpc';
 import type {TendermintAbciEvent, TendermintAbciTxResult} from '@solar-republic/cosmos-grpc/tendermint/abci/types';
 
-import {bytes, collapse, fold, type Dict, base64_to_text, each} from '@blake.regalia/belt';
+import {bytes, collapse, fold, type Dict, base64_to_text, each, die, type JsonValue, is_string, is_function, is_array} from '@blake.regalia/belt';
 
 export type StringFilter = string | string[] | Iterable<string> | RegExp | null | ((s_test: string) => boolean);
 
@@ -24,14 +25,14 @@ export const random_32 = (_?: never): Uint8Array => crypto.getRandomValues(bytes
 export const string_matches_filter = (
 	s_value: string,
 	z_filter: StringFilter
-): boolean => null === z_filter || ('string' === typeof z_filter
+): boolean => null === z_filter || (is_string(z_filter)
 	? s_value === z_filter
 	: z_filter instanceof RegExp
 		? z_filter.test(s_value)
-		: 'function' === typeof z_filter
+		: is_function(z_filter)
 			? !!z_filter(s_value)
 			: z_filter?.[Symbol.iterator]
-				? (Array.isArray(z_filter)? z_filter: [...z_filter]).includes(s_value)
+				? (is_array(z_filter)? z_filter: [...z_filter]).includes(s_value)
 				// eslint-disable-next-line @typescript-eslint/no-base-to-string
 				: s_value === z_filter+'');
 
@@ -57,3 +58,28 @@ export const index_abci_events = (
 	}),
 	h_events
 );
+
+
+/**
+ * Performs a network gRPC request and only returns on success, throws otherwise
+ * @param f_task 
+ * @param a_args 
+ * @returns 
+ */
+export const successful = async <
+	w_out extends JsonValue | undefined,
+	a_args extends any[],
+>(
+	f_task: (...a_args: a_args) => Promise<NetworkJsonResponse<w_out>>,
+	...a_args: a_args
+): Promise<NonNullable<w_out>> => {
+	const [d_res, s_res, g_res] = await f_task(...a_args);
+
+	// response body present and operation was successful
+	if(g_res && d_res.ok) {
+		return g_res;
+	}
+
+	// die with error message
+	die(s_res, g_res);
+};

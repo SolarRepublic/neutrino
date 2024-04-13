@@ -12,7 +12,7 @@ import {bytes_to_hex, text_to_base64, base64_to_bytes} from '@blake.regalia/belt
 import {bech32_encode} from '@solar-republic/crypto';
 
 import {connect} from './live';
-import {exec_secret_contract, query_secret_contract_infer} from '../src/app-layer';
+import {exec_secret_contract, query_secret_contract} from '../src/app-layer';
 
 import {sign_seed_update, subscribe_snip52_channels} from '../src/snip-52';
 
@@ -30,13 +30,13 @@ const SI_COMMAND = process.argv[2] as 'init' | 'trigger' | 'update' | 'export' ?
 	} = await connect();
 
 	async function channel_info() {
-		const [g_res_list] = await query_secret_contract_infer(k_contract as SecretContract<Snip52>, 'list_channels');
+		const [g_res_list] = await query_secret_contract(k_contract as SecretContract<Snip52>, 'list_channels');
 
 		// get first channel
 		const si_channel = g_res_list!['channels'][0];
 
 		// get its info using viewing key
-		const [g_res_info, xc_code, s_error] = await query_secret_contract_infer<{
+		const [g_res_info, xc_code, s_error] = await query_secret_contract<{
 			channel: string;
 			seed: NaiveBase64;
 			counter: WeakUintStr;

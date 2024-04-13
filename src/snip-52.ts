@@ -13,7 +13,7 @@ import {hmac, base64_to_bytes, text_to_bytes, bytes_to_base64, sha256, biguint_t
 
 import {bech32_encode} from '@solar-republic/crypto';
 
-import {query_secret_contract_infer} from './app-layer.js';
+import {query_secret_contract} from './app-layer.js';
 import {chacha20_poly1305_open} from './chacha20-poly1305.js';
 import {XN_16} from './constants.js';
 import {SX_QUERY_TM_EVENT_TX, TendermintEventFilter} from './tendermint-event-filter.js';
@@ -105,29 +105,7 @@ const decode_data = (
  * @param z_auth 
  * @param h_channels 
  */
-export const subscribe_snip52_channels: <
-	g_interface extends ContractInterface,
-	h_channels extends Channels<g_interface>,
-	as_channels extends keyof h_channels,
->(
-	z_remote: TrustedContextUrl | TendermintEventFilter,
-	k_contract: SecretContract<g_interface>,
-	z_auth: Exclude<AuthSecret, string>,
-	h_channels: {
-		[si_channel in as_channels]?: h_channels[si_channel] extends {cbor: CborValue}
-			? (<
-				w_data extends h_channels[si_channel]['cbor'],
-			>(w_data: w_data) => void)
-			: h_channels[si_channel] extends {schema: Snip52Schema.Element}
-				? (g_data: Snip52Schema.ParseDescriptorSequenced<h_channels[si_channel]['schema']> | undefined, atu8_data: Uint8Array) => void
-				: (<
-					w_data extends CborValue=CborValue,
-				>(w_data: w_data) => void)
-				| (<
-					g_descriptor extends Snip52Schema.Element,
-				>(z_data: Snip52Schema.ParseDescriptorSequenced<g_descriptor>, atu8_data: Uint8Array) => void);
-	}
-) => Promise<() => void> = async<
+export const subscribe_snip52_channels = async<
 	g_interface extends ContractInterface,
 	h_channels extends Channels<g_interface>,
 	as_channels extends keyof h_channels,
@@ -166,9 +144,8 @@ export const subscribe_snip52_channels: <
 	) => Promise<void>> = {};
 
 	// fetch channel info for all requested channels at once
-	let [g_result, xc_code, s_error] = await query_secret_contract_infer(k_contract as SecretContract<Snip52>, 'channel_info', {
+	let [g_result, xc_code, s_error] = await query_secret_contract(k_contract as SecretContract<Snip52>, 'channel_info', {
 		channels: Object.keys(h_channels),
-		// txhash: ''
 	}, z_auth);
 
 	// query failed
@@ -293,7 +270,6 @@ export const subscribe_snip52_channels: <
 						}
 
 						// packet was not found
-						void 0;
 					}
 					// decode as unencrypted data
 					else {

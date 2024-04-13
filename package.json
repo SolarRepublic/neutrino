@@ -36,21 +36,19 @@
     "debug": "node --inspect-brk --loader ts-node/esm"
   },
   "devDependencies": {
-    "@blake.regalia/belt": "^0.34.1",
     "@blake.regalia/eslint-config-elite": "^0.4.4",
     "@blake.regalia/tsconfig": "^0.2.0",
     "@cosmjs/amino": "^0.32.3",
     "@nfps.dev/rollup-plugin-microweb": "^0.3.5",
-    "@noble/secp256k1": "^2.0.0",
+    "@noble/secp256k1": "^2.1.0",
     "@rollup/plugin-commonjs": "^25.0.7",
     "@rollup/plugin-replace": "^5.0.5",
-    "@solar-republic/contractor": "^0.8.9",
-    "@solar-republic/cosmos-grpc": "^0.15.2",
-    "@solar-republic/types": "^0.2.8",
+    "@solar-republic/contractor": "^0.8.11",
+    "@solar-republic/types": "^0.2.9",
     "@types/chai": "^4.3.14",
     "@types/node": "^20.11.30",
     "@types/web": "^0.0.142",
-    "@typescript-eslint/parser": "^7.3.1",
+    "@typescript-eslint/parser": "^7.4.0",
     "chai": "^5.1.0",
     "chai-bites": "^0.1.2",
     "curve25519-js": "^0.0.4",
@@ -70,7 +68,9 @@
     "ws": "^8.16.0"
   },
   "dependencies": {
-    "@blake.regalia/belt": "^0.34.1"
+    "@blake.regalia/belt": "^0.34.1",
+    "@solar-republic/cosmos-grpc": "^0.15.3",
+    "@solar-republic/crypto": "^0.2.11"
   },
   "publishConfig": {
     "access": "public"

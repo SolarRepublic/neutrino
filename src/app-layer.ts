@@ -5,20 +5,19 @@
 import type {O} from 'ts-toolbelt';
 
 import type {CreateQueryArgsAndAuthParams} from './inferencing.js';
-import type {SecretContractQueryIntermediates, SecretContract} from './secret-contract.js';
+import type {SecretContract} from './secret-contract.js';
 import type {TendermintWs} from './tendermint-ws.js';
-import type {AuthSecret, JsonRpcResponse, LcdRpcStruct, MsgQueryPermit, PermitConfig, TxResultWrapper, WeakSecretAccAddr} from './types.js';
+import type {AuthSecret, CosmosQueryError, JsonRpcResponse, LcdRpcStruct, MsgQueryPermit, PermitConfig, TxResultWrapper, WeakSecretAccAddr} from './types.js';
 
 import type {Wallet} from './wallet.js';
 import type {JsonObject, Nilable, Promisable, NaiveJsonString, Dict} from '@blake.regalia/belt';
 
 import type {ContractInterface} from '@solar-republic/contractor';
 
-import type {NetworkJsonResponse} from '@solar-republic/cosmos-grpc';
 import type {TendermintAbciExecTxResult} from '@solar-republic/cosmos-grpc/tendermint/abci/types';
-import type {SecretQueryPermit, SlimCoin, WeakAccountAddr, TrustedContextUrl, CwAccountAddr, CwUint32, WeakUint128Str, WeakUintStr} from '@solar-republic/types';
+import type {SecretQueryPermit, SlimCoin, WeakAccountAddr, TrustedContextUrl, CwAccountAddr, WeakUint128Str, WeakUintStr} from '@solar-republic/types';
 
-import {__UNDEFINED, bytes_to_base64, timeout, base64_to_bytes, bytes_to_text, values, parse_json_safe, timeout_exec, die, assign, hex_to_bytes, is_number} from '@blake.regalia/belt';
+import {__UNDEFINED, bytes_to_base64, timeout, base64_to_bytes, bytes_to_text, parse_json_safe, timeout_exec, die, assign, hex_to_bytes, is_number, stringify_json, try_async, is_error} from '@blake.regalia/belt';
 import {decodeCosmosBaseAbciTxMsgData, type CosmosBaseAbciTxResponse} from '@solar-republic/cosmos-grpc/cosmos/base/abci/v1beta1/abci';
 
 import {XC_PROTO_COSMOS_TX_BROADCAST_MODE_SYNC, queryCosmosTxGetTx, submitCosmosTxBroadcastTx} from '@solar-republic/cosmos-grpc/cosmos/tx/v1beta1/service';
@@ -49,24 +48,39 @@ export type RetryParams = [
 	xt_wait: number,
 ];
 
+/**
+ * Generic utility function to retry a given task
+ * @param f_task - the task to retry having signature `(c_attempts: number) => Promisable<out>`
+ * @param f_handle - handler function that determines how to proceed. return `[xt_wait: number]`
+ * to indicate how long to wait before retry, or falsy to stop retrying and throw
+ * @param c_attempts - reserved. do not use
+ * @returns the resolved value on success, or the last error to be thrown on maximum failure
+ */
 export const retry = async<w_out>(
-	f_broadcast: (c_attempts: number) => Promise<w_out>,
+	f_task: (c_attempts: number) => Promisable<w_out>,
 	f_handle: (z_error: unknown, c_attempts: number) => Promisable<RetryParams | Nilable<void>>,
 	c_attempts=0
 ): Promise<w_out> => {
+	// attempt to perform the task and return its result
 	try {
-		return await f_broadcast(c_attempts);
+		return await f_task(c_attempts);
 	}
-	catch(z_broadcast) {
-		const a_retry = await f_handle(z_broadcast, ++c_attempts);
+	// an error was thrown
+	catch(z_rejection) {
+		// forward rejection and attempt count to handler
+		const a_retry = await f_handle(z_rejection, ++c_attempts);
 
-		// retry
+		// caller wants to retry
 		if(a_retry) {
+			// observe timeout
 			await timeout(a_retry[0] || 0);
-			return await retry(f_broadcast, f_handle, c_attempts);
+
+			// retry
+			return await retry(f_task, f_handle, c_attempts);
 		}
 
-		throw die('Retried '+c_attempts+'x: '+f_broadcast, z_broadcast);
+		// throw
+		die('Retried '+c_attempts+'x: '+f_task+'\n'+(is_error(z_rejection)? z_rejection.stack || z_rejection.message: ''), z_rejection);
 	}
 };
 
@@ -94,7 +108,7 @@ export const subscribe_tendermint_events = (
 			const g_data = parse_json_safe<JsonRpcResponse<Record<string, never>>>(g_msg.data as NaiveJsonString);
 
 			// expect confirmation
-			if('0' !== g_data?.id || '{}' !== JSON.stringify(g_data?.result)) {
+			if('0' !== g_data?.id || '{}' !== stringify_json(g_data?.result)) {
 				// reject
 				fe_reject(g_data);
 
@@ -112,7 +126,7 @@ export const subscribe_tendermint_events = (
 		// open event
 		onopen() {
 			// subscribe to event
-			this.send(JSON.stringify({
+			this.send(stringify_json({
 				id: '0',
 				method: 'subscribe',
 				params: {
@@ -158,55 +172,46 @@ export const broadcast_result = async(
 
 	// polling fallback using LCD query
 	let attempt_fallback_lcd_query = async() => {
-		// attempt tx query
-		try {
-			const [d_res, s_res, g_res] = await queryCosmosTxGetTx(gc_node.lcd, si_txn);
+		// submit query request
+		const [a_resolved, e_thrown] = await try_async(() => queryCosmosTxGetTx(gc_node.lcd, si_txn));
 
-			const g_tx_res = g_res.tx_response as O.Compulsory<CosmosBaseAbciTxResponse>;
+		// network error; reject outer promise
+		if(e_thrown) return fe_reject(e_thrown);
 
-			// unlisten events filter
-			f_unlisten?.();
+		// destructure resolved value
+		const [d_res, s_res, g_res] = a_resolved!;
 
-			// resolve
-			return fk_resolve([
-				g_tx_res? g_tx_res.code ?? 0: -1,
-				s_res,
-				assign({
-					log: g_tx_res.raw_log,
-				}, g_tx_res),
-				hex_to_bytes(g_tx_res.data),
-				index_abci_events(g_tx_res.events),
-			]);
-		}
-		// not successful
-		catch(e_query) {
-			// tuple was thrown
-			if((e_query as NetworkJsonResponse)[0]) {
-				// destructure details
-				const [d_res, s_res, g_res] = e_query as NetworkJsonResponse<{
-					code: CwUint32;
-					message: string;
-				}>;
+		// response body present
+		if(g_res) {
+			// successful
+			if(d_res.ok) {
+				// make fields compulsory
+				const g_tx_res = g_res.tx_response as O.Compulsory<CosmosBaseAbciTxResponse>;
 
-				// destructure chain code
-				const xc_code = g_res?.code;
+				// unlisten events filter
+				f_unlisten?.();
 
-				debugger;
-
-				// anything other than tx not found indicates a possible node error
-				if(!/tx not found/.test(g_res?.message || '')) {
-					// fe_reject(g_res.)
-				}
-
-				// // close resources
-				// f_shutdown();
+				// resolve
+				return fk_resolve([
+					g_tx_res? g_tx_res.code ?? 0: -1,
+					s_res,
+					assign({
+						log: g_tx_res.raw_log,
+					}, g_tx_res),
+					hex_to_bytes(g_tx_res.data),
+					index_abci_events(g_tx_res.events),
+				]);
 			}
-			// // network error
-			// else if() {
 
-			// }
-			else {
-				debugger;
+			// destructure parsed response body
+			const {
+				code: xc_code,
+				message: s_msg,
+			} = g_res as CosmosQueryError;
+
+			// anything other than tx not found indicates a possible node error
+			if(!/tx not found/.test(s_msg || '')) {
+				return fe_reject(Error(`Unexpected query error: ${stringify_json(g_res)}`));
 			}
 		}
 
@@ -223,15 +228,13 @@ export const broadcast_result = async(
 		const [k_tef_local] = await timeout_exec(
 			GC_NEUTRINO.WS_TIMEOUT,
 			// eslint-disable-next-line @typescript-eslint/no-unused-vars
-			() => TendermintEventFilter(gc_node.rpc, SX_QUERY_TM_EVENT_TX, _ => () => {
-				void attempt_fallback_lcd_query();
-			}, z_stream as TendermintWs | undefined)
+			() => TendermintEventFilter(gc_node.rpc, SX_QUERY_TM_EVENT_TX, 1, z_stream as TendermintWs | undefined)
 		);
 
 		// timed out waiting to connect
 		if(!k_tef_local) {
 			// start polling
-			setTimeout(attempt_fallback_lcd_query, xt_polling=GC_NEUTRINO.BLOCK_TIME);
+			setTimeout(attempt_fallback_lcd_query, xt_polling=GC_NEUTRINO.POLLING_INTERVAL);
 		}
 		// succeeded; set filter
 		else {
@@ -260,7 +263,7 @@ export const broadcast_result = async(
 			base64_to_bytes(g_result.data),
 			h_events,
 		]);
-	});
+	}, attempt_fallback_lcd_query);
 
 	// attempt to submit tx
 	const [d_res, sx_res_broadcast, g_res] = await submitCosmosTxBroadcastTx(gc_node.lcd, atu8_raw, XC_PROTO_COSMOS_TX_BROADCAST_MODE_SYNC);
@@ -293,58 +296,14 @@ export const broadcast_result = async(
  *  - [3]: `h_answer?: JsonObject` - contract response as JSON object on success
  */
 // eslint-disable-next-line @typescript-eslint/naming-convention
-export const query_secret_contract = async<
+export const query_secret_contract_raw = async<
 	g_interface extends ContractInterface,
 	h_variants extends ContractInterface.MsgAndAnswer<g_interface, 'queries'>,
 	g_variant extends h_variants[keyof h_variants],
 >(
 	k_contract: SecretContract<g_interface>,
 	h_query: g_variant['msg']
-): Promise<[xc_code: number, s_error: string, h_answer?: g_variant['answer']]> => {
-	// output intermediates
-	const g_out: SecretContractQueryIntermediates = {};
-
-	// attempt query as usual
-	try {
-		return [0, '', await k_contract.query(h_query, g_out)];
-	}
-	// not successful
-	catch(e_query) {
-		// tuple was thrown
-		if((e_query as NetworkJsonResponse)[0]) {
-			// destructure details
-			const [d_res, s_res, g_res] = e_query as NetworkJsonResponse<{
-				code: CwUint32;
-				message: string;
-			}>;
-
-			// destructure chain code
-			const xc_code = g_res?.code;
-
-			// error message
-			const m_error = /encrypted: (.+?):/.exec(g_res?.message || '');
-			if(m_error) {
-				// decode base64 string
-				const atu8_ciphertext = base64_to_bytes(m_error[1]);
-
-				// decrypt the ciphertext
-				const atu8_plaintext = await k_contract.wasm.decrypt(atu8_ciphertext, g_out.n!);
-
-				// decode
-				const sx_plaintext = bytes_to_text(atu8_plaintext);
-
-				// return tuple
-				return [xc_code, sx_plaintext];
-			}
-
-			// other code or server error
-			return [xc_code ?? d_res.status, s_res || d_res.statusText];
-		}
-
-		// error instance was thrown; rethrow
-		throw e_query;
-	}
-};
+): Promise<[xc_code: number, s_error: string, h_answer?: g_variant['answer']]> => k_contract.query(h_query);
 
 
 /**
@@ -406,9 +365,9 @@ export const format_secret_query = (
 export interface QueryContractInfer {
 	<
 		g_interface extends ContractInterface,
-		h_variants extends ContractInterface.MsgAndAnswer<g_interface, 'queries'>,
-		si_method extends Extract<keyof h_variants, string>,
-		g_variant extends h_variants[si_method],
+		h_variants extends ContractInterface.MsgAndAnswer<g_interface, 'queries'>=ContractInterface.MsgAndAnswer<g_interface, 'queries'>,
+		si_method extends Extract<keyof h_variants, string>=Extract<keyof h_variants, string>,
+		g_variant extends h_variants[si_method]=h_variants[si_method],
 	>(
 		k_contract: SecretContract<g_interface>,
 		si_method: si_method,
@@ -427,7 +386,7 @@ export interface QueryContractInfer {
 
 /**
  * Query a Secret Contract method and automatically apply an auth secret if one is provided.
- * Additionally, unwrap the success response if one was returned.
+ * Additionally, unwrap the success response by accessing the input method name if one was returned.
  * @param k_contract - the contract
  * @param si_method - which query method to invoke
  * @param h_args - the args value to pass in with the given query
@@ -439,11 +398,12 @@ export interface QueryContractInfer {
  *  - [2]: `s_error: string` - error message from chain or HTTP response body
  *  - [3]: `h_answer?: JsonObject` - contract response as JSON object on success
  */
-export const query_secret_contract_infer: QueryContractInfer = async(
+export const query_secret_contract: QueryContractInfer = async(
 	k_contract: SecretContract,
 	si_method: string,
-	...[h_args, z_auth]: [h_args?: Nilable<JsonObject>, z_auth?: Nilable<AuthSecret>]
+	...[h_args, z_auth]
 ): Promise<[w_result: JsonObject | undefined, xc_code_p: number, s_error: string, h_answer?: JsonObject]> => {
+	// debug
 	if(import.meta.env?.DEV) {
 		console.groupCollapsed(`❓ ${si_method}`);
 		console.debug(`Querying contract ${k_contract.addr} (${k_contract.info.label})`);
@@ -451,8 +411,10 @@ export const query_secret_contract_infer: QueryContractInfer = async(
 		console.groupEnd();
 	}
 
-	const a_response = await query_secret_contract(k_contract, format_secret_query(si_method, h_args || {}, z_auth));
+	// query the contract
+	const a_response = await query_secret_contract_raw(k_contract, format_secret_query(si_method, h_args || {}, z_auth));
 
+	// debug
 	if(import.meta.env?.DEV) {
 		console.groupCollapsed(`🛰️ ${si_method}`);
 		console.debug(`Query response [code: ${a_response[0]}] from ${k_contract.addr} (${k_contract.info.label}):`);
@@ -464,7 +426,7 @@ export const query_secret_contract_infer: QueryContractInfer = async(
 	return [
 		a_response[0]
 			? __UNDEFINED
-			: values(a_response[2] as JsonObject)[0]! as JsonObject,
+			: (a_response[2] as JsonObject)[si_method] as JsonObject,
 		...a_response,
 	];
 };
@@ -495,8 +457,8 @@ export const query_secret_contract_infer: QueryContractInfer = async(
  */
 export const exec_secret_contract = async<
 	g_interface extends ContractInterface,
-	h_group extends ContractInterface.MsgAndAnswer<g_interface, 'executions'>,
-	as_methods extends Extract<keyof h_group, string>,
+	h_group extends ContractInterface.MsgAndAnswer<g_interface, 'executions'>=ContractInterface.MsgAndAnswer<g_interface, 'executions'>,
+	as_methods extends Extract<keyof h_group, string>=Extract<keyof h_group, string>,
 >(
 	k_contract: SecretContract<g_interface>,
 	k_wallet: Wallet<'secret'>,
