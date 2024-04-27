@@ -1,9 +1,9 @@
 /* eslint-disable prefer-const */
 
-import type {NetworkJsonResponse} from '@solar-republic/cosmos-grpc';
 import type {TendermintAbciEvent, TendermintAbciTxResult} from '@solar-republic/cosmos-grpc/tendermint/abci/types';
 
 import {bytes, collapse, fold, type Dict, base64_to_text, each, die, type JsonValue, is_string, is_function, is_array} from '@blake.regalia/belt';
+import {safe_base64_to_text, type NetworkJsonResponse} from '@solar-republic/cosmos-grpc';
 
 export type StringFilter = string | string[] | Iterable<string> | RegExp | null | ((s_test: string) => boolean);
 
@@ -51,8 +51,8 @@ export const index_abci_events = (
 	each(a_events, ({type:s_type, attributes:a_attrs}) => {
 		// each attribute
 		each(a_attrs!, (g_attr) => {
-			// add to indexed list
-			(h_events[s_type+'.'+base64_to_text(g_attr.key!)] ||= []).push(base64_to_text(g_attr.value!));
+			// add to indexed list; attempt to base64-decode EventAttribute fields since Tendermint/CometBFT made it a breaking change
+			(h_events[s_type+'.'+(safe_base64_to_text(g_attr.key) || g_attr.key!)] ||= []).push(safe_base64_to_text(g_attr.value) || g_attr.value!);
 		});
 	// eslint-disable-next-line no-sequences
 	}),

@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/naming-convention */
+import type {TxMeta} from './app-layer.js';
 import type {CreateQueryArgsAndAuthParams} from './inferencing.js';
 import type {SecretContract} from './secret-contract.js';
 import type {AuthSecret, WeakSecretAccAddr} from './types.js';
@@ -10,7 +11,7 @@ import type {SlimCoin} from '@solar-republic/types';
 
 import {__UNDEFINED, values} from '@blake.regalia/belt';
 
-import {exec_secret_contract, query_secret_contract, type TxMeta} from './app-layer.js';
+import {exec_secret_contract, query_secret_contract} from './app-layer.js';
 
 /**
  * Given a limit, gas price, and denom (defaults to 'uscrt'), produces an array containing a single {@link SlimCoin} tuple
