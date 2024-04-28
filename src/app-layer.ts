@@ -4,21 +4,23 @@
 
 import type {O} from 'ts-toolbelt';
 
-import type {CreateQueryArgsAndAuthParams} from './inferencing.js';
-import type {SecretContract} from './secret-contract.js';
-import type {TendermintWs} from './tendermint-ws.js';
-import type {AuthSecret, CosmosQueryError, JsonRpcResponse, LcdRpcStruct, MsgQueryPermit, PermitConfig, TxResultWrapper, WeakSecretAccAddr} from './types.js';
+import type {CreateQueryArgsAndAuthParams} from './inferencing';
+import type {SecretContract} from './secret-contract';
+import type {EventUnlistener} from './tendermint-event-filter';
+import type {TendermintWs} from './tendermint-ws';
+import type {AuthSecret, CosmosQueryError, JsonRpcResponse, LcdRpcStruct, MsgQueryPermit, PermitConfig, TxResultWrapper, WeakSecretAccAddr} from './types';
+import type {Wallet} from './wallet';
 
-import type {Wallet} from './wallet.js';
 import type {JsonObject, Nilable, Promisable, NaiveJsonString, Dict} from '@blake.regalia/belt';
 
 import type {ContractInterface} from '@solar-republic/contractor';
 
+import type {CosmosBaseAbciTxResponse} from '@solar-republic/cosmos-grpc/cosmos/base/abci/v1beta1/abci';
 import type {TendermintAbciExecTxResult} from '@solar-republic/cosmos-grpc/tendermint/abci/types';
 import type {SecretQueryPermit, SlimCoin, WeakAccountAddr, TrustedContextUrl, CwAccountAddr, WeakUint128Str, WeakUintStr} from '@solar-republic/types';
 
 import {__UNDEFINED, bytes_to_base64, timeout, base64_to_bytes, bytes_to_text, parse_json_safe, timeout_exec, die, assign, hex_to_bytes, is_number, stringify_json, try_async, is_error} from '@blake.regalia/belt';
-import {decodeCosmosBaseAbciTxMsgData, type CosmosBaseAbciTxResponse} from '@solar-republic/cosmos-grpc/cosmos/base/abci/v1beta1/abci';
+import {decodeCosmosBaseAbciTxMsgData} from '@solar-republic/cosmos-grpc/cosmos/base/abci/v1beta1/abci';
 
 import {XC_PROTO_COSMOS_TX_BROADCAST_MODE_SYNC, queryCosmosTxGetTx, submitCosmosTxBroadcastTx} from '@solar-republic/cosmos-grpc/cosmos/tx/v1beta1/service';
 
@@ -26,7 +28,7 @@ import {decodeSecretComputeMsgExecuteContractResponse} from '@solar-republic/cos
 
 import {GC_NEUTRINO} from './config.js';
 import {exec_fees} from './secret-app.js';
-import {SX_QUERY_TM_EVENT_TX, TendermintEventFilter, type EventUnlistener} from './tendermint-event-filter.js';
+import {SX_QUERY_TM_EVENT_TX, TendermintEventFilter} from './tendermint-event-filter.js';
 import {index_abci_events} from './util.js';
 import {create_and_sign_tx_direct, sign_amino} from './wallet.js';
 

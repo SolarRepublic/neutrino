@@ -4,8 +4,8 @@
 import type {O} from 'ts-toolbelt';
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-import type {query_secret_contract_raw} from './app-layer.js';
-import type {ContractInfo, CosmosQueryError, WeakSecretAccAddr} from './types.js';
+import type {query_secret_contract_raw} from './app-layer';
+import type {ContractInfo, CosmosQueryError, WeakSecretAccAddr} from './types';
 
 import type {JsonObject, Nilable} from '@blake.regalia/belt';
 

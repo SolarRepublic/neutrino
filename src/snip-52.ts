@@ -1,9 +1,9 @@
 /* eslint-disable prefer-const */
-import type {Pop} from 'ts-toolbelt/out/List/Pop.js';
+import type {Pop} from 'ts-toolbelt/out/List/Pop';
 
-import type {SecretContract} from './secret-contract.js';
-import type {AuthSecret, MsgNotificationSeedUpdate, NotificationSeedUpdate, NotificationSeedUpdateConfig, TxResultWrapper, WeakSecretAccAddr, CwSecretAccAddr} from './types.js';
-import type {Wallet} from './wallet.js';
+import type {SecretContract} from './secret-contract';
+import type {AuthSecret, MsgNotificationSeedUpdate, NotificationSeedUpdate, NotificationSeedUpdateConfig, TxResultWrapper, WeakSecretAccAddr, CwSecretAccAddr} from './types';
+import type {Wallet} from './wallet';
 
 import type {CborValue, Dict, Promisable} from '@blake.regalia/belt';
 import type {Snip52, ContractInterface, Snip52Schema} from '@solar-republic/contractor';

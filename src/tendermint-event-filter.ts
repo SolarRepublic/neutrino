@@ -1,11 +1,12 @@
+import type {TendermintWsRestartParam} from './tendermint-ws';
 import type {JsonRpcResponse, TendermintEvent, TxResultWrapper} from './types';
 import type {StringFilter} from './util';
 import type {Dict, JsonObject, Promisable} from '@blake.regalia/belt';
 import type {TrustedContextUrl} from '@solar-republic/types';
 
-import {parse_json_safe, entries, remove, try_sync, values, is_function, die} from '@blake.regalia/belt';
+import {parse_json_safe, entries, remove, try_sync, values, is_function} from '@blake.regalia/belt';
 
-import {TendermintWs, type TendermintWsRestartParam} from './tendermint-ws';
+import {TendermintWs} from './tendermint-ws';
 import {string_matches_filter} from './util';
 
 export type EventListener<
@@ -63,7 +64,7 @@ export const TendermintEventFilter = async<
 	]>[]> = {};
 
 	// subscribe to Tx events
-	const k_ws = z_ws instanceof TendermintWs
+	const k_ws = is_function((z_ws as {ws: unknown})?.ws)
 		? z_ws as TendermintWs
 		: await TendermintWs(p_rpc, sx_query, (d_event) => {
 			// parse event JSON

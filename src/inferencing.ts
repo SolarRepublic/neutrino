@@ -1,6 +1,6 @@
 import type {O, U} from 'ts-toolbelt';
 
-import type {AuthSecret, AuthSecret_ViewerInfo} from './types.js';
+import type {AuthSecret, AuthSecret_ViewerInfo} from './types';
 import type {Dict, JsonObject, Nilable} from '@blake.regalia/belt';
 import type {ReduceSafe, SecretQueryPermit} from '@solar-republic/types';
 

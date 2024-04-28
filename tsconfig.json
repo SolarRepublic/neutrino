@@ -2,6 +2,7 @@
 	"extends": "@blake.regalia/tsconfig/tsconfig.node.json",
 
 	"compilerOptions": {
+		"rootDir": ".",
 		"baseUrl": ".",
 		"outDir": "dist/nil",
 

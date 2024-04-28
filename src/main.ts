@@ -1,4 +1,4 @@
-export type * from './types.js';
+export type * from './types';
 
 export * from './aes-128-siv.js';
 export * from './aes.js';

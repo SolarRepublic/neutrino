@@ -3,7 +3,7 @@
 
 import type {S} from 'ts-toolbelt';
 
-import type {CosmosQueryError, CwSecretAccAddr, LcdRpcStruct, SlimAuthInfo, TypedAminoMsg, TypedStdSignDoc, WeakSecretAccAddr} from './types.js';
+import type {CosmosQueryError, CwSecretAccAddr, LcdRpcStruct, SlimAuthInfo, TypedAminoMsg, TypedStdSignDoc, WeakSecretAccAddr} from './types';
 
 import type {AsJson, Nilable} from '@blake.regalia/belt';
 import type {ProtoEnumCosmosTxSigningSignMode} from '@solar-republic/cosmos-grpc/cosmos/tx/signing/v1beta1/signing';

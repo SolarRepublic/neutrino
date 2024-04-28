@@ -1,9 +1,12 @@
 /* eslint-disable prefer-const */
 
-import type {TendermintAbciEvent, TendermintAbciTxResult} from '@solar-republic/cosmos-grpc/tendermint/abci/types';
+import type {Dict, JsonValue} from '@blake.regalia/belt';
+import type {NetworkJsonResponse} from '@solar-republic/cosmos-grpc';
+import type {TendermintAbciEvent} from '@solar-republic/cosmos-grpc/tendermint/abci/types';
 
-import {bytes, collapse, fold, type Dict, base64_to_text, each, die, type JsonValue, is_string, is_function, is_array} from '@blake.regalia/belt';
-import {safe_base64_to_text, type NetworkJsonResponse} from '@solar-republic/cosmos-grpc';
+import {bytes, each, die, is_string, is_function, is_array} from '@blake.regalia/belt';
+import {safe_base64_to_text} from '@solar-republic/cosmos-grpc';
+
 
 export type StringFilter = string | string[] | Iterable<string> | RegExp | null | ((s_test: string) => boolean);
 

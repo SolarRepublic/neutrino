@@ -1,9 +1,9 @@
 /* eslint-disable @typescript-eslint/naming-convention */
-import type {TxMeta} from './app-layer.js';
-import type {CreateQueryArgsAndAuthParams} from './inferencing.js';
-import type {SecretContract} from './secret-contract.js';
-import type {AuthSecret, WeakSecretAccAddr} from './types.js';
-import type {Wallet} from './wallet.js';
+import type {TxMeta} from './app-layer';
+import type {CreateQueryArgsAndAuthParams} from './inferencing';
+import type {SecretContract} from './secret-contract';
+import type {AuthSecret, WeakSecretAccAddr} from './types';
+import type {Wallet} from './wallet';
 
 import type {Dict, JsonObject} from '@blake.regalia/belt';
 import type {ContractInterface} from '@solar-republic/contractor';
