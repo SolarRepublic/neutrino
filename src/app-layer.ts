@@ -19,7 +19,7 @@ import type {CosmosBaseAbciTxResponse} from '@solar-republic/cosmos-grpc/cosmos/
 import type {TendermintAbciExecTxResult} from '@solar-republic/cosmos-grpc/tendermint/abci/types';
 import type {SecretQueryPermit, SlimCoin, WeakAccountAddr, TrustedContextUrl, CwAccountAddr, WeakUint128Str, WeakUintStr} from '@solar-republic/types';
 
-import {__UNDEFINED, bytes_to_base64, timeout, base64_to_bytes, bytes_to_text, parse_json_safe, timeout_exec, die, assign, hex_to_bytes, is_number, stringify_json, try_async, is_error} from '@blake.regalia/belt';
+import {__UNDEFINED, bytes_to_base64, timeout, base64_to_bytes, bytes_to_text, parse_json_safe, timeout_exec, die, assign, hex_to_bytes, is_number, stringify_json, try_async, is_error, defer} from '@blake.regalia/belt';
 import {decodeCosmosBaseAbciTxMsgData} from '@solar-republic/cosmos-grpc/cosmos/base/abci/v1beta1/abci';
 
 import {XC_PROTO_COSMOS_TX_BROADCAST_MODE_SYNC, queryCosmosTxGetTx, submitCosmosTxBroadcastTx} from '@solar-republic/cosmos-grpc/cosmos/tx/v1beta1/service';
@@ -46,6 +46,17 @@ export type TxMeta = {
 	code?: number;
 	codespace?: string;
 };
+
+/**
+ * Encapsulates the canonicalized result of transaction, regardless of whether it came from websocket or RPC query
+ */
+export type TxResultTuple = [
+	xc_code: number,
+	sx_res: string,
+	g_meta?: TxMeta,
+	atu8_data?: Uint8Array,
+	h_events?: Dict<string[]>,
+];
 
 export type RetryParams = [
 	xt_wait: number,
@@ -140,33 +151,25 @@ export const subscribe_tendermint_events = (
 	} as Pick<WebSocket, 'onmessage' | 'onopen'>));
 
 
-
 /**
- * Broadcast a transaction to the network for its result
- * @param gc_node - 
- * @param atu8_raw -  
- * @param si_txn -
- * @param z_stream - 
- * @returns tuple of `[number, string,`{@link TxMeta `TxMeta`}`?, Uint8Array?, Dict<string[]>]`
- *  - [0]: `xc_code: number` - error code from chain, or non-OK HTTP status code from the LCD server.
- * 		A value of `0` indicates success. A value of `-1` indicates a JSON parsing error.
- *  - [1]: `sx_res: string` - raw response text from the initial broadcast request (result of CheckTx)
- *  - [2]: `g_meta?:`{@link TxMeta `TxMeta`} - information about the tx
- *  - [3]: `atu8_data?: Uint8Array` - on success, the tx response data
- *  - [4]: `h_events?: Dict<string[]>` - all event attributes indexed by their full key path
+ * Starts monitoring the chain in anticipation of a new transaction with the given hash
  */
-export const broadcast_result = async(
+const monitor_tx = async(
 	gc_node: LcdRpcStruct,
-	atu8_raw: Uint8Array,
 	si_txn: string,
 	z_stream?: TendermintEventFilter<TxResultWrapper> | TendermintWs | undefined
 ): Promise<[
-	xc_code: number,
-	sx_res: string,
-	g_meta?: TxMeta,
-	atu8_data?: Uint8Array,
-	h_events?: Dict<string[]>,
-]> => new Promise(async(fk_resolve, fe_reject) => {
+	fk_unlisten: EventUnlistener,
+	dp_monitor: Promise<TxResultTuple>,
+	fke_monitor: {
+		(w_return: TxResultTuple): void;
+		(w_return: Nilable<void>, e_reject: Error): void;
+	},
+	f_set_res: (sx_override: string) => void,
+]> => {
+	// create deferred promise
+	const [dp_monitor, fke_monitor] = defer<TxResultTuple>();
+
 	// event filter unlistener
 	let f_unlisten: EventUnlistener | undefined;
 
@@ -179,7 +182,7 @@ export const broadcast_result = async(
 		const [a_resolved, e_thrown] = await try_async(() => queryCosmosTxGetTx(gc_node.lcd, si_txn));
 
 		// network error; reject outer promise
-		if(e_thrown) return fe_reject(e_thrown);
+		if(e_thrown) return fke_monitor(null, e_thrown as Error);
 
 		// destructure resolved value
 		const [d_res, s_res, g_res] = a_resolved!;
@@ -195,7 +198,7 @@ export const broadcast_result = async(
 				f_unlisten?.();
 
 				// resolve
-				return fk_resolve([
+				return fke_monitor([
 					g_tx_res? g_tx_res.code ?? 0: -1,
 					s_res,
 					assign({
@@ -215,7 +218,7 @@ export const broadcast_result = async(
 
 			// anything other than tx not found indicates a possible node error
 			if(!/tx not found/.test(s_msg || '')) {
-				return fe_reject(Error(`Unexpected query error: ${stringify_json(g_res)}`));
+				return fke_monitor(null, Error(`Unexpected query error: ${stringify_json(g_res)}`));
 			}
 		}
 
@@ -258,7 +261,7 @@ export const broadcast_result = async(
 		const g_result = g_txres.result! as O.Compulsory<TendermintAbciExecTxResult>;
 
 		// return parsed result
-		fk_resolve([
+		fke_monitor([
 			g_txres?.result?.code ?? 0,
 			sx_res,
 			assign({
@@ -270,11 +273,69 @@ export const broadcast_result = async(
 		]);
 	}, attempt_fallback_lcd_query);
 
+	// return tuple
+	return [f_unlisten, dp_monitor, fke_monitor, (sx_override_res: string) => sx_res = sx_override_res];
+};
+
+
+/**
+ * Starts monitoring the chain in anticipation of a new transaction with the given hash
+ * @param gc_node 
+ * @param si_txn 
+ * @param z_stream 
+ * @returns a {@link TxResultTuple}
+ * 
+ * Which is a tuple of `[number, string,`{@link TxMeta `TxMeta`}`?, Uint8Array?, Dict<string[]>]`
+ *  - [0]: `xc_code: number` - error code from chain, or non-OK HTTP status code from the LCD server.
+ * 		A value of `0` indicates success. A value of `-1` indicates a JSON parsing error.
+ *  - [1]: `sx_res: string` - raw response text from the initial broadcast request (result of CheckTx)
+ *  - [2]: `g_meta?:`{@link TxMeta `TxMeta`} - information about the tx
+ *  - [3]: `atu8_data?: Uint8Array` - on success, the tx response data
+ *  - [4]: `h_events?: Dict<string[]>` - all event attributes indexed by their full key path
+ */
+export const expect_tx = async(
+	gc_node: LcdRpcStruct,
+	si_txn: string,
+	z_stream?: TendermintEventFilter<TxResultWrapper> | TendermintWs | undefined
+): Promise<TxResultTuple> => {
+	// start monitoring tx
+	const [, dp_monitor] = await monitor_tx(gc_node, si_txn, z_stream);
+
+	// return monitor promise
+	return dp_monitor;
+};
+
+
+/**
+ * Broadcast a transaction to the network for its result
+ * @param gc_node - 
+ * @param atu8_raw -  
+ * @param si_txn -
+ * @param z_stream - 
+ * @returns a {@link TxResultTuple}
+ * 
+ * Which is a tuple of `[number, string,`{@link TxMeta `TxMeta`}`?, Uint8Array?, Dict<string[]>]`
+ *  - [0]: `xc_code: number` - error code from chain, or non-OK HTTP status code from the LCD server.
+ * 		A value of `0` indicates success. A value of `-1` indicates a JSON parsing error.
+ *  - [1]: `sx_res: string` - raw response text from the initial broadcast request (result of CheckTx)
+ *  - [2]: `g_meta?:`{@link TxMeta `TxMeta`} - information about the tx
+ *  - [3]: `atu8_data?: Uint8Array` - on success, the tx response data
+ *  - [4]: `h_events?: Dict<string[]>` - all event attributes indexed by their full key path
+ */
+export const broadcast_result = async(
+	gc_node: LcdRpcStruct,
+	atu8_raw: Uint8Array,
+	si_txn: string,
+	z_stream?: TendermintEventFilter<TxResultWrapper> | TendermintWs | undefined
+): Promise<TxResultTuple> => {
+	// start monitoring tx
+	const [f_unlisten, dp_monitor, fke_monitor, f_set_res] = await monitor_tx(gc_node, si_txn, z_stream);
+
 	// attempt to submit tx
 	const [d_res, sx_res_broadcast, g_res] = await submitCosmosTxBroadcastTx(gc_node.lcd, atu8_raw, XC_PROTO_COSMOS_TX_BROADCAST_MODE_SYNC);
 
 	// set value
-	sx_res = sx_res_broadcast;
+	f_set_res(sx_res_broadcast);
 
 	// not ok HTTP code, no parsed JSON, or non-zero response code
 	if(!d_res.ok || !g_res || g_res.tx_response?.code) {
@@ -282,12 +343,15 @@ export const broadcast_result = async(
 		f_unlisten();
 
 		// resolve with error
-		fk_resolve([
+		fke_monitor([
 			d_res.ok? g_res?.tx_response?.code ?? -1: d_res.status,
-			sx_res,
+			sx_res_broadcast,
 		]);
 	}
-});
+
+	// return monitor promise
+	return dp_monitor;
+};
 
 
 /**
