@@ -41,6 +41,7 @@ export type TxMeta = {
 	height: WeakUintStr;
 	gas_wanted: WeakUintStr;
 	gas_used: WeakUintStr;
+	txhash: string;
 	log?: string | undefined;
 	code?: number;
 	codespace?: string;
@@ -199,6 +200,7 @@ export const broadcast_result = async(
 					s_res,
 					assign({
 						log: g_tx_res.raw_log,
+						txhash: g_tx_res.txhash,
 					}, g_tx_res),
 					hex_to_bytes(g_tx_res.data),
 					index_abci_events(g_tx_res.events),
@@ -261,6 +263,7 @@ export const broadcast_result = async(
 			sx_res,
 			assign({
 				height: g_txres.height!,
+				txhash: si_txn,
 			}, g_result),
 			base64_to_bytes(g_result.data),
 			h_events,
