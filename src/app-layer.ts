@@ -20,6 +20,7 @@ import type {TendermintAbciExecTxResult} from '@solar-republic/cosmos-grpc/tende
 import type {SecretQueryPermit, SlimCoin, WeakAccountAddr, TrustedContextUrl, CwAccountAddr, WeakUint128Str, WeakUintStr} from '@solar-republic/types';
 
 import {__UNDEFINED, bytes_to_base64, timeout, base64_to_bytes, bytes_to_text, parse_json_safe, timeout_exec, die, assign, hex_to_bytes, is_number, stringify_json, try_async, is_error, defer} from '@blake.regalia/belt';
+import {safe_base64_to_bytes} from '@solar-republic/cosmos-grpc';
 import {decodeCosmosBaseAbciTxMsgData} from '@solar-republic/cosmos-grpc/cosmos/base/abci/v1beta1/abci';
 
 import {XC_PROTO_COSMOS_TX_BROADCAST_MODE_SYNC, queryCosmosTxGetTx, submitCosmosTxBroadcastTx} from '@solar-republic/cosmos-grpc/cosmos/tx/v1beta1/service';
@@ -53,9 +54,9 @@ export type TxMeta = {
 export type TxResultTuple = [
 	xc_code: number,
 	sx_res: string,
-	g_meta?: TxMeta,
-	atu8_data?: Uint8Array,
-	h_events?: Dict<string[]>,
+	g_meta?: TxMeta | undefined,
+	atu8_data?: Uint8Array | undefined,
+	h_events?: Dict<string[]> | undefined,
 ];
 
 export type RetryParams = [
@@ -205,7 +206,7 @@ const monitor_tx = async(
 						log: g_tx_res.raw_log,
 						txhash: g_tx_res.txhash,
 					}, g_tx_res),
-					hex_to_bytes(g_tx_res.data),
+					g_tx_res.data? hex_to_bytes(g_tx_res.data): __UNDEFINED,
 					index_abci_events(g_tx_res.events),
 				]);
 			}
@@ -268,7 +269,7 @@ const monitor_tx = async(
 				height: g_txres.height!,
 				txhash: si_txn,
 			}, g_result),
-			base64_to_bytes(g_result.data),
+			safe_base64_to_bytes(g_result.data),
 			h_events,
 		]);
 	}, attempt_fallback_lcd_query);
