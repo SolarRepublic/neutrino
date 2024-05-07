@@ -8,7 +8,7 @@ import type {CreateQueryArgsAndAuthParams} from './inferencing';
 import type {SecretContract} from './secret-contract';
 import type {EventUnlistener} from './tendermint-event-filter';
 import type {TendermintWs} from './tendermint-ws';
-import type {AuthSecret, CosmosQueryError, JsonRpcResponse, LcdRpcStruct, MsgQueryPermit, PermitConfig, TxResultWrapper, WeakSecretAccAddr} from './types';
+import type {AuthSecret, AuthedLcdRpcStruct, CosmosQueryError, JsonRpcResponse, LcdRpcStruct, MsgQueryPermit, PermitConfig, TxResultWrapper, WeakSecretAccAddr} from './types';
 import type {Wallet} from './wallet';
 
 import type {JsonObject, Nilable, Promisable, NaiveJsonString, Dict} from '@blake.regalia/belt';
@@ -156,7 +156,7 @@ export const subscribe_tendermint_events = (
  * Starts monitoring the chain in anticipation of a new transaction with the given hash
  */
 const monitor_tx = async(
-	gc_node: LcdRpcStruct,
+	gc_node: AuthedLcdRpcStruct,
 	si_txn: string,
 	z_stream?: TendermintEventFilter<TxResultWrapper> | TendermintWs | undefined,
 	xt_wait_before_polling=GC_NEUTRINO.WS_TIMEOUT*3
@@ -184,7 +184,10 @@ const monitor_tx = async(
 	// polling fallback using LCD query
 	let attempt_fallback_lcd_query = async() => {
 		// submit query request
-		const [a_resolved, e_thrown] = await try_async(() => queryCosmosTxGetTx(gc_node.lcd, si_txn));
+		const [a_resolved, e_thrown] = await try_async(() => queryCosmosTxGetTx({
+			origin: gc_node.lcd,
+			headers: gc_node.headers!,
+		}, si_txn));
 
 		// network error; reject outer promise
 		if(e_thrown) return fke_monitor(null, e_thrown as Error);
@@ -240,7 +243,7 @@ const monitor_tx = async(
 		const [k_tef_local] = await timeout_exec(
 			GC_NEUTRINO.WS_TIMEOUT,
 			// eslint-disable-next-line @typescript-eslint/no-unused-vars
-			() => TendermintEventFilter(gc_node.rpc, SX_QUERY_TM_EVENT_TX, 1, z_stream as TendermintWs | undefined)
+			() => TendermintEventFilter(gc_node.ws || gc_node.rpc, SX_QUERY_TM_EVENT_TX, 1, z_stream as TendermintWs | undefined)
 		);
 
 		// timed out waiting to connect; start polling
@@ -307,7 +310,7 @@ const monitor_tx = async(
  *  - [4]: `h_events?: Dict<string[]>` - all event attributes indexed by their full key path
  */
 export const expect_tx = async(
-	gc_node: LcdRpcStruct,
+	gc_node: AuthedLcdRpcStruct,
 	si_txn: string,
 	z_stream?: TendermintEventFilter<TxResultWrapper> | TendermintWs | undefined
 ): Promise<TxResultTuple> => {
@@ -336,7 +339,7 @@ export const expect_tx = async(
  *  - [4]: `h_events?: Dict<string[]>` - all event attributes indexed by their full key path
  */
 export const broadcast_result = async(
-	gc_node: LcdRpcStruct,
+	gc_node: AuthedLcdRpcStruct,
 	atu8_raw: Uint8Array,
 	si_txn: string,
 	z_stream?: TendermintEventFilter<TxResultWrapper> | TendermintWs | undefined
@@ -345,7 +348,10 @@ export const broadcast_result = async(
 	const [f_unlisten, dp_monitor, fke_monitor, f_set_res] = await monitor_tx(gc_node, si_txn, z_stream);
 
 	// attempt to submit tx
-	const [d_res, sx_res_broadcast, g_res] = await submitCosmosTxBroadcastTx(gc_node.lcd, atu8_raw, XC_PROTO_COSMOS_TX_BROADCAST_MODE_SYNC);
+	const [d_res, sx_res_broadcast, g_res] = await submitCosmosTxBroadcastTx({
+		origin: gc_node.lcd,
+		headers: gc_node.headers!,
+	}, atu8_raw, XC_PROTO_COSMOS_TX_BROADCAST_MODE_SYNC);
 
 	// set value
 	f_set_res(sx_res_broadcast);

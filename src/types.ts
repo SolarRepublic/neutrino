@@ -112,6 +112,21 @@ export interface LcdRpcStruct {
 }
 
 /**
+ * Extends the {@link LcdRpcStruct} with optional headers
+ */
+export type AuthedLcdRpcStruct = LcdRpcStruct & {
+	/**
+	 * Optional headers to send with LCD requests
+	 */
+	headers?: Dict;
+
+	/**
+	 * URL to override the RPC when subscribing to /websocket
+	 */
+	ws?: TrustedContextUrl;
+};
+
+/**
  * JSON-RPC response
  */
 export type JsonRpcResponse<
