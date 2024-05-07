@@ -158,7 +158,8 @@ export const subscribe_tendermint_events = (
 const monitor_tx = async(
 	gc_node: LcdRpcStruct,
 	si_txn: string,
-	z_stream?: TendermintEventFilter<TxResultWrapper> | TendermintWs | undefined
+	z_stream?: TendermintEventFilter<TxResultWrapper> | TendermintWs | undefined,
+	xt_wait_before_polling=GC_NEUTRINO.WS_TIMEOUT*3
 ): Promise<[
 	fk_unlisten: EventUnlistener,
 	dp_monitor: Promise<TxResultTuple>,
@@ -176,6 +177,9 @@ const monitor_tx = async(
 
 	// if set, indicates that LCD query should be repeated with this timeout value
 	let xt_polling: number | undefined;
+
+	// fallback timeout
+	let i_fallback: number | NodeJS.Timeout | undefined;
 
 	// polling fallback using LCD query
 	let attempt_fallback_lcd_query = async() => {
@@ -224,7 +228,7 @@ const monitor_tx = async(
 		}
 
 		// repeat
-		if(xt_polling) setTimeout(attempt_fallback_lcd_query, xt_polling);
+		if(xt_polling) i_fallback = setTimeout(attempt_fallback_lcd_query, xt_polling);
 	};
 
 	// prep event filter
@@ -239,15 +243,23 @@ const monitor_tx = async(
 			() => TendermintEventFilter(gc_node.rpc, SX_QUERY_TM_EVENT_TX, 1, z_stream as TendermintWs | undefined)
 		);
 
-		// timed out waiting to connect
+		// timed out waiting to connect; start polling
 		if(!k_tef_local) {
-			// start polling
-			setTimeout(attempt_fallback_lcd_query, xt_polling=GC_NEUTRINO.POLLING_INTERVAL);
+			i_fallback = setTimeout(attempt_fallback_lcd_query, xt_polling=GC_NEUTRINO.POLLING_INTERVAL);
 		}
 		// succeeded; set filter
 		else {
 			k_tef = k_tef_local!;
 		}
+	}
+
+	// in case WebSocket is silently dead and polling hasn't already been scheduled
+	if(!i_fallback) {
+		// set polling rate
+		xt_polling = GC_NEUTRINO.POLLING_INTERVAL;
+
+		// start attempting fallback queries
+		setTimeout(attempt_fallback_lcd_query, xt_wait_before_polling);
 	}
 
 	// prep broadcast response (result of CheckTx)
