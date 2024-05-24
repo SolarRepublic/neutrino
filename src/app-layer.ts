@@ -16,6 +16,7 @@ import type {JsonObject, Nilable, Promisable, NaiveJsonString, Dict} from '@blak
 import type {ContractInterface} from '@solar-republic/contractor';
 
 import type {CosmosBaseAbciTxResponse} from '@solar-republic/cosmos-grpc/cosmos/base/abci/v1beta1/abci';
+import type {CosmosTxGetTxResponse} from '@solar-republic/cosmos-grpc/cosmos/tx/v1beta1/service';
 import type {TendermintAbciExecTxResult} from '@solar-republic/cosmos-grpc/tendermint/abci/types';
 import type {SecretQueryPermit, SlimCoin, WeakAccountAddr, TrustedContextUrl, CwAccountAddr, WeakUint128Str, WeakUintStr} from '@solar-republic/types';
 
@@ -361,10 +362,16 @@ export const broadcast_result = async(
 		// unlisten events filter
 		f_unlisten();
 
+		// some failures still contain enough to construct meta
+		const g_meta = parse_json_safe<CosmosTxGetTxResponse>(sx_res_broadcast)?.tx_response;
+
 		// resolve with error
 		fke_monitor([
 			d_res.ok? g_res?.tx_response?.code ?? -1: d_res.status,
 			sx_res_broadcast,
+			g_meta? assign({
+				log: g_meta.raw_log,
+			}, g_meta as TxMeta): __UNDEFINED,
 		]);
 	}
 
@@ -644,7 +651,7 @@ export const exec_secret_contract = async<
 		}
 
 		// entuple error
-		return [xc_error, s_plaintext ?? s_error, __UNDEFINED, __UNDEFINED, __UNDEFINED, si_txn];
+		return [xc_error, s_plaintext ?? s_error, g_meta, __UNDEFINED, __UNDEFINED, si_txn];
 	}
 
 	// debug info

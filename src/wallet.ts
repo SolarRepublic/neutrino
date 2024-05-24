@@ -282,7 +282,7 @@ export const create_tx_body = async(
 	k_wallet: Parameters<typeof auth>[0] & Pick<Wallet, 'pk33'>,
 	a_msgs: Uint8Array[],
 	a_fees: SlimCoin[],
-	sg_limit: WeakUint128Str,
+	zg_limit: bigint | WeakUint128Str,
 	a_auth?: Nilable<SlimAuthInfo> | 0,  // eslint-disable-line @typescript-eslint/naming-convention
 	s_memo?: string,
 	sa_granter?: Emptyable<WeakSecretAccAddr>,
@@ -311,7 +311,7 @@ export const create_tx_body = async(
 	);
 
 	// encode fee
-	const atu8_fee = encodeCosmosTxFee(a_fees, sg_limit, sa_payer, sa_granter);
+	const atu8_fee = encodeCosmosTxFee(a_fees, zg_limit+'' as WeakUint128Str, sa_payer, sa_granter);
 
 	// encode auth info
 	const atu8_auth = encodeCosmosTxAuthInfo([atu8_signer], atu8_fee);
@@ -333,7 +333,7 @@ export const create_tx_body = async(
  * @param k_wallet 
  * @param a_msgs 
  * @param a_fees 
- * @param sg_limit 
+ * @param zg_limit 
  * @param sa_granter 
  * @param sa_payer 
  * @param s_memo 
@@ -344,7 +344,7 @@ export const create_and_sign_tx_direct = async(
 	k_wallet: Wallet,
 	a_msgs: Uint8Array[],
 	a_fees: SlimCoin[],
-	sg_limit: WeakUint128Str,
+	zg_limit: bigint | WeakUint128Str,
 	a_auth?: Nilable<SlimAuthInfo> | 0,  // eslint-disable-line @typescript-eslint/naming-convention
 	s_memo?: string,
 	sa_granter?: Emptyable<WeakSecretAccAddr>,
@@ -359,7 +359,7 @@ export const create_and_sign_tx_direct = async(
 		atu8_auth,
 		atu8_body,
 		sg_account,
-	] = await create_tx_body(XC_PROTO_COSMOS_TX_SIGNING_SIGN_MODE_DIRECT, k_wallet, a_msgs, a_fees, sg_limit, a_auth, s_memo, sa_granter, sa_payer);
+	] = await create_tx_body(XC_PROTO_COSMOS_TX_SIGNING_SIGN_MODE_DIRECT, k_wallet, a_msgs, a_fees, zg_limit, a_auth, s_memo, sa_granter, sa_payer);
 
 	// sign direct
 	const [atu8_signature, atu8_signdoc] = await sign_direct(k_wallet, atu8_auth, atu8_body, sg_account);

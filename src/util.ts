@@ -4,7 +4,7 @@ import type {Dict, JsonValue} from '@blake.regalia/belt';
 import type {NetworkJsonResponse} from '@solar-republic/cosmos-grpc';
 import type {TendermintAbciEvent} from '@solar-republic/cosmos-grpc/tendermint/abci/types';
 
-import {bytes, each, die, is_string, is_function, is_array} from '@blake.regalia/belt';
+import {bytes, each, die, is_string, is_function, is_array, try_sync} from '@blake.regalia/belt';
 import {safe_base64_to_text} from '@solar-republic/cosmos-grpc';
 
 
