@@ -8,7 +8,7 @@ import type {CreateQueryArgsAndAuthParams} from './inferencing';
 import type {SecretContract} from './secret-contract';
 import type {EventUnlistener} from './tendermint-event-filter';
 import type {TendermintWs} from './tendermint-ws';
-import type {AuthSecret, AuthedLcdRpcStruct, CosmosQueryError, JsonRpcResponse, LcdRpcStruct, MsgQueryPermit, PermitConfig, TxResultWrapper, WeakSecretAccAddr} from './types';
+import type {AuthSecret, AuthedLcdRpcStruct, CosmosQueryError, JsonRpcResponse, MsgQueryPermit, PermitConfig, TxResultWrapper, WeakSecretAccAddr} from './types';
 import type {Wallet} from './wallet';
 
 import type {JsonObject, Nilable, Promisable, NaiveJsonString, Dict} from '@blake.regalia/belt';
@@ -23,9 +23,7 @@ import type {SecretQueryPermit, SlimCoin, WeakAccountAddr, TrustedContextUrl, Cw
 import {__UNDEFINED, bytes_to_base64, timeout, base64_to_bytes, bytes_to_text, parse_json_safe, timeout_exec, die, assign, hex_to_bytes, is_number, stringify_json, try_async, is_error, defer} from '@blake.regalia/belt';
 import {safe_base64_to_bytes} from '@solar-republic/cosmos-grpc';
 import {decodeCosmosBaseAbciTxMsgData} from '@solar-republic/cosmos-grpc/cosmos/base/abci/v1beta1/abci';
-
 import {XC_PROTO_COSMOS_TX_BROADCAST_MODE_SYNC, queryCosmosTxGetTx, submitCosmosTxBroadcastTx} from '@solar-republic/cosmos-grpc/cosmos/tx/v1beta1/service';
-
 import {decodeSecretComputeMsgExecuteContractResponse} from '@solar-republic/cosmos-grpc/secret/compute/v1beta1/msg';
 
 import {GC_NEUTRINO} from './config.js';
@@ -207,8 +205,8 @@ const monitor_tx = async(
 				f_unlisten?.();
 
 				// resolve
-				return fke_monitor([
-					g_tx_res? g_tx_res.code ?? 0: -1,
+				return fke_monitor(g_tx_res? [
+					g_tx_res.code ?? 0,
 					s_res,
 					assign({
 						log: g_tx_res.raw_log,
@@ -216,6 +214,9 @@ const monitor_tx = async(
 					}, g_tx_res),
 					g_tx_res.data? hex_to_bytes(g_tx_res.data): __UNDEFINED,
 					index_abci_events(g_tx_res.events),
+				]: [
+					-1,
+					s_res,
 				]);
 			}
 
@@ -275,17 +276,23 @@ const monitor_tx = async(
 		f_unlisten!();
 
 		// ref result struct
-		const g_result = g_txres.result! as O.Compulsory<TendermintAbciExecTxResult>;
+		const g_result = g_txres?.result as O.Compulsory<TendermintAbciExecTxResult>;
 
 		// return parsed result
-		fke_monitor([
-			g_txres?.result?.code ?? 0,
+		fke_monitor(g_txres? [
+			g_txres.result?.code ?? 0,
 			sx_res,
 			assign({
 				height: g_txres.height!,
 				txhash: si_txn,
 			}, g_result),
 			safe_base64_to_bytes(g_result.data),
+			h_events,
+		]: [
+			-1,
+			sx_res,
+			__UNDEFINED,
+			__UNDEFINED,
 			h_events,
 		]);
 	}, attempt_fallback_lcd_query);
