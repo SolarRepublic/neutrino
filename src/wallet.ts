@@ -3,7 +3,7 @@
 
 import type {S} from 'ts-toolbelt';
 
-import type {CosmosQueryError, CwSecretAccAddr, LcdRpcStruct, SlimAuthInfo, TypedAminoMsg, TypedStdSignDoc, WeakSecretAccAddr} from './types';
+import type {CosmosQueryError, CwSecretAccAddr, LcdRpcStruct, RemoteServiceArg, SlimAuthInfo, TypedAminoMsg, TypedStdSignDoc, WeakSecretAccAddr} from './types';
 
 import type {AsJson, Nilable} from '@blake.regalia/belt';
 import type {ProtoEnumCosmosTxSigningSignMode} from '@solar-republic/cosmos-grpc/cosmos/tx/signing/v1beta1/signing';
@@ -20,6 +20,7 @@ import {XC_PROTO_COSMOS_TX_SIGNING_SIGN_MODE_DIRECT, XC_PROTO_COSMOS_TX_SIGNING_
 import {encodeCosmosTxAuthInfo, encodeCosmosTxFee, encodeCosmosTxModeInfo, encodeCosmosTxModeInfoSingle, encodeCosmosTxSignDoc, encodeCosmosTxSignerInfo, encodeCosmosTxTxBody, encodeCosmosTxTxRaw} from '@solar-republic/cosmos-grpc/cosmos/tx/v1beta1/tx';
 import {bech32_encode} from '@solar-republic/crypto';
 
+import {remote_service} from './_common';
 import {ripemd160} from './ripemd160.js';
 import {sign, sk_to_pk, type SignatureAndRecovery} from './secp256k1.js';
 import {random_32} from './util.js';
@@ -85,8 +86,8 @@ export const pubkey_to_bech32 = async<
 export const Wallet = async<s_hrp extends string, si_chain extends string>(
 	atu8_sk: Uint8Array,
 	si_chain: si_chain,
-	p_lcd: TrustedContextUrl,
-	p_rpc: TrustedContextUrl,
+	z_lcd: RemoteServiceArg,
+	z_rpc: RemoteServiceArg,
 	s_hrp: s_hrp=si_chain.replace(/-.*/, '') as s_hrp
 ): Promise<Wallet<string extends s_hrp? S.Split<si_chain, '-'>[0]: s_hrp>> => {
 	// obtain public key
@@ -96,9 +97,9 @@ export const Wallet = async<s_hrp extends string, si_chain extends string>(
 	const sa_account = await pubkey_to_bech32(atu8_pk33, s_hrp);
 
 	return {
-		lcd: p_lcd,
+		lcd: remote_service(z_lcd),
 
-		rpc: p_rpc,
+		rpc: remote_service(z_rpc),
 
 		ref: si_chain,
 

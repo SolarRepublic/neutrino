@@ -97,29 +97,74 @@ export type AuthSecret = string | SecretQueryPermit | AuthSecret_ViewerInfo;
 export type SlimAuthInfo = [acc_num: Nilable<WeakUint128Str>, sequence: Nilable<WeakUint128Str>];
 
 /**
+ * Describes a request to some URL with partial options to use with each request
+ */
+export type RequestPattern<p_urls extends string=never> = (TrustedContextUrl | p_urls) | ({
+	/**
+	 * URL of the target
+	 */
+	url: TrustedContextUrl | p_urls;
+
+	/**
+	 * Optional headers to send with LCD requests
+	 */
+	headers?: Dict;
+
+	/**
+	 * Optional redirect behavior
+	 */
+	redirect?: RequestInit['redirect'];
+
+	/**
+	 * Optional {@link AbortSignal} to use to control the connection
+	 */
+	signal?: AbortSignal;
+});
+
+/**
+ * Describes a pattern of requests to some remote service with partial options to use with each request
+ */
+export type RemoteService<p_urls extends string=never> = ({
+	/**
+	 * Base URL of the remote service
+	 */
+	origin: TrustedContextUrl | p_urls;
+
+	/**
+	 * Optional headers to send with LCD requests
+	 */
+	headers?: Dict;
+
+	/**
+	 * Optional redirect behavior
+	 */
+	redirect?: RequestRedirect;
+});
+
+/**
+ * Describes a pattern of requests to some remote service with partial options to use with each request
+ */
+export type RemoteServiceArg<p_urls extends string=never> = (TrustedContextUrl | p_urls) | RemoteService<p_urls>;
+
+/**
  * Bundles LCD and RPC endpoint URLs together
  */
 export interface LcdRpcStruct {
 	/**
 	 * The LCD endpoint the struct is configured for
 	 */
-	lcd: TrustedContextUrl;
+	lcd: RemoteService;
 
 	/**
 	 * RPC endpoint used for confirming broadcasted transactions
 	 */
-	rpc: TrustedContextUrl;
+	rpc: RemoteService;
 }
 
 /**
- * Extends the {@link LcdRpcStruct} with optional headers
+ * Extends the {@link LcdRpcStruct} with an option to override the WebSocket URL
  */
-export type AuthedLcdRpcStruct = LcdRpcStruct & {
-	/**
-	 * Optional headers to send with LCD requests
-	 */
-	headers?: Dict;
-
+export type LcdRpcWsStruct = LcdRpcStruct & {
 	/**
 	 * URL to override the RPC when subscribing to /websocket
 	 */

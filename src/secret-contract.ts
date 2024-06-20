@@ -5,22 +5,23 @@ import type {O} from 'ts-toolbelt';
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import type {query_secret_contract_raw} from './app-layer';
-import type {ContractInfo, CosmosQueryError, WeakSecretAccAddr} from './types';
+import type {ContractInfo, CosmosQueryError, RemoteService, RemoteServiceArg, WeakSecretAccAddr} from './types';
 
-import type {JsonObject, Nilable} from '@blake.regalia/belt';
+import type {Dict, JsonObject, Nilable} from '@blake.regalia/belt';
 
 import type {SecretAccAddr, ContractInterface} from '@solar-republic/contractor';
 import type {SecretComputeContractInfo} from '@solar-republic/cosmos-grpc/secret/compute/v1beta1/types';
-import type {CwHexLower, CwUint32, SlimCoin, TrustedContextUrl} from '@solar-republic/types';
+import type {CwHexLower, CwUint32, SlimCoin} from '@solar-republic/types';
 
-import {__UNDEFINED, base64_to_bytes, base64_to_text, bytes_to_text, parse_json} from '@blake.regalia/belt';
+import {__UNDEFINED, base64_to_bytes, base64_to_text, bytes_to_text, is_string, parse_json, stringify_json} from '@blake.regalia/belt';
 
-import {any} from '@solar-republic/cosmos-grpc';
-import {encodeSecretComputeMsgExecuteContract} from '@solar-republic/cosmos-grpc/secret/compute/v1beta1/msg';
+import {encodeGoogleProtobufAny} from '@solar-republic/cosmos-grpc/google/protobuf/any';
+import {SI_MESSAGE_TYPE_SECRET_COMPUTE_MSG_EXECUTE_CONTRACT, encodeSecretComputeMsgExecuteContract} from '@solar-republic/cosmos-grpc/secret/compute/v1beta1/msg';
 import {destructSecretComputeQueryCodeHashResponse, destructSecretComputeQueryContractInfoResponse, destructSecretComputeQuerySecretContractResponse, querySecretComputeCodeHashByCodeId, querySecretComputeContractInfo, querySecretComputeQuerySecretContract} from '@solar-republic/cosmos-grpc/secret/compute/v1beta1/query';
 import {destructSecretRegistrationKey} from '@solar-republic/cosmos-grpc/secret/registration/v1beta1/msg';
 import {querySecretRegistrationTxKey} from '@solar-republic/cosmos-grpc/secret/registration/v1beta1/query';
 
+import {remote_service} from './_common';
 import {GC_NEUTRINO} from './config.js';
 import {SecretWasm} from './secret-wasm.js';
 import {successful} from './util.js';
@@ -32,7 +33,7 @@ const h_codes_cache: Record<ContractInfo['code_id'], CwHexLower> = {};
 
 const h_contract_cache: Record<WeakSecretAccAddr, KnownContractInfo> = {};
 
-const h_networks = {} as Record<TrustedContextUrl, {
+const h_networks = {} as Dict<{
 	wasm: SecretWasm;
 	conspk: Uint8Array;
 }>;
@@ -56,7 +57,7 @@ export type SecretContract<
 	/**
 	 * URL of the LCD endpoint
 	 */
-	lcd: TrustedContextUrl;
+	lcd: RemoteService;
 
 	/**
 	 * Contract address
@@ -113,7 +114,7 @@ export type SecretContract<
  * 
  * The `query` and `exec` methods are not intended for general application use; projects should instead use
  * {@link query_secret_contract_raw} and {@link exec_secret_contract}.
- * @param p_lcd 
+ * @param z_lcd 
  * @param sa_contract 
  * @param atu8_seed 
  * @returns 
@@ -122,24 +123,34 @@ export type SecretContract<
 export const SecretContract = async<
 	g_interface extends ContractInterface=ContractInterface,
 >(
-	p_lcd: TrustedContextUrl,
+	z_lcd: RemoteServiceArg,
 	sa_contract: WeakSecretAccAddr,
 	atu8_seed: Nilable<Uint8Array>=null
 ): Promise<SecretContract<g_interface>> => {
+	// uniquely identify this request pattern
+	let si_lcd = stringify_json(is_string(z_lcd)
+		? [z_lcd, '', '']
+		: [
+			z_lcd.origin,
+			z_lcd.headers,
+			z_lcd.redirect,
+		].map(s => s || '')
+	);
+
 	// try loading entry from cache
-	let g_cached = h_networks[p_lcd];
+	let g_cached = h_networks[si_lcd];
 
 	// network not yet cached
 	if(!g_cached) {
 		// fetch consensus io pubkey
 		// eslint-disable-next-line @typescript-eslint/no-unused-vars
-		let g_res_reg = await successful(querySecretRegistrationTxKey, p_lcd);
+		let g_res_reg = await successful(querySecretRegistrationTxKey, z_lcd);
 
 		// destructure response
 		let [atu8_consensus_pk] = destructSecretRegistrationKey(g_res_reg);
 
 		// instantiate default secret wasm using random seed and save to cache
-		h_networks[p_lcd] = g_cached = {
+		h_networks[si_lcd] = g_cached = {
 			wasm: SecretWasm(atu8_consensus_pk!),
 			conspk: atu8_consensus_pk!,
 		};
@@ -156,7 +167,7 @@ export const SecretContract = async<
 	let g_info = h_contract_cache[sa_contract];
 	if(!g_info) {
 		// refload contract info
-		let g_res_info = await successful(querySecretComputeContractInfo, p_lcd, sa_contract);
+		let g_res_info = await successful(querySecretComputeContractInfo, z_lcd, sa_contract);
 
 		// destruct response
 		let [, g_info1] = destructSecretComputeQueryContractInfoResponse(g_res_info);
@@ -172,7 +183,7 @@ export const SecretContract = async<
 	let sb16_code_hash = h_codes_cache[si_code];
 	if(!sb16_code_hash) {
 		// refload code hash
-		let g_res_hash = await successful(querySecretComputeCodeHashByCodeId, p_lcd, si_code);
+		let g_res_hash = await successful(querySecretComputeCodeHashByCodeId, z_lcd, si_code);
 
 		// destruct response
 		sb16_code_hash = h_codes_cache[si_code] = destructSecretComputeQueryCodeHashResponse(g_res_hash)[0]!;
@@ -182,7 +193,7 @@ export const SecretContract = async<
 	// properties and methods
 	return {
 		// lcd endpoint
-		lcd: p_lcd,
+		lcd: remote_service(z_lcd),
 
 		// contract address
 		addr: sa_contract as SecretAccAddr,
@@ -206,7 +217,7 @@ export const SecretContract = async<
 			const atu8_nonce = g_out.n = atu8_msg.slice(0, 32);
 
 			// submit query
-			let [d_res_query, s_res_query, g_res_query] = await querySecretComputeQuerySecretContract(p_lcd, sa_contract, atu8_msg);
+			let [d_res_query, s_res_query, g_res_query] = await querySecretComputeQuerySecretContract(z_lcd, sa_contract, atu8_msg);
 
 			// JSON response
 			if(g_res_query) {
@@ -269,14 +280,14 @@ export const SecretContract = async<
 			// extract nonce
 			const atu8_nonce = atu8_body.slice(0, 32);
 
-			// construct body
-			const atu8_exec = encodeSecretComputeMsgExecuteContract(sa_sender, sa_contract, atu8_body, __UNDEFINED, a_funds);
-
-			// construct as direct message
-			const atu8_msg = any('/secret.compute.v1beta1.MsgExecuteContract', atu8_exec);
-
 			// return tuple
-			return [atu8_msg, atu8_nonce];
+			return [
+				encodeGoogleProtobufAny(
+					SI_MESSAGE_TYPE_SECRET_COMPUTE_MSG_EXECUTE_CONTRACT,
+					encodeSecretComputeMsgExecuteContract(sa_sender, sa_contract, atu8_body, __UNDEFINED, a_funds)
+				),
+				atu8_nonce,
+			];
 		},
 	};
 };

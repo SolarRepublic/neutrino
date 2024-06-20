@@ -95,7 +95,8 @@ export interface SecretApp<
 	 *  - [2]: `s_res: string` - message text. on success, will be the contract's response as a JSON string.
 	 * 		on error, will be either the error string from HTTP response text, chain error message,
 	 * 		or contract error as a JSON string.
-	 *  - [3]: `g_tx_res?: `{@link TxResponse} - on success, the parsed transaction response JSON object
+	 *  - [3]: `g_meta?: `{@link TxMeta} - meta information about the transaction attempt
+	 *  - [4]: `h_events?: Dict<string[]>` - dict of all event attributes
 	 *  - [4]: `si_txn?: string` - the transaction hash if a broadcast attempt was made
 	 * 
 	 * @throws a {@link BroadcastResultErr}
