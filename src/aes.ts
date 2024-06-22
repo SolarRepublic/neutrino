@@ -20,7 +20,7 @@ export const aes_cbc = async(d_key_cbc: CryptoKey, atu8_data: Uint8Array): Promi
 export const aes_ctr = async(d_key_ctr: CryptoKey, atu8_iv: Uint8Array, atu8_data: Uint8Array): Promise<Uint8Array> => bytes(await crypto.subtle.encrypt({
 	name: 'AES-CTR',
 	counter: atu8_iv,
-	length: NB_AES_BLOCK,
+	length: 128,  // use all available bits in the counter
 }, d_key_ctr, atu8_data));
 
 // pseudo-constant-time select
