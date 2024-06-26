@@ -185,6 +185,9 @@ const monitor_tx = async(
 		// submit query request
 		const [a_resolved, e_thrown] = await try_async(() => queryCosmosTxGetTx(gc_node.lcd, si_txn));
 
+		// timeout was cancelled while querying; silently exit
+		if(!i_fallback) return;
+
 		// network error; reject outer promise
 		if(e_thrown) return fke_monitor(null, e_thrown as Error);
 
@@ -225,7 +228,7 @@ const monitor_tx = async(
 
 			// anything other than tx not found indicates a possible node error
 			if(!/tx not found/.test(s_msg || '')) {
-				return fke_monitor(null, Error(`Unexpected query error: ${stringify_json(g_res)}`));
+				return fke_monitor(null, Error(`Unexpected query error to <${gc_node.lcd.origin}>: ${stringify_json(g_res)}`));
 			}
 		}
 
@@ -261,7 +264,7 @@ const monitor_tx = async(
 		xt_polling = GC_NEUTRINO.POLLING_INTERVAL;
 
 		// start attempting fallback queries
-		setTimeout(attempt_fallback_lcd_query, xt_wait_before_polling);
+		i_fallback = setTimeout(attempt_fallback_lcd_query, xt_wait_before_polling);
 	}
 
 	// prep broadcast response (result of CheckTx)
@@ -295,7 +298,13 @@ const monitor_tx = async(
 	}, attempt_fallback_lcd_query);
 
 	// return tuple
-	return [f_unlisten, dp_monitor, fke_monitor, (sx_override_res: string) => sx_res = sx_override_res];
+	return [() => {
+		// cancel polling timeout
+		i_fallback = clearTimeout(i_fallback) as undefined;
+
+		// unlisten WebSocket
+		f_unlisten();
+	}, dp_monitor, fke_monitor, (sx_override_res: string) => sx_res = sx_override_res];
 };
 
 
@@ -596,7 +605,7 @@ export const exec_secret_contract = async<
 		console.groupCollapsed(`🗳️ ${Object.keys(h_exec)[0]}`);
 		console.debug([
 			`Executing contract ${k_contract.addr} (${k_contract.info.label}) from ${k_wallet.addr}`,
-			`  limit: ${z_limit} ┃ hash: ${si_txn}`,
+			`  limit: ${z_limit} ┃ hash: ${si_txn}`+(sa_granter? ` ┃ granter: ${sa_granter}`: '')+(s_memo? ` ┃ memo: ${s_memo}`: ''),
 		].join('\n'));
 		console.debug(h_exec);
 		console.groupEnd();

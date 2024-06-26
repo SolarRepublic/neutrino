@@ -84,5 +84,5 @@ export const successful = async <
 	}
 
 	// die with error message
-	die(s_res, g_res);
+	die(d_res.status+': '+s_res, g_res);
 };
