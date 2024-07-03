@@ -7,12 +7,11 @@ import {assign, is_function} from '@blake.regalia/belt';
 import {subscribe_tendermint_events} from './app-layer';
 
 export type TendermintWsRestartParam = boolean | 0 | 1 | {
-	(d_event: CloseEvent): Promisable<
+	(d_event: CloseEvent | undefined): Promisable<
 		boolean | 0 | 1 | (
 			(d_ws: WebSocket) => Promisable<void>
 		)
 	>;
-	(d_event: undefined, e_error: Error): Promisable<void>;
 };
 
 export type TendermintWs = {

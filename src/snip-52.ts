@@ -291,7 +291,7 @@ export const subscribe_snip52_channels = async<
 		si_notification: string,
 		[, atu8_seed, atu8_hash,, fk_notification]: ChannelData,
 		f_salt: () => Uint8Array,
-		g_data: TxResultWrapper,
+		{TxResult:g_tx}: TxResultWrapper,
 		h_events: Dict<string[]>,
 		fk_handled?: () => Promisable<void>
 	) => {
@@ -302,7 +302,6 @@ export const subscribe_snip52_channels = async<
 			let si_tx = h_events['tx.hash'][0];
 
 			// construct aad
-			let g_tx = g_data.TxResult;
 			let atu8_aad = text_to_bytes(g_tx.height+':'+si_tx);
 
 			// create nonce
@@ -327,7 +326,7 @@ export const subscribe_snip52_channels = async<
 	};
 
 	// on contract execution; return unlisten callback
-	return k_filter.when('wasm.contract_address', k_contract.addr, async(g_data, h_events) => {
+	return k_filter.when('wasm.contract_address', k_contract.addr, async({value:g_data}, h_events) => {
 		// check each next expected notification ID
 		for(let [si_notification, a_data] of entries(h_resolved)) {
 			// destructure tuple

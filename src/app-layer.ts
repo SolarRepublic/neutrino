@@ -28,7 +28,7 @@ import {decodeSecretComputeMsgExecuteContractResponse} from '@solar-republic/cos
 
 import {GC_NEUTRINO} from './config.js';
 import {exec_fees} from './secret-app.js';
-import {SX_QUERY_TM_EVENT_TX, TendermintEventFilter} from './tendermint-event-filter.js';
+import {F_TEF_RESTART_ANY_ERRORS, SX_QUERY_TM_EVENT_TX, TendermintEventFilter} from './tendermint-event-filter.js';
 import {index_abci_events} from './util.js';
 import {create_and_sign_tx_direct, sign_amino} from './wallet.js';
 
@@ -157,7 +157,7 @@ export const subscribe_tendermint_events = (
 const monitor_tx = async(
 	gc_node: LcdRpcWsStruct,
 	si_txn: string,
-	z_stream?: TendermintEventFilter<TxResultWrapper> | TendermintWs | undefined,
+	z_stream?: TendermintEventFilter | TendermintWs | undefined,
 	xt_wait_before_polling=GC_NEUTRINO.WS_TIMEOUT*3
 ): Promise<[
 	fk_unlisten: EventUnlistener,
@@ -237,7 +237,7 @@ const monitor_tx = async(
 	};
 
 	// prep event filter
-	let k_tef = z_stream as TendermintEventFilter<TxResultWrapper>;
+	let k_tef = z_stream as TendermintEventFilter;
 
 	// normalize stream arg into event filter
 	if(!(z_stream as TendermintEventFilter | undefined)?.when) {
@@ -245,7 +245,7 @@ const monitor_tx = async(
 		const [k_tef_local] = await timeout_exec(
 			GC_NEUTRINO.WS_TIMEOUT,
 			// eslint-disable-next-line @typescript-eslint/no-unused-vars
-			() => TendermintEventFilter(gc_node.ws || gc_node.rpc.origin, SX_QUERY_TM_EVENT_TX, 1, z_stream as TendermintWs | undefined)
+			() => TendermintEventFilter(gc_node.ws || gc_node.rpc.origin, SX_QUERY_TM_EVENT_TX, F_TEF_RESTART_ANY_ERRORS, z_stream as TendermintWs | undefined)
 		);
 
 		// timed out waiting to connect; start polling
@@ -271,7 +271,7 @@ const monitor_tx = async(
 	let sx_res = '';
 
 	// listen for tx hash event
-	f_unlisten = k_tef?.when('tx.hash', si_txn, ({TxResult:g_txres}, h_events) => {
+	f_unlisten = k_tef?.when('tx.hash', si_txn, ({value:{TxResult:g_txres}}, h_events) => {
 		// unlisten events filter
 		f_unlisten!();
 
@@ -326,7 +326,7 @@ const monitor_tx = async(
 export const expect_tx = async(
 	gc_node: LcdRpcWsStruct,
 	si_txn: string,
-	z_stream?: TendermintEventFilter<TxResultWrapper> | TendermintWs | undefined
+	z_stream?: TendermintEventFilter | TendermintWs | undefined
 ): Promise<TxResultTuple> => {
 	// start monitoring tx
 	const [, dp_monitor] = await monitor_tx(gc_node, si_txn, z_stream);
@@ -356,7 +356,7 @@ export const broadcast_result = async(
 	gc_node: LcdRpcWsStruct,
 	atu8_raw: Uint8Array,
 	si_txn: string,
-	z_stream?: TendermintEventFilter<TxResultWrapper> | TendermintWs | undefined
+	z_stream?: TendermintEventFilter | TendermintWs | undefined
 ): Promise<TxResultTuple> => {
 	// start monitoring tx
 	const [f_unlisten, dp_monitor, fke_monitor, f_set_res] = await monitor_tx(gc_node, si_txn, z_stream);

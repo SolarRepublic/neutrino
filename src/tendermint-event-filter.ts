@@ -21,6 +21,14 @@ export type EventListener<
 
 export type EventUnlistener = () => void;
 
+export type JsonRpcErrorHandler = {
+	(d_event: CloseEvent | undefined, e_error?: Error | undefined): Promisable<
+		void | undefined | boolean | 0 | 1 | (
+			(d_ws: WebSocket) => Promisable<void>
+		)
+	>;
+};
+
 export const SX_QUERY_TM_EVENT_TX = `tm.event='Tx'`;
 
 export type TendermintEventFilter<
@@ -59,7 +67,7 @@ export const TendermintEventFilter = async<
 >(
 	p_rpc: TrustedContextUrl,
 	sx_query=SX_QUERY_TM_EVENT_TX,
-	z_errors?: TendermintWsRestartParam | undefined,
+	f_errors?: JsonRpcErrorHandler | undefined,
 	z_ws?: TendermintWs | typeof WebSocket
 ): Promise<TendermintEventFilter<g_data>> => {
 	// dict of filters by event key
@@ -109,37 +117,42 @@ export const TendermintEventFilter = async<
 				}
 			}
 			// // TODO: handle certain errors?
-			// // JSON-RPC error
-			// else {
-			// 	const g_error = g_message.error;
-			// 	if(g_error) {
-			// 		(async() => {
-			// 			// destructure error
-			// 			const {
-			// 				code: xc_code,
-			// 				message: s_message,
-			// 				data: w_data,
-			// 			} = g_error;
+			// JSON-RPC error
+			else {
+				const g_error = g_message?.error;
+				if(g_error) {
+					// destructure error
+					const {
+						code: xc_code,
+						message: s_message,
+						data: w_data,
+					} = g_error;
 
-			// 			// restart function provided; forward error
-			// 			if(is_function(z_errors)) {
-			// 				void z_errors(__UNDEFINED, Error(`JSON-RPC code ${xc_code}; ${s_message} (${w_data})`));
-			// 			}
+					// render error message
+					const s_error = `JSON-RPC error code ${xc_code}; ${s_message} (${w_data})`;
 
-			// 			// // restart function provided?
-			// 			// const z_returned = is_function(z_restart)
-			// 			// 	// eslint-disable-next-line @typescript-eslint/restrict-template-expressions
-			// 			// 	? await z_restart(__UNDEFINED, Error(`JSON-RPC code ${xc_code}; ${s_message} (${w_data})`))
-			// 			// 	: z_restart;
+					// restart function provided; forward error
+					if(is_function(f_errors)) {
+						void f_errors(__UNDEFINED, Error(s_error));
+					}
+					// log uncaught error
+					else {
+						console.warn(`Unhandled ${s_error}`);
+					}
 
-			// 			// // apply callback if returned
-			// 			// if(is_function(z_returned)) void z_returned(d_ws);
-			// 		})();
-			// 	}
-			// 	// for example:
-			// 	// {"jsonrpc":"2.0","id":0,"error":{"code":-32000,"message":"Server error","data":"subscription was cancelled (reason: CometBFT exited)"}}
-			// }
-		}, z_errors? d_event => async(d_ws) => {
+					// // restart function provided?
+					// const z_returned = is_function(z_restart)
+					// 	// eslint-disable-next-line @typescript-eslint/restrict-template-expressions
+					// 	? await z_restart(__UNDEFINED, Error(`JSON-RPC code ${xc_code}; ${s_message} (${w_data})`))
+					// 	: z_restart;
+
+					// // apply callback if returned
+					// if(is_function(z_returned)) void z_returned(d_ws);
+				}
+				// for example:
+				// {"jsonrpc":"2.0","id":0,"error":{"code":-32000,"message":"Server error","data":"subscription was cancelled (reason: CometBFT exited)"}}
+			}
+		}, f_errors? d_event => async(d_ws) => {
 			// each filter
 			for(const a_parties of values(h_filters)) {
 				// each party
@@ -150,11 +163,11 @@ export const TendermintEventFilter = async<
 			}
 
 			// forward restart signal to restart handler
-			const z_returned = is_function(z_errors)? await z_errors(d_event): z_errors;
+			const z_returned = is_function(f_errors)? await f_errors(d_event): f_errors;
 
 			// apply callback if returned
 			if(is_function(z_returned)) void z_returned(d_ws);
-		}: z_errors, z_ws as typeof WebSocket | undefined);
+		}: 0, z_ws as typeof WebSocket | undefined);
 
 	// properties and methods
 	return {
@@ -177,3 +190,7 @@ export const TendermintEventFilter = async<
 		},
 	};
 };
+
+
+export const F_TEF_RESTART_SOCKET_FAILURE_BUT_IGNORE_RPC_ERRORS: JsonRpcErrorHandler = d_event => !!d_event;
+export const F_TEF_RESTART_ANY_ERRORS: JsonRpcErrorHandler = () => 1;
