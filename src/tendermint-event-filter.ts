@@ -4,13 +4,19 @@ import type {StringFilter} from './util';
 import type {Dict, JsonObject, Promisable} from '@blake.regalia/belt';
 import type {TrustedContextUrl} from '@solar-republic/types';
 
-import {parse_json_safe, entries, remove, try_sync, values, is_function} from '@blake.regalia/belt';
+import {parse_json_safe, entries, remove, try_sync, values, is_function, __UNDEFINED} from '@blake.regalia/belt';
 
 import {TendermintWs} from './tendermint-ws';
 import {string_matches_filter} from './util';
 
+
+export type TendermintEventDataTx = {
+	type: `tendermint/event/Tx`;
+	value: TxResultWrapper;
+};
+
 export type EventListener<
-	g_data extends JsonObject=TxResultWrapper,
+	g_data extends TendermintEvent['data']=TendermintEventDataTx,
 > = (g_data: g_data, h_events: Dict<string[]>) => Promisable<void>;
 
 export type EventUnlistener = () => void;
@@ -18,7 +24,7 @@ export type EventUnlistener = () => void;
 export const SX_QUERY_TM_EVENT_TX = `tm.event='Tx'`;
 
 export type TendermintEventFilter<
-	g_data extends JsonObject=TxResultWrapper,
+	g_data extends TendermintEvent['data']=TendermintEventDataTx,
 > = {
 	/**
 	 * Returns the current {@link WebSocket}.
@@ -49,11 +55,11 @@ export type TendermintEventFilter<
  */
 // eslint-disable-next-line @typescript-eslint/naming-convention
 export const TendermintEventFilter = async<
-	g_data extends JsonObject=TxResultWrapper,
+	g_data extends TendermintEvent['data']=TendermintEventDataTx,
 >(
 	p_rpc: TrustedContextUrl,
 	sx_query=SX_QUERY_TM_EVENT_TX,
-	z_restart?: TendermintWsRestartParam | undefined,
+	z_errors?: TendermintWsRestartParam | undefined,
 	z_ws?: TendermintWs | typeof WebSocket
 ): Promise<TendermintEventFilter<g_data>> => {
 	// dict of filters by event key
@@ -67,10 +73,13 @@ export const TendermintEventFilter = async<
 	const k_ws = is_function((z_ws as {ws: unknown})?.ws)
 		? z_ws as TendermintWs
 		: await TendermintWs(p_rpc, sx_query, (d_event) => {
-			// parse event JSON
-			const g_result = parse_json_safe<JsonRpcResponse<TendermintEvent<g_data>>>(d_event.data)?.result;
+			// parse message JSON
+			const g_message = parse_json_safe<JsonRpcResponse<TendermintEvent<g_data['value']>>>(d_event.data);
 
-			// ignore null events and parsing errors
+			// ref result
+			const g_result = g_message?.result;
+
+			// JSON-RPC success
 			if(g_result) {
 				// prep values
 				let a_values: string[];
@@ -89,7 +98,7 @@ export const TendermintEventFilter = async<
 								if(string_matches_filter(s_value, z_filter)) {
 									// call listener
 									// eslint-disable-next-line @typescript-eslint/no-floating-promises
-									try_sync(() => f_listener(g_result.data.value, g_result.events));
+									try_sync(() => f_listener(g_result.data as g_data, g_result.events));
 
 									// continue with next party
 									continue FINDING_PARTIES;
@@ -99,7 +108,38 @@ export const TendermintEventFilter = async<
 					}
 				}
 			}
-		}, z_restart? d_event => async(d_ws) => {
+			// // TODO: handle certain errors?
+			// // JSON-RPC error
+			// else {
+			// 	const g_error = g_message.error;
+			// 	if(g_error) {
+			// 		(async() => {
+			// 			// destructure error
+			// 			const {
+			// 				code: xc_code,
+			// 				message: s_message,
+			// 				data: w_data,
+			// 			} = g_error;
+
+			// 			// restart function provided; forward error
+			// 			if(is_function(z_errors)) {
+			// 				void z_errors(__UNDEFINED, Error(`JSON-RPC code ${xc_code}; ${s_message} (${w_data})`));
+			// 			}
+
+			// 			// // restart function provided?
+			// 			// const z_returned = is_function(z_restart)
+			// 			// 	// eslint-disable-next-line @typescript-eslint/restrict-template-expressions
+			// 			// 	? await z_restart(__UNDEFINED, Error(`JSON-RPC code ${xc_code}; ${s_message} (${w_data})`))
+			// 			// 	: z_restart;
+
+			// 			// // apply callback if returned
+			// 			// if(is_function(z_returned)) void z_returned(d_ws);
+			// 		})();
+			// 	}
+			// 	// for example:
+			// 	// {"jsonrpc":"2.0","id":0,"error":{"code":-32000,"message":"Server error","data":"subscription was cancelled (reason: CometBFT exited)"}}
+			// }
+		}, z_errors? d_event => async(d_ws) => {
 			// each filter
 			for(const a_parties of values(h_filters)) {
 				// each party
@@ -110,11 +150,11 @@ export const TendermintEventFilter = async<
 			}
 
 			// forward restart signal to restart handler
-			const z_returned = is_function(z_restart)? await z_restart(d_event): z_restart;
+			const z_returned = is_function(z_errors)? await z_errors(d_event): z_errors;
 
 			// apply callback if returned
 			if(is_function(z_returned)) void z_returned(d_ws);
-		}: z_restart, z_ws as typeof WebSocket | undefined);
+		}: z_errors, z_ws as typeof WebSocket | undefined);
 
 	// properties and methods
 	return {

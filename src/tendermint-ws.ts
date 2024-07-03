@@ -1,18 +1,19 @@
 /* eslint-disable prefer-const */
-import type {NaiveJsonString, Promisable} from '@blake.regalia/belt';
+import type {NaiveJsonString, Nilable, Promisable} from '@blake.regalia/belt';
 import type {TrustedContextUrl} from '@solar-republic/types';
 
 import {assign, is_function} from '@blake.regalia/belt';
 
 import {subscribe_tendermint_events} from './app-layer';
 
-export type TendermintWsRestartParam = boolean | 0 | 1 | (
-	(d_event: CloseEvent) => Promisable<
+export type TendermintWsRestartParam = boolean | 0 | 1 | {
+	(d_event: CloseEvent): Promisable<
 		boolean | 0 | 1 | (
 			(d_ws: WebSocket) => Promisable<void>
 		)
-	>
-);
+	>;
+	(d_event: undefined, e_error: Error): Promisable<void>;
+};
 
 export type TendermintWs = {
 	/**

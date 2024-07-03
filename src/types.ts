@@ -189,7 +189,7 @@ export type JsonRpcResponse<
 
 
 export type TendermintEvent<
-	w_value extends JsonObject,
+	w_value extends JsonObject=JsonObject,
 > = {
 	query: string;
 	data: {
