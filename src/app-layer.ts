@@ -180,6 +180,19 @@ const monitor_tx = async(
 	// fallback timeout
 	let i_fallback: number | NodeJS.Timeout | undefined;
 
+	// teardown
+	let f_teardown = () => {
+		// unlisten events filter
+		f_unlisten?.();
+
+		// close ad-hoc socket
+		if(!z_stream) k_tef?.ws().close();
+	};
+
+	// shutdown
+	// eslint-disable-next-line no-sequences
+	let f_shutdown = (w_resolve: Nilable<TxResultTuple>, e_reject?: Nilable<Error>) => (f_teardown(), fke_monitor(w_resolve as void, e_reject as Error));
+
 	// polling fallback using LCD query
 	let attempt_fallback_lcd_query = async() => {
 		// submit query request
@@ -189,7 +202,7 @@ const monitor_tx = async(
 		if(!i_fallback) return;
 
 		// network error; reject outer promise
-		if(e_thrown) return fke_monitor(null, e_thrown as Error);
+		if(e_thrown) return f_shutdown(null, e_thrown as Error);
 
 		// destructure resolved value
 		const [d_res, s_res, g_res] = a_resolved!;
@@ -201,11 +214,8 @@ const monitor_tx = async(
 				// make fields compulsory
 				const g_tx_res = g_res.tx_response as O.Compulsory<CosmosBaseAbciTxResponse>;
 
-				// unlisten events filter
-				f_unlisten?.();
-
 				// resolve
-				return fke_monitor(g_tx_res? [
+				return f_shutdown(g_tx_res? [
 					g_tx_res.code ?? 0,
 					s_res,
 					assign({
@@ -228,7 +238,8 @@ const monitor_tx = async(
 
 			// anything other than tx not found indicates a possible node error
 			if(!/tx not found/.test(s_msg || '')) {
-				return fke_monitor(null, Error(`Unexpected query error to <${gc_node.lcd.origin}>: ${stringify_json(g_res)}`));
+				// reject Promise
+				return f_shutdown(null, Error(`Unexpected query error to <${gc_node.lcd.origin}>: ${stringify_json(g_res)}`));
 			}
 		}
 
@@ -272,14 +283,11 @@ const monitor_tx = async(
 
 	// listen for tx hash event
 	f_unlisten = k_tef?.when('tx.hash', si_txn, ({value:{TxResult:g_txres}}, h_events) => {
-		// unlisten events filter
-		f_unlisten!();
-
 		// ref result struct
 		const g_result = g_txres?.result as O.Compulsory<TendermintAbciExecTxResult>;
 
 		// return parsed result
-		fke_monitor(g_txres? [
+		f_shutdown(g_txres? [
 			g_txres.result?.code ?? 0,
 			sx_res,
 			assign({
@@ -302,8 +310,8 @@ const monitor_tx = async(
 		// cancel polling timeout
 		i_fallback = clearTimeout(i_fallback) as undefined;
 
-		// unlisten WebSocket
-		f_unlisten?.();
+		// teardown
+		f_teardown();
 	}, dp_monitor, fke_monitor, (sx_override_res: string) => sx_res = sx_override_res];
 };
 
