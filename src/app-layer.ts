@@ -303,7 +303,7 @@ const monitor_tx = async(
 		i_fallback = clearTimeout(i_fallback) as undefined;
 
 		// unlisten WebSocket
-		f_unlisten();
+		f_unlisten?.();
 	}, dp_monitor, fke_monitor, (sx_override_res: string) => sx_res = sx_override_res];
 };
 
