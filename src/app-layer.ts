@@ -185,8 +185,18 @@ const monitor_tx = async(
 		// unlisten events filter
 		f_unlisten?.();
 
-		// close ad-hoc socket
-		if(!z_stream) k_tef?.ws().close();
+		// created socket ad-hoc
+		if(!z_stream) {
+			// socket exists
+			const d_ws = k_tef?.ws();
+			if(d_ws) {
+				// prevent closure handling
+				d_ws.onclose = null;
+
+				// close ad-hoc socket
+				d_ws.close();
+			}
+		}
 	};
 
 	// shutdown
