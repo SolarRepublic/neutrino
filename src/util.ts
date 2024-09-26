@@ -54,8 +54,15 @@ export const index_abci_events = (
 	each(a_events, ({type:s_type, attributes:a_attrs}) => {
 		// each attribute
 		each(a_attrs!, (g_attr) => {
-			// add to indexed list; attempt to base64-decode EventAttribute fields since Tendermint/CometBFT made it a breaking change
-			(h_events[s_type+'.'+(safe_base64_to_text(g_attr.key) || g_attr.key!)] ||= []).push(safe_base64_to_text(g_attr.value) || g_attr.value!);
+			// plaintext
+			(h_events[s_type+'.'+g_attr.key!] ||= []).push(g_attr.value!);
+
+			// attempt safe decode
+			const [s_key, s_value] = [safe_base64_to_text(g_attr.key), safe_base64_to_text(g_attr.value)];
+			if(s_key && s_value) {
+				// add to indexed list; attempt to base64-decode EventAttribute fields since Tendermint/CometBFT made it a breaking change
+				(h_events[s_type+'.'+s_key] ||= []).push(s_value);
+			}
 		});
 	// eslint-disable-next-line no-sequences
 	}),
