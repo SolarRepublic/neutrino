@@ -117,15 +117,15 @@ export const subscribe_snip52_channels = async<
 		[si_channel in as_channels]?: h_channels[si_channel] extends {cbor: CborValue}
 			? (<
 				w_data extends h_channels[si_channel]['cbor'],
-			>(w_data: w_data) => void)
+			>(w_data: w_data) => Promisable<void>)
 			: h_channels[si_channel] extends {schema: Snip52Schema.Element}
 				? (g_data: Snip52Schema.ParseDescriptorSequenced<h_channels[si_channel]['schema']> | undefined, atu8_data: Uint8Array) => void
 				: (<
 					w_data extends CborValue=CborValue,
-				>(w_data: w_data) => void)
+				>(w_data: w_data) => Promisable<void>)
 				| (<
 					g_descriptor extends Snip52Schema.Element,
-				>(z_data: Snip52Schema.ParseDescriptorSequenced<g_descriptor>, atu8_data: Uint8Array) => void);
+				>(z_data: Snip52Schema.ParseDescriptorSequenced<g_descriptor>, atu8_data: Uint8Array) => Promisable<void>);
 	}
 ) => {
 	// init Tendermint event filter
@@ -277,7 +277,7 @@ export const subscribe_snip52_channels = async<
 					}
 
 					// received notification
-					try_sync(() => (h_channels[si_channel] as ((z: typeof z_data, atu8: Uint8Array) => void))(z_data, atu8_data));
+					try_sync(() => (h_channels[si_channel] as ((z: typeof z_data, atu8: Uint8Array) => Promisable<void>))(z_data, atu8_data));
 				}
 			};
 		}
