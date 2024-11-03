@@ -20,7 +20,7 @@ import type {CosmosTxGetTxResponse} from '@solar-republic/cosmos-grpc/cosmos/tx/
 import type {TendermintAbciExecTxResult} from '@solar-republic/cosmos-grpc/tendermint/abci/types';
 import type {SecretQueryPermit, SlimCoin, WeakAccountAddr, TrustedContextUrl, CwAccountAddr, WeakUint128Str, WeakUintStr} from '@solar-republic/types';
 
-import {__UNDEFINED, bytes_to_base64, timeout, base64_to_bytes, bytes_to_text, parse_json_safe, timeout_exec, die, assign, hex_to_bytes, is_number, stringify_json, try_async, is_error, defer} from '@blake.regalia/belt';
+import {__UNDEFINED, bytes_to_base64, timeout, base64_to_bytes, bytes_to_text, parse_json_safe, timeout_exec, die, assign, hex_to_bytes, is_number, stringify_json, try_async, is_error, defer, keys} from '@blake.regalia/belt';
 import {safe_base64_to_bytes} from '@solar-republic/cosmos-grpc';
 import {decodeCosmosBaseAbciTxMsgData} from '@solar-republic/cosmos-grpc/cosmos/base/abci/v1beta1/abci';
 import {XC_PROTO_COSMOS_TX_BROADCAST_MODE_SYNC, queryCosmosTxGetTx, submitCosmosTxBroadcastTx} from '@solar-republic/cosmos-grpc/cosmos/tx/v1beta1/service';
@@ -556,6 +556,69 @@ export const query_secret_contract: QueryContractInfer = async(
 
 
 /**
+ * Decrypts the response data from a Secret Contract
+ * @param k_contract 
+ * @param param1 
+ * @param atu8_nonce 
+ * @returns 
+ */
+export const decrypt_secret_contract_response = async(
+	k_contract: SecretContract,
+	[xc_error, sx_res, g_meta, atu8_data]: TxResultTuple,
+	atu8_nonce: Uint8Array
+): Promise<[
+	s_res: string,
+	g_res?: undefined | JsonObject,
+]> => {
+	// prep plaintext
+	let s_plaintext!: string;
+
+	// invalid json
+	if(xc_error < 0) return [sx_res];
+
+	// no errors
+	if(!xc_error) {
+		// decode tx msg data
+		let [a_data, a_msg_responses] = decodeCosmosBaseAbciTxMsgData(atu8_data!);
+
+		// parse 0th message response, select field depending on cosmos-sdk < or >= 0.46
+		let [s_type, atu8_payload] = a_msg_responses? a_msg_responses[0]: a_data![0];
+
+		// decode payload
+		const [atu8_ciphertext] = decodeSecretComputeMsgExecuteContractResponse(atu8_payload!);
+
+		// decrypt ciphertext
+		const atu8_plaintext = await k_contract.wasm.decrypt(atu8_ciphertext!, atu8_nonce);
+
+		// decode plaintext
+		s_plaintext = bytes_to_text(base64_to_bytes(bytes_to_text(atu8_plaintext)));
+
+		// entuple results
+		return [s_plaintext, parse_json_safe(s_plaintext)];
+	}
+
+	// error
+	const s_error = g_meta?.log ?? sx_res;
+
+	// encrypted error message
+	const m_response = /(\d+):(?: \w+:)*? encrypted: (.+?): (.+?) contract/.exec(s_error);
+	if(m_response) {
+		// destructure match
+		const [, s_index, sb64_encrypted, si_action] = m_response;
+
+		// decrypt message from contract
+		const atu8_plaintext = await k_contract.wasm.decrypt(base64_to_bytes(sb64_encrypted), atu8_nonce);
+
+		// decode bytes
+		s_plaintext = bytes_to_text(atu8_plaintext);
+	}
+
+	// entuple error
+	return [s_plaintext ?? s_error];
+};
+
+
+/**
  * Execute a single Secret Contract method and wait for transaction confirmation.
  * @param k_contract - a {@link SecretContract} instance
  * @param k_wallet - the {@link Wallet} of the sender
@@ -601,9 +664,6 @@ export const exec_secret_contract = async<
 	h_events?: Dict<string[]> | undefined,
 	si_txn?: string | undefined,
 ]> => {
-	// prep plaintext
-	let s_plaintext;
-
 	// construct execution message and save nonce
 	let [atu8_msg, atu8_nonce] = await k_contract.exec(h_exec, k_wallet.addr, a_funds);
 
@@ -630,56 +690,27 @@ export const exec_secret_contract = async<
 	}
 
 	// broadcast to chain
-	let [xc_error, sx_res, g_meta, atu8_data, h_events] = await broadcast_result(k_wallet, atu8_tx_raw, si_txn);
+	const [xc_error, sx_res, g_meta, atu8_data, h_events] = await broadcast_result(k_wallet, atu8_tx_raw, si_txn);
 
 	// invalid json
 	if(xc_error < 0) return [xc_error, sx_res];
 
-	// no errors
-	if(!xc_error) {
-		// decode tx msg data
-		let [a_data, a_msg_responses] = decodeCosmosBaseAbciTxMsgData(atu8_data!);
+	// decrypt response
+	const [s_plaintext, g_answer] = await decrypt_secret_contract_response(k_contract, [xc_error, sx_res, g_meta, atu8_data], atu8_nonce);
 
-		// parse 0th message response, select field depending on cosmos-sdk < or >= 0.46
-		let [s_type, atu8_payload] = a_msg_responses? a_msg_responses[0]: a_data![0];
-
-		// decode payload
-		const [atu8_ciphertext] = decodeSecretComputeMsgExecuteContractResponse(atu8_payload!);
-
-		// decrypt ciphertext
-		const atu8_plaintext = await k_contract.wasm.decrypt(atu8_ciphertext!, atu8_nonce);
-
-		// decode plaintext
-		s_plaintext = bytes_to_text(base64_to_bytes(bytes_to_text(atu8_plaintext)));
-	}
 	// error
-	else {
-		const s_error = g_meta?.log ?? sx_res;
-
-		// encrypted error message
-		const m_response = /(\d+):(?: \w+:)*? encrypted: (.+?): (.+?) contract/.exec(s_error);
-		if(m_response) {
-			// destructure match
-			const [, s_index, sb64_encrypted, si_action] = m_response;
-
-			// decrypt message from contract
-			const atu8_plaintext = await k_contract.wasm.decrypt(base64_to_bytes(sb64_encrypted), atu8_nonce);
-
-			// decode bytes
-			s_plaintext = bytes_to_text(atu8_plaintext);
-		}
-
+	if(xc_error) {
 		// debug info
 		if(import.meta.env?.DEV) {
 			console.groupCollapsed(`❌ ${Object.keys(h_exec)[0]} [code: ${xc_error}]`);
 			console.debug('meta: ', g_meta);
 			console.debug('txhash: ', h_events?.['tx.hash'][0]);
-			console.debug('data: ', s_plaintext ?? s_error);
+			console.debug('data: ', s_plaintext);
 			console.groupEnd();
 		}
 
 		// entuple error
-		return [xc_error, s_plaintext ?? s_error, g_meta, __UNDEFINED, __UNDEFINED, si_txn];
+		return [xc_error, s_plaintext, g_meta, __UNDEFINED, __UNDEFINED, si_txn];
 	}
 
 	// debug info
@@ -697,12 +728,12 @@ export const exec_secret_contract = async<
 
 		console.debug('meta: ', g_meta);
 		console.debug('txhash: ', h_events?.['tx.hash'][0]);
-		console.debug('data: ', parse_json_safe(s_plaintext) || s_plaintext);
+		console.debug('data: ', g_answer || s_plaintext);
 		console.groupEnd();
 	}
 
 	// entuple results
-	return [xc_error, s_plaintext, parse_json_safe(s_plaintext), g_meta, h_events, si_txn];
+	return [xc_error, s_plaintext, g_answer, g_meta, h_events, si_txn];
 };
 
 

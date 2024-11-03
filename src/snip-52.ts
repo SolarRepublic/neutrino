@@ -107,8 +107,8 @@ const decode_data = (
  */
 export const subscribe_snip52_channels = async<
 	g_interface extends ContractInterface,
-	h_channels extends Channels<g_interface>,
-	as_channels extends keyof h_channels,
+	h_channels extends Channels<g_interface>=Channels<g_interface>,
+	as_channels extends keyof h_channels=keyof h_channels,
 >(
 	z_remote: TrustedContextUrl | TendermintEventFilter,
 	k_contract: SecretContract<g_interface>,

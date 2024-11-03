@@ -15,7 +15,7 @@ import type {CwHexLower, CwUint32, SlimCoin} from '@solar-republic/types';
 
 import {__UNDEFINED, base64_to_bytes, base64_to_text, bytes_to_text, is_string, parse_json, stringify_json} from '@blake.regalia/belt';
 
-import {encodeGoogleProtobufAny} from '@solar-republic/cosmos-grpc/google/protobuf/any';
+import {encodeGoogleProtobufAny, type EncodedGoogleProtobufAny} from '@solar-republic/cosmos-grpc/google/protobuf/any';
 import {SI_MESSAGE_TYPE_SECRET_COMPUTE_MSG_EXECUTE_CONTRACT, encodeSecretComputeMsgExecuteContract} from '@solar-republic/cosmos-grpc/secret/compute/v1beta1/msg';
 import {destructSecretComputeQueryCodeHashResponse, destructSecretComputeQueryContractInfoResponse, destructSecretComputeQuerySecretContractResponse, querySecretComputeCodeHashByCodeId, querySecretComputeContractInfo, querySecretComputeQuerySecretContract} from '@solar-republic/cosmos-grpc/secret/compute/v1beta1/query';
 import {destructSecretRegistrationKey} from '@solar-republic/cosmos-grpc/secret/registration/v1beta1/msg';
@@ -102,7 +102,7 @@ export type SecretContract<
 	 * @returns 
 	 */
 	exec(h_exec: JsonObject, sa_sender: WeakSecretAccAddr, a_funds?: SlimCoin[]): Promise<[
-		atu8_data: Uint8Array,
+		atu8_data: EncodedGoogleProtobufAny,
 		atu8_nonce: Uint8Array,
 	]>;
 };

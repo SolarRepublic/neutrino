@@ -38,7 +38,7 @@
   "devDependencies": {
     "@blake.regalia/eslint-config-elite": "^0.4.4",
     "@blake.regalia/tsconfig": "^0.2.0",
-    "@cosmjs/amino": "^0.32.3",
+    "@cosmjs/amino": "^0.32.4",
     "@nfps.dev/rollup-plugin-microweb": "^0.3.5",
     "@noble/secp256k1": "^2.1.0",
     "@rollup/plugin-commonjs": "^25.0.7",
@@ -46,8 +46,8 @@
     "@solar-republic/contractor": "^0.8.17",
     "@solar-republic/types": "^0.2.12",
     "@types/chai": "^4.3.16",
-    "@types/node": "^20.14.7",
-    "@types/web": "^0.0.149",
+    "@types/node": "^22.7.5",
+    "@types/web": "^0.0.170",
     "@typescript-eslint/parser": "^7.13.1",
     "chai": "^5.1.1",
     "chai-bites": "^0.1.2",
@@ -64,11 +64,11 @@
     "tsconfig-paths": "^4.2.0",
     "tslib": "^2.6.3",
     "typedoc": "^0.25.13",
-    "typescript": "~5.5.2",
-    "ws": "^8.17.1"
+    "typescript": "~5.6.3",
+    "ws": "^8.18.0"
   },
   "dependencies": {
-    "@blake.regalia/belt": "^0.37.0",
+    "@blake.regalia/belt": "^0.38.3",
     "@solar-republic/cosmos-grpc": "^0.17.1",
     "@solar-republic/crypto": "^0.2.14"
   },
