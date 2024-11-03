@@ -9,8 +9,8 @@ importers:
   .:
     dependencies:
       '@blake.regalia/belt':
-        specifier: ^0.38.3
-        version: 0.38.3
+        specifier: ^0.45.1
+        version: 0.45.1
       '@solar-republic/cosmos-grpc':
         specifier: ^0.17.1
         version: 0.17.1
@@ -20,7 +20,7 @@ importers:
     devDependencies:
       '@blake.regalia/eslint-config-elite':
         specifier: ^0.4.4
-        version: 0.4.4(@typescript-eslint/parser@7.13.1(eslint@8.57.0)(typescript@5.6.3))(eslint@8.57.0)(ts-node@10.9.2(@types/node@22.7.5)(typescript@5.6.3))(typescript@5.6.3)
+        version: 0.4.4(@typescript-eslint/parser@7.13.1(eslint@8.57.0)(typescript@5.6.3))(eslint@8.57.0)(ts-node@10.9.2(@types/node@22.8.7)(typescript@5.6.3))(typescript@5.6.3)
       '@blake.regalia/tsconfig':
         specifier: ^0.2.0
         version: 0.2.0(typescript@5.6.3)
@@ -40,20 +40,20 @@ importers:
         specifier: ^5.0.7
         version: 5.0.7(rollup@4.18.0)
       '@solar-republic/contractor':
-        specifier: ^0.8.17
-        version: 0.8.17
+        specifier: ^0.9.0
+        version: 0.9.0
       '@solar-republic/types':
         specifier: ^0.2.12
         version: 0.2.12
       '@types/chai':
-        specifier: ^4.3.16
-        version: 4.3.16
+        specifier: ^5.0.1
+        version: 5.0.1
       '@types/node':
-        specifier: ^22.7.5
-        version: 22.7.5
+        specifier: ^22.8.7
+        version: 22.8.7
       '@types/web':
-        specifier: ^0.0.170
-        version: 0.0.170
+        specifier: ^0.0.176
+        version: 0.0.176
       '@typescript-eslint/parser':
         specifier: ^7.13.1
         version: 7.13.1(eslint@8.57.0)(typescript@5.6.3)
@@ -86,7 +86,7 @@ importers:
         version: 1.0.10
       ts-node:
         specifier: ^10.9.2
-        version: 10.9.2(@types/node@22.7.5)(typescript@5.6.3)
+        version: 10.9.2(@types/node@22.8.7)(typescript@5.6.3)
       ts-toolbelt:
         specifier: ^9.6.0
         version: 9.6.0
@@ -129,8 +129,8 @@ packages:
   '@blake.regalia/belt@0.37.0':
     resolution: {integrity: sha512-kpAXIn9ioUBVRjwvtyyjZRzwQ2MRJbI/AKY+4maQZD+daG/9tbCN0ET8BP9WzfqD0jZ8i5TIjEByjUdWpzn1MQ==}
 
-  '@blake.regalia/belt@0.38.3':
-    resolution: {integrity: sha512-Zdk577TQhoB6Gv2O+5WOY7/rClAcwgXHMFPEC6tqOVE0orX8QPsGHd6FMwP3rcWd4JuTFv1TbaQTreUanbauyw==}
+  '@blake.regalia/belt@0.45.1':
+    resolution: {integrity: sha512-0vH/y2sJyQAJDUUPG3fYpZUQJBBhqWmRQaU3jibWpfd1RKiF9OjnHO7ttWr6Rf7wQeNZ59V8GYlUBeOkKKPG7Q==}
 
   '@blake.regalia/belt@0.6.4':
     resolution: {integrity: sha512-fsbCIVQ4HBdJ3jmnoeYOqaohJ15/ufqQAD2pTpYokA6ryMSvSO+5a27o9OWMFcYnMUEMgNIMJAZQM9LGUXiDqg==}
@@ -472,8 +472,8 @@ packages:
     resolution: {integrity: sha512-2bRovzs0nJZFlCN3rXirE4gwxCn97JNjMmwpecqlbgV9WcxX7WRuIrgzx/X7Ib7MYRbyUTpBYE0s2x6AmZXnlg==}
     engines: {node: ^14.17.0 || ^16.13.0 || >=18.0.0}
 
-  '@solar-republic/contractor@0.8.17':
-    resolution: {integrity: sha512-FFQJLyNQrP3QcDVDWMHjrhF70mthHhL7w9SRTVJ1xEBVhZNxygTz8M04JA+WQJ5PVACO5mt/TB8+Ri9jj6g0OQ==}
+  '@solar-republic/contractor@0.9.0':
+    resolution: {integrity: sha512-3evtLvHtQYmTsBW/48/CcAMw1ucz1BCL0P02MwjBaOcBZ4MaZRqqMyOWK0k4DyWeM3L9CWpp0ej9zk1YUSJoBg==}
     hasBin: true
 
   '@solar-republic/cosmos-grpc@0.17.1':
@@ -516,8 +516,11 @@ packages:
     resolution: {integrity: sha512-qaGV9ltJP0EO25YfFUPhxRVK0evXFIAGicsVXuRim4Ed9cjPxYhNnNJ49SFmbeLgtxpslIkX317IgpfcHPVj/A==}
     engines: {node: ^14.17.0 || ^16.13.0 || >=18.0.0}
 
-  '@types/chai@4.3.16':
-    resolution: {integrity: sha512-PatH4iOdyh3MyWtmHVFXLWCCIhUbopaltqddG9BzB+gMIzee2MJrvd+jouii9Z3wzQJruGWAm7WOMjgfG8hQlQ==}
+  '@types/chai@5.0.1':
+    resolution: {integrity: sha512-5T8ajsg3M/FOncpLYW7sdOcD6yf4+722sze/tc4KQV0P8Z2rAr3SAuHCIkYmYpt8VbcQlnz8SxlOlPQYefe4cA==}
+
+  '@types/deep-eql@4.0.2':
+    resolution: {integrity: sha512-c9h9dVVMigMPc4bwTvC5dxqtqJZwQPePsWjPlpSOnojbor6pGqdk541lfA7AqFQr5pB1BRdq0juY9db81BwyFw==}
 
   '@types/estree@1.0.5':
     resolution: {integrity: sha512-/kYRxGDLWzHOB7q+wtSUQlFrtcdUccpfy+X+9iMBpHK8QLLhx2wIPYuS5DYtR9Wa/YlZAbIovy7qVdB1Aq6Lyw==}
@@ -525,8 +528,8 @@ packages:
   '@types/json-schema@7.0.15':
     resolution: {integrity: sha512-5+fP8P8MFNC+AyZCDxrB2pkZFPGzqQWUzpSeuuVLvm8VMcorNYavBqoFcxK8bQz4Qsbn4oUEEem4wDLfcysGHA==}
 
-  '@types/node@22.7.5':
-    resolution: {integrity: sha512-jML7s2NAzMWc//QSJ1a3prpk78cOPchGvXJsC3C6R6PSMoooztvRVQEz89gmBTBY1SPMaqo5teB4uNHPdetShQ==}
+  '@types/node@22.8.7':
+    resolution: {integrity: sha512-LidcG+2UeYIWcMuMUpBKOnryBWG/rnmOHQR5apjn8myTQcx3rinFRn7DcIFhMnS0PPFSC6OafdIKEad0lj6U0Q==}
 
   '@types/resolve@1.20.2':
     resolution: {integrity: sha512-60BCwRFOZCQhDncwQdxxeOEEkbc5dIMccYLwbxsS4TUNeVECQ/pBJ0j09mrHOl/JJvpRPGwO9SvE4nR2Nb/a4Q==}
@@ -534,14 +537,14 @@ packages:
   '@types/semver@7.5.8':
     resolution: {integrity: sha512-I8EUhyrgfLrcTkzV3TSsGyl1tSuPrEDzr0yd5m90UgNxQkyDXULk3b6MlQqTCpZpNtWe1K0hzclnZkTcLBe2UQ==}
 
-  '@types/web@0.0.170':
-    resolution: {integrity: sha512-1XVmpB0qlqRtVelEBAYmmyKyE1msKHq2L10084NJMZnZdcqfLnGyaXrD65OUw8OcqjR4DF3YPeiop6IZWJxlpw==}
+  '@types/web@0.0.176':
+    resolution: {integrity: sha512-ZPiEUDiXACru+FlfZ7SdzD20aexUUymircht8paRLP2YvhGeQxlP+hYniQ9AMROKxTP33eyjdALogaghf/VptQ==}
 
   '@types/yargs-parser@21.0.3':
     resolution: {integrity: sha512-I4q9QU9MQv4oEOz4tAHJtNz1cwuLxn2F3xcc2iV5WdqLPpUnj30aUuxt1mAxYTG+oe8CZMV/+6rU4S4gRDzqtQ==}
 
-  '@types/yargs@17.0.32':
-    resolution: {integrity: sha512-xQ67Yc/laOG5uMfX/093MRlGGCIBzZMarVa+gfNKJxWAIgykYpVGkBdbqEzGDDfCrVUj6Hiff4mTZ5BA6TmAog==}
+  '@types/yargs@17.0.33':
+    resolution: {integrity: sha512-WpxBCKWPLr4xSsHgz511rFJAM+wS28w2zEO1QDNY5zM/S8ok70NNfztH0xwhqKyaK0OHCbN98LDAZuy1ctxDkA==}
 
   '@typescript-eslint/eslint-plugin@7.3.1':
     resolution: {integrity: sha512-STEDMVQGww5lhCuNXVSQfbfuNII5E08QWkvAw5Qwf+bj2WT+JkG1uc+5/vXA3AOYMDHVOSpL+9rcbEUiHIm2dw==}
@@ -2389,11 +2392,11 @@ snapshots:
 
   '@blake.regalia/belt@0.37.0': {}
 
-  '@blake.regalia/belt@0.38.3': {}
+  '@blake.regalia/belt@0.45.1': {}
 
   '@blake.regalia/belt@0.6.4': {}
 
-  '@blake.regalia/eslint-config-elite@0.4.4(@typescript-eslint/parser@7.13.1(eslint@8.57.0)(typescript@5.6.3))(eslint@8.57.0)(ts-node@10.9.2(@types/node@22.7.5)(typescript@5.6.3))(typescript@5.6.3)':
+  '@blake.regalia/eslint-config-elite@0.4.4(@typescript-eslint/parser@7.13.1(eslint@8.57.0)(typescript@5.6.3))(eslint@8.57.0)(ts-node@10.9.2(@types/node@22.8.7)(typescript@5.6.3))(typescript@5.6.3)':
     dependencies:
       '@blake.regalia/belt': 0.31.1
       '@typescript-eslint/eslint-plugin': 7.3.1(@typescript-eslint/parser@7.13.1(eslint@8.57.0)(typescript@5.6.3))(eslint@8.57.0)(typescript@5.6.3)
@@ -2402,7 +2405,7 @@ snapshots:
       eslint-plugin-i: 2.29.1(@typescript-eslint/parser@7.13.1(eslint@8.57.0)(typescript@5.6.3))(eslint@8.57.0)
       eslint-plugin-modules-newline: 0.0.6
       eslint-plugin-sort-keys: 2.3.5
-      eslint-plugin-svelte: 2.35.1(eslint@8.57.0)(svelte@4.2.12)(ts-node@10.9.2(@types/node@22.7.5)(typescript@5.6.3))
+      eslint-plugin-svelte: 2.35.1(eslint@8.57.0)(svelte@4.2.12)(ts-node@10.9.2(@types/node@22.8.7)(typescript@5.6.3))
       eslint-plugin-typescript-sort-keys: 3.2.0(@typescript-eslint/parser@7.13.1(eslint@8.57.0)(typescript@5.6.3))(eslint@8.57.0)(typescript@5.6.3)
       svelte: 4.2.12
       svelte-eslint-parser: 0.33.1(svelte@4.2.12)
@@ -2754,10 +2757,10 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@solar-republic/contractor@0.8.17':
+  '@solar-republic/contractor@0.9.0':
     dependencies:
-      '@blake.regalia/belt': 0.37.0
-      '@types/yargs': 17.0.32
+      '@blake.regalia/belt': 0.45.1
+      '@types/yargs': 17.0.33
       kleur: 4.1.5
       ts-morph: 22.0.0
       ts-toolbelt: 9.6.0
@@ -2805,13 +2808,17 @@ snapshots:
       '@tufjs/canonical-json': 1.0.0
       minimatch: 9.0.4
 
-  '@types/chai@4.3.16': {}
+  '@types/chai@5.0.1':
+    dependencies:
+      '@types/deep-eql': 4.0.2
+
+  '@types/deep-eql@4.0.2': {}
 
   '@types/estree@1.0.5': {}
 
   '@types/json-schema@7.0.15': {}
 
-  '@types/node@22.7.5':
+  '@types/node@22.8.7':
     dependencies:
       undici-types: 6.19.8
 
@@ -2819,11 +2826,11 @@ snapshots:
 
   '@types/semver@7.5.8': {}
 
-  '@types/web@0.0.170': {}
+  '@types/web@0.0.176': {}
 
   '@types/yargs-parser@21.0.3': {}
 
-  '@types/yargs@17.0.32':
+  '@types/yargs@17.0.33':
     dependencies:
       '@types/yargs-parser': 21.0.3
 
@@ -3456,7 +3463,7 @@ snapshots:
     dependencies:
       natural-compare: 1.4.0
 
-  eslint-plugin-svelte@2.35.1(eslint@8.57.0)(svelte@4.2.12)(ts-node@10.9.2(@types/node@22.7.5)(typescript@5.6.3)):
+  eslint-plugin-svelte@2.35.1(eslint@8.57.0)(svelte@4.2.12)(ts-node@10.9.2(@types/node@22.8.7)(typescript@5.6.3)):
     dependencies:
       '@eslint-community/eslint-utils': 4.4.0(eslint@8.57.0)
       '@jridgewell/sourcemap-codec': 1.4.15
@@ -3466,7 +3473,7 @@ snapshots:
       esutils: 2.0.3
       known-css-properties: 0.29.0
       postcss: 8.4.38
-      postcss-load-config: 3.1.4(postcss@8.4.38)(ts-node@10.9.2(@types/node@22.7.5)(typescript@5.6.3))
+      postcss-load-config: 3.1.4(postcss@8.4.38)(ts-node@10.9.2(@types/node@22.8.7)(typescript@5.6.3))
       postcss-safe-parser: 6.0.0(postcss@8.4.38)
       postcss-selector-parser: 6.0.16
       semver: 7.6.0
@@ -4291,13 +4298,13 @@ snapshots:
 
   picomatch@2.3.1: {}
 
-  postcss-load-config@3.1.4(postcss@8.4.38)(ts-node@10.9.2(@types/node@22.7.5)(typescript@5.6.3)):
+  postcss-load-config@3.1.4(postcss@8.4.38)(ts-node@10.9.2(@types/node@22.8.7)(typescript@5.6.3)):
     dependencies:
       lilconfig: 2.1.0
       yaml: 1.10.2
     optionalDependencies:
       postcss: 8.4.38
-      ts-node: 10.9.2(@types/node@22.7.5)(typescript@5.6.3)
+      ts-node: 10.9.2(@types/node@22.8.7)(typescript@5.6.3)
 
   postcss-safe-parser@6.0.0(postcss@8.4.38):
     dependencies:
@@ -4343,7 +4350,7 @@ snapshots:
       '@protobufjs/path': 1.1.2
       '@protobufjs/pool': 1.1.0
       '@protobufjs/utf8': 1.1.0
-      '@types/node': 22.7.5
+      '@types/node': 22.8.7
       long: 5.2.3
 
   protochain@1.0.5: {}
@@ -4682,14 +4689,14 @@ snapshots:
       '@ts-morph/common': 0.23.0
       code-block-writer: 13.0.1
 
-  ts-node@10.9.2(@types/node@22.7.5)(typescript@5.6.3):
+  ts-node@10.9.2(@types/node@22.8.7)(typescript@5.6.3):
     dependencies:
       '@cspotcode/source-map-support': 0.8.1
       '@tsconfig/node10': 1.0.9
       '@tsconfig/node12': 1.0.11
       '@tsconfig/node14': 1.0.3
       '@tsconfig/node16': 1.0.4
-      '@types/node': 22.7.5
+      '@types/node': 22.8.7
       acorn: 8.11.3
       acorn-walk: 8.3.2
       arg: 4.1.3
