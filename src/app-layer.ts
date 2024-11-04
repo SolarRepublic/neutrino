@@ -609,12 +609,12 @@ export const tx_response_decoder_secret_compute: (
 export const tx_responses_parse = async<
 	// eslint-disable-next-line @typescript-eslint/consistent-indexed-object-style
 	const h_decoders extends {
-		[s_type in string]: h_decoders[s_type] extends (atu8_payload: Uint8Array) => Promisable<infer w_return>
+		[s_type in string]: h_decoders[s_type] extends (atu8_payload: Uint8Array, i_msg: number) => Promisable<infer w_return>
 			? {
-				(atu8_payload: Uint8Array): w_return;
+				(atu8_payload: Uint8Array, i_msg: number): w_return;
 			}
 			: {
-				(atu8_payload: Uint8Array): any;
+				(atu8_payload: Uint8Array, i_msg: number): any;
 			};
 	},
 >(
@@ -631,8 +631,8 @@ export const tx_responses_parse = async<
 	let [a_data, a_msg_responses] = decodeCosmosBaseAbciTxMsgData(atu8_data!);
 
 	// decode responses
-	return await Promise.all((a_msg_responses || a_data)!.map(async([s_type, atu8_payload]) => [
-		await h_decoders[s_type!]?.(atu8_payload!),
+	return await Promise.all((a_msg_responses || a_data)!.map(async([s_type, atu8_payload], i_msg) => [
+		await h_decoders[s_type!]?.(atu8_payload!, i_msg),
 		s_type!,
 		atu8_payload!,
 	]));
@@ -653,10 +653,10 @@ export const tx_responses_parse = async<
  *  - [1]: `s_type: string` - the secret compute execute contract message type string
  *  - [2]: `atu8_payload: string` - the raw execution response bytes
  */
-export const secret_contract_response_decrypt = async(
+export const secret_contract_responses_decrypt = async(
 	k_contract: SecretContract,
 	[xc_error, sx_res, g_meta, atu8_data]: TxResultTuple,
-	atu8_nonce: Uint8Array
+	atu8_nonces: Uint8Array[]
 ): Promise<[
 	a_error?: [
 		s_error?: string,
@@ -681,12 +681,12 @@ export const secret_contract_response_decrypt = async(
 	// no errors
 	if(!xc_error) {
 		// execution/migration response parser
-		const f_decryptor = async(atu8_payload: Uint8Array) => {
+		const f_decryptor = async(atu8_payload: Uint8Array, i_msg: number) => {
 			// decode payload
 			const [atu8_ciphertext] = decodeSecretComputeMsgExecuteContractResponse(atu8_payload);
 
 			// decrypt ciphertext
-			const atu8_plaintext = await k_contract.wasm.decrypt(atu8_ciphertext!, atu8_nonce);
+			const atu8_plaintext = await k_contract.wasm.decrypt(atu8_ciphertext!, atu8_nonces[i_msg]);
 
 			// decode plaintext
 			s_plaintext = bytes_to_text(base64_to_bytes(bytes_to_text(atu8_plaintext)));
@@ -698,8 +698,8 @@ export const secret_contract_response_decrypt = async(
 		// add compute response parser
 		return [__UNDEFINED, await tx_responses_parse(atu8_data, {
 			[SI_MESSAGE_TYPE_SECRET_COMPUTE_MSG_EXECUTE_CONTRACT]: f_decryptor,
-			[SI_MESSAGE_TYPE_SECRET_COMPUTE_MSG_MIGRATE_CONTRACT]: atu8_payload => atu8_payload?.length
-				? f_decryptor(atu8_payload)
+			[SI_MESSAGE_TYPE_SECRET_COMPUTE_MSG_MIGRATE_CONTRACT]: (atu8_payload, i_msg) => atu8_payload?.length
+				? f_decryptor(atu8_payload, i_msg)
 				: [''] as const,
 		})];
 	}
@@ -714,7 +714,7 @@ export const secret_contract_response_decrypt = async(
 		const [, s_index, sb64_encrypted, si_action] = m_response;
 
 		// decrypt message from contract
-		const atu8_plaintext = await k_contract.wasm.decrypt(base64_to_bytes(sb64_encrypted), atu8_nonce);
+		const atu8_plaintext = await k_contract.wasm.decrypt(base64_to_bytes(sb64_encrypted), atu8_nonces[+s_index]);
 
 		// decode bytes
 		return [[bytes_to_text(atu8_plaintext) ?? s_error, +s_index]];
@@ -803,7 +803,7 @@ export const exec_secret_contract = async<
 	if(xc_error < 0) return [xc_error, sx_res];
 
 	// decrypt response
-	const [a_error, a_results] = await secret_contract_response_decrypt(k_contract, [xc_error, sx_res, g_meta, atu8_data], atu8_nonce);
+	const [a_error, a_results] = await secret_contract_responses_decrypt(k_contract, [xc_error, sx_res, g_meta, atu8_data], [atu8_nonce]);
 
 	// error
 	if(xc_error) {
