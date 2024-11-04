@@ -8,7 +8,7 @@ import type {CreateQueryArgsAndAuthParams} from './inferencing';
 import type {SecretContract} from './secret-contract';
 import type {EventUnlistener} from './tendermint-event-filter';
 import type {TendermintWs} from './tendermint-ws';
-import type {AuthSecret, LcdRpcWsStruct, CosmosQueryError, JsonRpcResponse, MsgQueryPermit, PermitConfig, TxResultWrapper, WeakSecretAccAddr} from './types';
+import type {AuthSecret, LcdRpcWsStruct, CosmosQueryError, JsonRpcResponse, MsgQueryPermit, PermitConfig, WeakSecretAccAddr} from './types';
 import type {Wallet} from './wallet';
 
 import type {JsonObject, Nilable, Promisable, NaiveJsonString, Dict} from '@blake.regalia/belt';
@@ -20,11 +20,11 @@ import type {CosmosTxGetTxResponse} from '@solar-republic/cosmos-grpc/cosmos/tx/
 import type {TendermintAbciExecTxResult} from '@solar-republic/cosmos-grpc/tendermint/abci/types';
 import type {SecretQueryPermit, SlimCoin, WeakAccountAddr, TrustedContextUrl, CwAccountAddr, WeakUint128Str, WeakUintStr} from '@solar-republic/types';
 
-import {__UNDEFINED, bytes_to_base64, timeout, base64_to_bytes, bytes_to_text, parse_json_safe, timeout_exec, die, assign, hex_to_bytes, is_number, stringify_json, try_async, is_error, defer, keys} from '@blake.regalia/belt';
+import {__UNDEFINED, bytes_to_base64, timeout, base64_to_bytes, bytes_to_text, parse_json_safe, timeout_exec, die, assign, hex_to_bytes, is_number, stringify_json, try_async, is_error, defer} from '@blake.regalia/belt';
 import {safe_base64_to_bytes} from '@solar-republic/cosmos-grpc';
 import {decodeCosmosBaseAbciTxMsgData} from '@solar-republic/cosmos-grpc/cosmos/base/abci/v1beta1/abci';
 import {XC_PROTO_COSMOS_TX_BROADCAST_MODE_SYNC, queryCosmosTxGetTx, submitCosmosTxBroadcastTx} from '@solar-republic/cosmos-grpc/cosmos/tx/v1beta1/service';
-import {decodeSecretComputeMsgExecuteContractResponse} from '@solar-republic/cosmos-grpc/secret/compute/v1beta1/msg';
+import {decodeSecretComputeMsgExecuteContractResponse, decodeSecretComputeMsgInstantiateContract, decodeSecretComputeMsgStoreCode, SI_MESSAGE_TYPE_SECRET_COMPUTE_MSG_EXECUTE_CONTRACT, SI_MESSAGE_TYPE_SECRET_COMPUTE_MSG_INSTANTIATE_CONTRACT, SI_MESSAGE_TYPE_SECRET_COMPUTE_MSG_MIGRATE_CONTRACT, SI_MESSAGE_TYPE_SECRET_COMPUTE_MSG_STORE_CODE} from '@solar-republic/cosmos-grpc/secret/compute/v1beta1/msg';
 
 import {GC_NEUTRINO} from './config.js';
 import {exec_fees} from './secret-app.js';
@@ -556,45 +556,152 @@ export const query_secret_contract: QueryContractInfer = async(
 
 
 /**
- * Decrypts the response data from a Secret Contract
- * @param k_contract 
- * @param param1 
- * @param atu8_nonce 
- * @returns 
+ * Creates a decoder dict for parsing secret compute transaction responses
+ * @param k_contract - the {@link SecretContract} that transaction is being executed against
+ * @param atu8_nonce - the nonce that was used for encrypting the outgoing message
+ * @returns decoder dict appropriate for use in {@link tx_responses_parse}
  */
-export const decrypt_secret_contract_response = async(
+export const tx_response_decoder_secret_compute: (
 	k_contract: SecretContract,
-	[xc_error, sx_res, g_meta, atu8_data]: TxResultTuple,
-	atu8_nonce: Uint8Array
-): Promise<[
-	s_res: string,
-	g_res?: undefined | JsonObject,
-]> => {
-	// prep plaintext
-	let s_plaintext!: string;
-
-	// invalid json
-	if(xc_error < 0) return [sx_res];
-
-	// no errors
-	if(!xc_error) {
-		// decode tx msg data
-		let [a_data, a_msg_responses] = decodeCosmosBaseAbciTxMsgData(atu8_data!);
-
-		// parse 0th message response, select field depending on cosmos-sdk < or >= 0.46
-		let [s_type, atu8_payload] = a_msg_responses? a_msg_responses[0]: a_data![0];
-
+	atu8_nonce: Uint8Array,
+) => Parameters<typeof tx_responses_parse>[1] = (k_contract, atu8_nonce) => {
+	// decryptor function common to execution & migration responses
+	const f_decryptor = async(atu8_payload: Uint8Array) => {
 		// decode payload
-		const [atu8_ciphertext] = decodeSecretComputeMsgExecuteContractResponse(atu8_payload!);
+		const [atu8_ciphertext] = decodeSecretComputeMsgExecuteContractResponse(atu8_payload);
 
 		// decrypt ciphertext
 		const atu8_plaintext = await k_contract.wasm.decrypt(atu8_ciphertext!, atu8_nonce);
 
 		// decode plaintext
-		s_plaintext = bytes_to_text(base64_to_bytes(bytes_to_text(atu8_plaintext)));
+		const s_plaintext = bytes_to_text(base64_to_bytes(bytes_to_text(atu8_plaintext)));
 
 		// entuple results
-		return [s_plaintext, parse_json_safe(s_plaintext)];
+		return [s_plaintext, parse_json_safe<JsonObject>(s_plaintext)] as const;
+	};
+
+	// create decoder dict
+	return {
+		// execution/migration response parser
+		[SI_MESSAGE_TYPE_SECRET_COMPUTE_MSG_EXECUTE_CONTRACT]: f_decryptor,
+		[SI_MESSAGE_TYPE_SECRET_COMPUTE_MSG_MIGRATE_CONTRACT]: async(atu8_payload: Uint8Array) => atu8_payload?.length
+			? f_decryptor(atu8_payload)
+			: [''],
+
+		// store code decoder
+		[SI_MESSAGE_TYPE_SECRET_COMPUTE_MSG_STORE_CODE]: decodeSecretComputeMsgStoreCode,
+
+		// instantiation decoder
+		[SI_MESSAGE_TYPE_SECRET_COMPUTE_MSG_INSTANTIATE_CONTRACT]: decodeSecretComputeMsgInstantiateContract,
+	};
+};
+
+
+/**
+ * Applies the given decoders dict to the raw transaction response data bytes
+ * @param atu8_data - transaction response data bytes
+ * @param h_decoders - dict of decoders used to parse each message's response data
+ * @returns Array of tuples of `[any?, string, Uint8Array]`:
+ *  - [0]: `w_return?: any` - result of applying the typed data to its decoder
+ *  - [1]: `s_type: string` - proto 'any' "type" string
+ *  - [2]: `atu8_payload: Uint8Array` - proto 'any' "value" bytes
+ */
+export const tx_responses_parse = async<
+	// eslint-disable-next-line @typescript-eslint/consistent-indexed-object-style
+	const h_decoders extends {
+		[s_type in string]: h_decoders[s_type] extends (atu8_payload: Uint8Array) => Promisable<infer w_return>
+			? {
+				(atu8_payload: Uint8Array): w_return;
+			}
+			: {
+				(atu8_payload: Uint8Array): any;
+			};
+	},
+>(
+	atu8_data: Uint8Array | undefined,
+	h_decoders: h_decoders
+): Promise<{
+	[s_type in keyof h_decoders]: [
+		w_return: Awaited<ReturnType<h_decoders[s_type]>>,
+		s_type: s_type,
+		atu8_data: Uint8Array,
+	]
+}[keyof h_decoders][]> => {
+	// decode tx msg data
+	let [a_data, a_msg_responses] = decodeCosmosBaseAbciTxMsgData(atu8_data!);
+
+	// decode responses
+	return await Promise.all((a_msg_responses || a_data)!.map(async([s_type, atu8_payload]) => [
+		await h_decoders[s_type!]?.(atu8_payload!),
+		s_type!,
+		atu8_payload!,
+	]));
+};
+
+
+/**
+ * Decrypts response data from a Secret Contract execution or migration, parsing & marshalling any errors
+ * @param k_contract 
+ * @param param1 
+ * @param atu8_nonce 
+ * @returns a two-part tuple where tuple at [0]?:
+ *  - [0]: `s_error?: string` - the error message for the entire transaction
+ *  - [1]: `i_message?: number` - `-1` if JSON parsing error, `undefined` if error is generic and not associated to any particular message, otherwise the 0-based index of the message that caused the error
+ *  
+ * ... and the tuple at [1]?:
+ *  - [0]: `readonly [s_plaintext: string, g_answer?: JsonObject]` - the parsed execution/migration response
+ *  - [1]: `s_type: string` - the secret compute execute contract message type string
+ *  - [2]: `atu8_payload: string` - the raw execution response bytes
+ */
+export const secret_contract_response_decrypt = async(
+	k_contract: SecretContract,
+	[xc_error, sx_res, g_meta, atu8_data]: TxResultTuple,
+	atu8_nonce: Uint8Array
+): Promise<[
+	a_error?: [
+		s_error?: string,
+		i_message?: number,
+	] | undefined,
+	a_results?: [
+		readonly [
+			s_plaintext: string,
+			g_answer?: JsonObject | undefined,
+		],
+		s_type?: typeof SI_MESSAGE_TYPE_SECRET_COMPUTE_MSG_EXECUTE_CONTRACT
+			| typeof SI_MESSAGE_TYPE_SECRET_COMPUTE_MSG_MIGRATE_CONTRACT,
+		atu8_payload?: Uint8Array,
+	][],
+]> => {
+	// prep plaintext
+	let s_plaintext!: string;
+
+	// invalid json
+	if(xc_error < 0) return [[sx_res, xc_error]];
+
+	// no errors
+	if(!xc_error) {
+		// execution/migration response parser
+		const f_decryptor = async(atu8_payload: Uint8Array) => {
+			// decode payload
+			const [atu8_ciphertext] = decodeSecretComputeMsgExecuteContractResponse(atu8_payload);
+
+			// decrypt ciphertext
+			const atu8_plaintext = await k_contract.wasm.decrypt(atu8_ciphertext!, atu8_nonce);
+
+			// decode plaintext
+			s_plaintext = bytes_to_text(base64_to_bytes(bytes_to_text(atu8_plaintext)));
+
+			// entuple results
+			return [s_plaintext, parse_json_safe<JsonObject>(s_plaintext)] as const;
+		};
+
+		// add compute response parser
+		return [__UNDEFINED, await tx_responses_parse(atu8_data, {
+			[SI_MESSAGE_TYPE_SECRET_COMPUTE_MSG_EXECUTE_CONTRACT]: f_decryptor,
+			[SI_MESSAGE_TYPE_SECRET_COMPUTE_MSG_MIGRATE_CONTRACT]: atu8_payload => atu8_payload?.length
+				? f_decryptor(atu8_payload)
+				: [''] as const,
+		})];
 	}
 
 	// error
@@ -610,11 +717,11 @@ export const decrypt_secret_contract_response = async(
 		const atu8_plaintext = await k_contract.wasm.decrypt(base64_to_bytes(sb64_encrypted), atu8_nonce);
 
 		// decode bytes
-		s_plaintext = bytes_to_text(atu8_plaintext);
+		return [[bytes_to_text(atu8_plaintext) ?? s_error, +s_index]];
 	}
 
 	// entuple error
-	return [s_plaintext ?? s_error];
+	return [[s_plaintext ?? s_error]];
 };
 
 
@@ -696,7 +803,7 @@ export const exec_secret_contract = async<
 	if(xc_error < 0) return [xc_error, sx_res];
 
 	// decrypt response
-	const [s_plaintext, g_answer] = await decrypt_secret_contract_response(k_contract, [xc_error, sx_res, g_meta, atu8_data], atu8_nonce);
+	const [a_error, a_results] = await secret_contract_response_decrypt(k_contract, [xc_error, sx_res, g_meta, atu8_data], atu8_nonce);
 
 	// error
 	if(xc_error) {
@@ -705,13 +812,16 @@ export const exec_secret_contract = async<
 			console.groupCollapsed(`❌ ${Object.keys(h_exec)[0]} [code: ${xc_error}]`);
 			console.debug('meta: ', g_meta);
 			console.debug('txhash: ', h_events?.['tx.hash'][0]);
-			console.debug('data: ', s_plaintext);
+			console.debug('data: ', a_error![0]);
 			console.groupEnd();
 		}
 
 		// entuple error
-		return [xc_error, s_plaintext, g_meta, __UNDEFINED, __UNDEFINED, si_txn];
+		return [xc_error, a_error![0]!, g_meta, __UNDEFINED, __UNDEFINED, si_txn];
 	}
+
+	// detuple results from single message response success
+	const [s_plaintext, g_answer] = a_results![0][0];
 
 	// debug info
 	if(import.meta.env?.DEV) {
