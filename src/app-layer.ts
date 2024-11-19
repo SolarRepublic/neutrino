@@ -24,7 +24,7 @@ import {__UNDEFINED, bytes_to_base64, timeout, base64_to_bytes, bytes_to_text, p
 import {safe_base64_to_bytes} from '@solar-republic/cosmos-grpc';
 import {decodeCosmosBaseAbciTxMsgData} from '@solar-republic/cosmos-grpc/cosmos/base/abci/v1beta1/abci';
 import {XC_PROTO_COSMOS_TX_BROADCAST_MODE_SYNC, queryCosmosTxGetTx, submitCosmosTxBroadcastTx} from '@solar-republic/cosmos-grpc/cosmos/tx/v1beta1/service';
-import {decodeSecretComputeMsgExecuteContractResponse, decodeSecretComputeMsgInstantiateContract, decodeSecretComputeMsgStoreCode, SI_MESSAGE_TYPE_SECRET_COMPUTE_MSG_EXECUTE_CONTRACT, SI_MESSAGE_TYPE_SECRET_COMPUTE_MSG_INSTANTIATE_CONTRACT, SI_MESSAGE_TYPE_SECRET_COMPUTE_MSG_MIGRATE_CONTRACT, SI_MESSAGE_TYPE_SECRET_COMPUTE_MSG_STORE_CODE} from '@solar-republic/cosmos-grpc/secret/compute/v1beta1/msg';
+import {decodeSecretComputeMsgExecuteContractResponse, decodeSecretComputeMsgInstantiateContract, decodeSecretComputeMsgInstantiateContractResponse, decodeSecretComputeMsgStoreCode, decodeSecretComputeMsgStoreCodeResponse, SI_MESSAGE_TYPE_SECRET_COMPUTE_MSG_EXECUTE_CONTRACT, SI_MESSAGE_TYPE_SECRET_COMPUTE_MSG_EXECUTE_CONTRACT_RESPONSE, SI_MESSAGE_TYPE_SECRET_COMPUTE_MSG_INSTANTIATE_CONTRACT, SI_MESSAGE_TYPE_SECRET_COMPUTE_MSG_INSTANTIATE_CONTRACT_RESPONSE, SI_MESSAGE_TYPE_SECRET_COMPUTE_MSG_MIGRATE_CONTRACT, SI_MESSAGE_TYPE_SECRET_COMPUTE_MSG_MIGRATE_CONTRACT_RESPONSE, SI_MESSAGE_TYPE_SECRET_COMPUTE_MSG_STORE_CODE, SI_MESSAGE_TYPE_SECRET_COMPUTE_MSG_STORE_CODE_RESPONSE} from '@solar-republic/cosmos-grpc/secret/compute/v1beta1/msg';
 
 import {GC_NEUTRINO} from './config.js';
 import {exec_fees} from './secret-app.js';
@@ -583,16 +583,18 @@ export const tx_response_decoder_secret_compute: (
 	// create decoder dict
 	return {
 		// execution/migration response parser
-		[SI_MESSAGE_TYPE_SECRET_COMPUTE_MSG_EXECUTE_CONTRACT]: f_decryptor,
-		[SI_MESSAGE_TYPE_SECRET_COMPUTE_MSG_MIGRATE_CONTRACT]: async(atu8_payload: Uint8Array) => atu8_payload?.length
+		[SI_MESSAGE_TYPE_SECRET_COMPUTE_MSG_EXECUTE_CONTRACT_RESPONSE]: f_decryptor,
+
+		// migration response is same as execute response
+		[SI_MESSAGE_TYPE_SECRET_COMPUTE_MSG_MIGRATE_CONTRACT_RESPONSE]: async(atu8_payload: Uint8Array) => atu8_payload?.length
 			? f_decryptor(atu8_payload)
 			: [''],
 
 		// store code decoder
-		[SI_MESSAGE_TYPE_SECRET_COMPUTE_MSG_STORE_CODE]: decodeSecretComputeMsgStoreCode,
+		[SI_MESSAGE_TYPE_SECRET_COMPUTE_MSG_STORE_CODE_RESPONSE]: decodeSecretComputeMsgStoreCodeResponse,
 
 		// instantiation decoder
-		[SI_MESSAGE_TYPE_SECRET_COMPUTE_MSG_INSTANTIATE_CONTRACT]: decodeSecretComputeMsgInstantiateContract,
+		[SI_MESSAGE_TYPE_SECRET_COMPUTE_MSG_INSTANTIATE_CONTRACT_RESPONSE]: decodeSecretComputeMsgInstantiateContractResponse,
 	};
 };
 
@@ -667,8 +669,8 @@ export const secret_contract_responses_decrypt = async(
 			s_plaintext: string,
 			g_answer?: JsonObject | undefined,
 		],
-		s_type?: typeof SI_MESSAGE_TYPE_SECRET_COMPUTE_MSG_EXECUTE_CONTRACT
-			| typeof SI_MESSAGE_TYPE_SECRET_COMPUTE_MSG_MIGRATE_CONTRACT,
+		s_type?: typeof SI_MESSAGE_TYPE_SECRET_COMPUTE_MSG_EXECUTE_CONTRACT_RESPONSE
+			| typeof SI_MESSAGE_TYPE_SECRET_COMPUTE_MSG_MIGRATE_CONTRACT_RESPONSE,
 		atu8_payload?: Uint8Array,
 	][],
 ]> => {
@@ -697,8 +699,8 @@ export const secret_contract_responses_decrypt = async(
 
 		// add compute response parser
 		return [__UNDEFINED, await tx_responses_parse(atu8_data, {
-			[SI_MESSAGE_TYPE_SECRET_COMPUTE_MSG_EXECUTE_CONTRACT]: f_decryptor,
-			[SI_MESSAGE_TYPE_SECRET_COMPUTE_MSG_MIGRATE_CONTRACT]: (atu8_payload, i_msg) => atu8_payload?.length
+			[SI_MESSAGE_TYPE_SECRET_COMPUTE_MSG_EXECUTE_CONTRACT_RESPONSE]: f_decryptor,
+			[SI_MESSAGE_TYPE_SECRET_COMPUTE_MSG_MIGRATE_CONTRACT_RESPONSE]: (atu8_payload, i_msg) => atu8_payload?.length
 				? f_decryptor(atu8_payload, i_msg)
 				: [''] as const,
 		})];
