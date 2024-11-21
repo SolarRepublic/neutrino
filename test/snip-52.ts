@@ -2,7 +2,8 @@ import './helper';
 
 import type {NaiveBase64} from '@blake.regalia/belt';
 
-import type {Snip52} from '@solar-republic/contractor';
+import type {Snip24, Snip52} from '@solar-republic/contractor';
+
 import type {SecretContract} from '@solar-republic/neutrino';
 import type {CwBase64, WeakUintStr} from '@solar-republic/types';
 
@@ -12,10 +13,8 @@ import {bytes_to_hex, text_to_base64, base64_to_bytes} from '@blake.regalia/belt
 import {bech32_encode} from '@solar-republic/crypto';
 
 import {connect} from './live';
-import {exec_secret_contract, query_secret_contract} from '../src/app-layer';
-
-import {sign_seed_update, subscribe_snip52_channels} from '../src/snip-52';
-
+import {exec_secret_contract, query_secret_contract} from '../dist/mjs/app-layer';
+import {sign_seed_update, subscribe_snip52_channels} from '../dist/mjs/snip-52';
 
 const SI_COMMAND = process.argv[2] as 'init' | 'trigger' | 'update' | 'export' ?? 'subscribe';
 
@@ -36,15 +35,16 @@ const SI_COMMAND = process.argv[2] as 'init' | 'trigger' | 'update' | 'export' ?
 		const si_channel = g_res_list!['channels'][0];
 
 		// get its info using viewing key
-		const [g_res_info, xc_code, s_error] = await query_secret_contract<{
-			channel: string;
-			seed: NaiveBase64;
-			counter: WeakUintStr;
-			as_of_block: WeakUintStr;
-			cddl?: string;
-		}>(k_contract, 'channel_info', {
+		const [g_res_info, xc_code, s_error] = await query_secret_contract(k_contract, 'channel_info', {
 			channel: si_channel,
 		}, ['password123', k_wallet.addr]);
+		// <{
+		// 	channel: string;
+		// 	seed: NaiveBase64;
+		// 	counter: WeakUintStr;
+		// 	as_of_block: WeakUintStr;
+		// 	cddl?: string;
+		// }>
 
 		console.log(g_res_info, xc_code, s_error);
 
