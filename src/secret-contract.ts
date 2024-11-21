@@ -11,7 +11,7 @@ import type {Dict, JsonObject, Nilable} from '@blake.regalia/belt';
 
 import type {SecretAccAddr, ContractInterface} from '@solar-republic/contractor';
 import type {SecretComputeContractInfo} from '@solar-republic/cosmos-grpc/secret/compute/v1beta1/types';
-import type {CwHexLower, CwUint32, SlimCoin} from '@solar-republic/types';
+import type {CwHexLower, CwUint32, SlimCoin, WeakUintStr} from '@solar-republic/types';
 
 import {__UNDEFINED, base64_to_bytes, base64_to_text, bytes_to_text, is_string, parse_json, stringify_json} from '@blake.regalia/belt';
 
@@ -107,10 +107,25 @@ export type SecretContract<
 	]>;
 };
 
+/**
+ * Bypass the contract cache
+ */
+export const XC_CONTRACT_CACHE_BYPASS = 0;
 
 /**
- * Creates a low-level handle for a Secret Contract. Immediately queries the chain for the contract's code hash
- * and info unless already cached.
+ * Accept and use the contract cache
+ */
+export const XC_CONTRACT_CACHE_ACCEPT = 1;
+
+/**
+ * Describes how to use the contract cache when creating a contract handle
+ */
+export type ContractCacheOption = typeof XC_CONTRACT_CACHE_BYPASS | typeof XC_CONTRACT_CACHE_ACCEPT;
+
+/**
+ * Creates a low-level handle for a Secret Contract. Accepts contract info as an argument, or how to use
+ * the cache. If no info is provided or cached, or the cache is bypassed, then it queries the chain for
+ * the contract's code hash and info.
  * 
  * The `query` and `exec` methods are not intended for general application use; projects should instead use
  * {@link query_secret_contract_raw} and {@link exec_secret_contract}.
@@ -126,7 +141,7 @@ export const SecretContract = async<
 	z_lcd: RemoteServiceArg,
 	sa_contract: WeakSecretAccAddr,
 	atu8_seed: Nilable<Uint8Array>=null,
-	sb16_code_hash: CwHexLower|''|null=''
+	z_info: KnownContractInfo|ContractCacheOption=XC_CONTRACT_CACHE_ACCEPT
 ): Promise<SecretContract<g_interface>> => {
 	// uniquely identify this request pattern
 	let si_lcd = stringify_json(is_string(z_lcd)
@@ -165,7 +180,7 @@ export const SecretContract = async<
 		: g_cached.wasm;
 
 	// ref contract info
-	let g_info = h_contract_cache[sa_contract];
+	let g_info = XC_CONTRACT_CACHE_ACCEPT === z_info? h_contract_cache[sa_contract]: z_info;
 	if(!g_info) {
 		// refload contract info
 		let g_res_info = await successful(querySecretComputeContractInfo, z_lcd, sa_contract);
@@ -181,7 +196,7 @@ export const SecretContract = async<
 	const si_code = g_info.code_id!;  // eslint-disable-line @typescript-eslint/no-unnecessary-type-assertion
 
 	// ref code hash
-	sb16_code_hash = sb16_code_hash || ('' === sb16_code_hash? h_codes_cache[si_code]: '');
+	let sb16_code_hash = h_codes_cache[si_code];
 	if(!sb16_code_hash) {
 		// refload code hash
 		let g_res_hash = await successful(querySecretComputeCodeHashByCodeId, z_lcd, si_code);
