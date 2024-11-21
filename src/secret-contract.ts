@@ -125,7 +125,8 @@ export const SecretContract = async<
 >(
 	z_lcd: RemoteServiceArg,
 	sa_contract: WeakSecretAccAddr,
-	atu8_seed: Nilable<Uint8Array>=null
+	atu8_seed: Nilable<Uint8Array>=null,
+	sb16_code_hash: CwHexLower|''|null=''
 ): Promise<SecretContract<g_interface>> => {
 	// uniquely identify this request pattern
 	let si_lcd = stringify_json(is_string(z_lcd)
@@ -180,7 +181,7 @@ export const SecretContract = async<
 	const si_code = g_info.code_id!;  // eslint-disable-line @typescript-eslint/no-unnecessary-type-assertion
 
 	// ref code hash
-	let sb16_code_hash = h_codes_cache[si_code];
+	sb16_code_hash = sb16_code_hash || ('' === sb16_code_hash? h_codes_cache[si_code]: '');
 	if(!sb16_code_hash) {
 		// refload code hash
 		let g_res_hash = await successful(querySecretComputeCodeHashByCodeId, z_lcd, si_code);
