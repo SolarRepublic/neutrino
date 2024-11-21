@@ -11,14 +11,14 @@ import type {TendermintWs} from './tendermint-ws';
 import type {AuthSecret, LcdRpcWsStruct, CosmosQueryError, JsonRpcResponse, MsgQueryPermit, PermitConfig, WeakSecretAccAddr} from './types';
 import type {Wallet} from './wallet';
 
-import type {JsonObject, Nilable, Promisable, NaiveJsonString, Dict} from '@blake.regalia/belt';
+import type {JsonObject, Nilable, Promisable, NaiveJsonString, Dict, AsJson, ES_TYPE} from '@blake.regalia/belt';
 
-import type {ContractInterface} from '@solar-republic/contractor';
+import type {ContractInterface, Snip20, Snip24} from '@solar-republic/contractor';
 
 import type {CosmosBaseAbciTxResponse} from '@solar-republic/cosmos-grpc/cosmos/base/abci/v1beta1/abci';
 import type {CosmosTxGetTxResponse} from '@solar-republic/cosmos-grpc/cosmos/tx/v1beta1/service';
 import type {TendermintAbciExecTxResult} from '@solar-republic/cosmos-grpc/tendermint/abci/types';
-import type {SecretQueryPermit, SlimCoin, WeakAccountAddr, TrustedContextUrl, CwAccountAddr, WeakUint128Str, WeakUintStr} from '@solar-republic/types';
+import type {SecretQueryPermit, SlimCoin, WeakAccountAddr, TrustedContextUrl, CwAccountAddr, WeakUint128Str, WeakUintStr, Datatypes} from '@solar-republic/types';
 
 import {__UNDEFINED, bytes_to_base64, timeout, base64_to_bytes, bytes_to_text, parse_json_safe, timeout_exec, die, assign, hex_to_bytes, is_number, stringify_json, try_async, is_error, defer} from '@blake.regalia/belt';
 import {safe_base64_to_bytes} from '@solar-republic/cosmos-grpc';

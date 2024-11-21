@@ -2,7 +2,7 @@ import type {O, U} from 'ts-toolbelt';
 
 import type {AuthSecret, AuthSecret_ViewerInfo} from './types';
 import type {Dict, JsonObject, Nilable} from '@blake.regalia/belt';
-import type {ReduceSafe, SecretQueryPermit} from '@solar-republic/types';
+import type {Datatypes, ReduceSafe, SecretQueryPermit} from '@solar-republic/types';
 
 
 // a srongly empty object literal datatype
@@ -30,7 +30,9 @@ type MakeValuesReadonly<h_args extends Nilable<JsonObject>> = h_args extends Jso
 	? {
 		[si_key in keyof h_args]: Readonly<h_args[si_key]>;
 	}
-	: h_args;
+	: h_args extends null | undefined
+		? {}
+		: h_args;
 
 // determines the best type to use for the 'h_args' parameter
 type ResolveArgs<h_args extends Nilable<JsonObject>> = JsonObject extends h_args
@@ -39,9 +41,9 @@ type ResolveArgs<h_args extends Nilable<JsonObject>> = JsonObject extends h_args
 		// args are strongly empty
 		? Nilable<EmptyObject>
 		// args are optionally empty
-		: Nilable<MakeValuesReadonly<h_args>>
+		: Nilable<Datatypes.Weaken<MakeValuesReadonly<h_args>, 'mild'>>
 	// args are mandatory
-	: MakeValuesReadonly<h_args>;
+	: Datatypes.Weaken<MakeValuesReadonly<h_args>, 'mild'>;
 
 // merges `[a, b?] | [a, c?]` into `[a, (b | c)?]`
 export type MergeTuple<a_tuple extends [any?, any?]> = {
