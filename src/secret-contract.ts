@@ -264,7 +264,7 @@ export const SecretContract = async<
 					xc_code ||= -1 as CwUint32;
 
 					// encrypted error message
-					const m_error = /encrypted: (.+?):/.exec(s_message || '');
+					const m_error = /encrypted: ([A-Za-z0-9+/=]+?)/.exec(s_message || '');
 					if(m_error) {
 						// decode base64 string
 						const atu8_ciphertext = base64_to_bytes(m_error[1]);
