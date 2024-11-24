@@ -83,7 +83,7 @@ export const pubkey_to_bech32 = async<
  * @returns 
  */
 // eslint-disable-next-line @typescript-eslint/naming-convention
-export const Wallet = async<s_hrp extends string, si_chain extends string>(
+export const Wallet = async<s_hrp extends string, si_chain extends string=string>(
 	atu8_sk: Uint8Array,
 	si_chain: si_chain,
 	z_lcd: RemoteServiceArg,
