@@ -8,7 +8,6 @@ export * from './chacha20.js';
 export * from './config.js';
 export * from './poly1305.js';
 export * from './ripemd160.js';
-export * from './secp256k1.js';
 export * from './secret-app.js';
 export * from './secret-contract.js';
 export * from './secret-wasm.js';
