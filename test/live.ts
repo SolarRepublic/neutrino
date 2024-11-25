@@ -11,8 +11,10 @@ import './helper';
 import {queryCosmosBankSpendableBalances} from '@solar-republic/cosmos-grpc/cosmos/bank/v1beta1/query';
 import {queryCosmosFeegrantAllowances} from '@solar-republic/cosmos-grpc/cosmos/feegrant/v1beta1/query';
 
+// import {ent_to_sk} from '../scrap/secp256k1';
+import {initWasmSecp256k1} from '@solar-republic/wasm-secp256k1/gzipped';
+
 import {exec_secret_contract, retry, sign_secret_query_permit} from '../src/app-layer';
-import {ent_to_sk} from '../src/secp256k1';
 import {SecretContract} from '../src/secret-contract';
 import {random_32} from '../src/util';
 import {Wallet} from '../src/wallet';
@@ -33,12 +35,14 @@ const SA_GRANTER = h_env['NFP_GRANTER'] as SecretAccAddr | undefined;
 
 
 export async function connect() {
+	const Y_SECP256K1 = await initWasmSecp256k1();
+
 	// create seed for query/execution session (all zeros here)
 	const atu8_seed = random_32();
 
 	// create private key from entropy
 	const atu8_ent = new Uint8Array(await crypto.subtle.digest('SHA-384', text_to_bytes('nfp-test-account:0')));
-	const atu8_sk = ent_to_sk(atu8_ent.subarray(0, 40));
+	const atu8_sk = Y_SECP256K1.ent_to_sk(atu8_ent.subarray(0, 40));
 
 	// instantiate wallet
 	const k_wallet = await Wallet<'secret'>(atu8_sk, SI_CHAIN, P_LCD_ENDPOINT, P_RPC_ENDPOINT);

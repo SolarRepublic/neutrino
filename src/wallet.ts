@@ -7,7 +7,10 @@ import type {CosmosQueryError, CwSecretAccAddr, LcdRpcStruct, RemoteServiceArg, 
 
 import type {AsJson, Nilable} from '@blake.regalia/belt';
 import type {ProtoEnumCosmosTxSigningSignMode} from '@solar-republic/cosmos-grpc/cosmos/tx/signing/v1beta1/signing';
-import type {CwUint128, CwHexUpper, CwAccountAddr, TrustedContextUrl, SlimCoin, WeakUint128Str, CwUint64} from '@solar-republic/types';
+import type {CwUint128, CwHexUpper, CwAccountAddr, SlimCoin, WeakUint128Str, CwUint64} from '@solar-republic/types';
+
+import type {SignatureAndRecovery} from '@solar-republic/wasm-secp256k1';
+import type {Secp256k1} from '@solar-republic/wasm-secp256k1/gzipped';
 
 import {text_to_bytes, bytes_to_hex, sha256, canonicalize_json, stringify_json, die} from '@blake.regalia/belt';
 
@@ -15,15 +18,18 @@ import {any, restruct_coin} from '@solar-republic/cosmos-grpc';
 import {destructCosmosAuthBaseAccount} from '@solar-republic/cosmos-grpc/cosmos/auth/v1beta1/auth';
 import {destructCosmosAuthQueryAccountResponse, queryCosmosAuthAccount} from '@solar-republic/cosmos-grpc/cosmos/auth/v1beta1/query';
 import {encodeCosmosCryptoSecp256k1PubKey} from '@solar-republic/cosmos-grpc/cosmos/crypto/secp256k1/keys';
-import {XC_PROTO_COSMOS_TX_SIGNING_SIGN_MODE_DIRECT, XC_PROTO_COSMOS_TX_SIGNING_SIGN_MODE_LEGACY_AMINO_JSON} from '@solar-republic/cosmos-grpc/cosmos/tx/signing/v1beta1/signing';
+import {XC_PROTO_COSMOS_TX_SIGNING_SIGN_MODE_DIRECT} from '@solar-republic/cosmos-grpc/cosmos/tx/signing/v1beta1/signing';
 
 import {encodeCosmosTxAuthInfo, encodeCosmosTxFee, encodeCosmosTxModeInfo, encodeCosmosTxModeInfoSingle, encodeCosmosTxSignDoc, encodeCosmosTxSignerInfo, encodeCosmosTxTxBody, encodeCosmosTxTxRaw} from '@solar-republic/cosmos-grpc/cosmos/tx/v1beta1/tx';
 import {bech32_encode} from '@solar-republic/crypto';
 
+import {initWasmSecp256k1} from '@solar-republic/wasm-secp256k1/gzipped';
+
 import {remote_service} from './_common';
 import {ripemd160} from './ripemd160.js';
-import {sign, sk_to_pk, type SignatureAndRecovery} from './secp256k1.js';
 import {random_32} from './util.js';
+
+let Y_SECP256K1: Secp256k1;
 
 
 type Zeroable<n_type extends number> = n_type | 0 | undefined;
@@ -90,8 +96,11 @@ export const Wallet = async<s_hrp extends string, si_chain extends string=string
 	z_rpc: RemoteServiceArg,
 	s_hrp: s_hrp=si_chain.replace(/-.*/, '') as s_hrp
 ): Promise<Wallet<string extends s_hrp? S.Split<si_chain, '-'>[0]: s_hrp>> => {
+	// init secp256k1 WASM
+	Y_SECP256K1 ??= await initWasmSecp256k1();
+
 	// obtain public key
-	const atu8_pk33 = sk_to_pk(atu8_sk);
+	const atu8_pk33 = Y_SECP256K1.sk_to_pk(atu8_sk);
 
 	// convert to bech32
 	const sa_account = await pubkey_to_bech32(atu8_pk33, s_hrp);
@@ -107,7 +116,7 @@ export const Wallet = async<s_hrp extends string, si_chain extends string=string
 
 		pk33: atu8_pk33,
 
-		sign: (atu8_hash: Uint8Array, atu8_k=random_32()) => sign(atu8_sk, atu8_hash, atu8_k),
+		sign: (atu8_hash: Uint8Array, atu8_k=random_32()) => Promise.resolve(Y_SECP256K1.sign(atu8_sk, atu8_hash, atu8_k)),
 	};
 };
 

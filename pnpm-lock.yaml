@@ -9,18 +9,21 @@ importers:
   .:
     dependencies:
       '@blake.regalia/belt':
-        specifier: ^0.45.1
-        version: 0.45.1
+        specifier: ^0.45.2
+        version: 0.45.2
       '@solar-republic/cosmos-grpc':
         specifier: ^0.17.2
         version: 0.17.2
       '@solar-republic/crypto':
         specifier: ^0.2.14
         version: 0.2.14
+      '@solar-republic/wasm-secp256k1':
+        specifier: ^0.4.2
+        version: 0.4.2
     devDependencies:
       '@blake.regalia/eslint-config-elite':
         specifier: ^0.4.4
-        version: 0.4.4(@typescript-eslint/parser@7.13.1(eslint@8.57.0)(typescript@5.6.3))(eslint@8.57.0)(ts-node@10.9.2(@types/node@22.9.1)(typescript@5.6.3))(typescript@5.6.3)
+        version: 0.4.4(@typescript-eslint/parser@7.13.1(eslint@8.57.0)(typescript@5.6.3))(eslint@8.57.0)(ts-node@10.9.2(@types/node@22.9.3)(typescript@5.6.3))(typescript@5.6.3)
       '@blake.regalia/tsconfig':
         specifier: ^0.2.0
         version: 0.2.0(typescript@5.6.3)
@@ -40,8 +43,8 @@ importers:
         specifier: ^5.0.7
         version: 5.0.7(rollup@4.18.0)
       '@solar-republic/contractor':
-        specifier: ^0.9.1
-        version: 0.9.1
+        specifier: ^0.9.7
+        version: 0.9.7
       '@solar-republic/types':
         specifier: ^0.2.13
         version: 0.2.13
@@ -49,11 +52,11 @@ importers:
         specifier: ^5.0.1
         version: 5.0.1
       '@types/node':
-        specifier: ^22.9.1
-        version: 22.9.1
+        specifier: ^22.9.3
+        version: 22.9.3
       '@types/web':
-        specifier: ^0.0.180
-        version: 0.0.180
+        specifier: ^0.0.183
+        version: 0.0.183
       '@typescript-eslint/parser':
         specifier: ^7.13.1
         version: 7.13.1(eslint@8.57.0)(typescript@5.6.3)
@@ -86,7 +89,7 @@ importers:
         version: 1.0.10
       ts-node:
         specifier: ^10.9.2
-        version: 10.9.2(@types/node@22.9.1)(typescript@5.6.3)
+        version: 10.9.2(@types/node@22.9.3)(typescript@5.6.3)
       ts-toolbelt:
         specifier: ^9.6.0
         version: 9.6.0
@@ -129,8 +132,11 @@ packages:
   '@blake.regalia/belt@0.37.0':
     resolution: {integrity: sha512-kpAXIn9ioUBVRjwvtyyjZRzwQ2MRJbI/AKY+4maQZD+daG/9tbCN0ET8BP9WzfqD0jZ8i5TIjEByjUdWpzn1MQ==}
 
-  '@blake.regalia/belt@0.45.1':
-    resolution: {integrity: sha512-0vH/y2sJyQAJDUUPG3fYpZUQJBBhqWmRQaU3jibWpfd1RKiF9OjnHO7ttWr6Rf7wQeNZ59V8GYlUBeOkKKPG7Q==}
+  '@blake.regalia/belt@0.40.1':
+    resolution: {integrity: sha512-1KgtASOjGtzcC8IjL2gm4Ofwk9HvGW+l5VsqbKgxGrceEiVcccPf65eX20hek3p7prpNwbw9vImlXEU0Bii7Aw==}
+
+  '@blake.regalia/belt@0.45.2':
+    resolution: {integrity: sha512-Mwiyj13ZjSzxtUaesVOuEW6feeAkdag6r7ZoIw2urjkYmERyE1zNYioFfiAunKs2JoIyStLXeoQd91xYNtLqcg==}
 
   '@blake.regalia/belt@0.6.4':
     resolution: {integrity: sha512-fsbCIVQ4HBdJ3jmnoeYOqaohJ15/ufqQAD2pTpYokA6ryMSvSO+5a27o9OWMFcYnMUEMgNIMJAZQM9LGUXiDqg==}
@@ -472,8 +478,8 @@ packages:
     resolution: {integrity: sha512-2bRovzs0nJZFlCN3rXirE4gwxCn97JNjMmwpecqlbgV9WcxX7WRuIrgzx/X7Ib7MYRbyUTpBYE0s2x6AmZXnlg==}
     engines: {node: ^14.17.0 || ^16.13.0 || >=18.0.0}
 
-  '@solar-republic/contractor@0.9.1':
-    resolution: {integrity: sha512-e/PPgLKd08AhV+IbVrfQPkJRLG8HFVY65Irz/RHsHHqre3yvEcjY6xjSKUML4oAJNdBNrDKEQXkEvH6s5i56Zg==}
+  '@solar-republic/contractor@0.9.7':
+    resolution: {integrity: sha512-hMqGh97K1vrsYbdqRhXgHnwYH3UVYoQJywWfS9Sahnxh74K+pRpku3L/kV/Wk/wxJGaD0Rxoe22Afqf5YfupmQ==}
     hasBin: true
 
   '@solar-republic/cosmos-grpc@0.17.2':
@@ -488,6 +494,9 @@ packages:
 
   '@solar-republic/wasm-secp256k1@0.2.8':
     resolution: {integrity: sha512-tFSO+YOqZt/E6EvrjxhxcrPAn8hs5cPx2Op/+rzznrQuMHEONxvb3MFiw9V8JbcMvrMiCypLvFR7nkrI8+h3sg==}
+
+  '@solar-republic/wasm-secp256k1@0.4.2':
+    resolution: {integrity: sha512-sGHHRFc4ZZGE7aVMp7mpKGJN6dqgo8gF3yzB/IBlBC8nk0OQ9+hk3ls6nGpcxDabXXpB0PAQW+vl/Xs7FnfvCg==}
 
   '@tootallnate/once@2.0.0':
     resolution: {integrity: sha512-XCuKFP5PS55gnMVu3dty8KPatLqUoy/ZYzDzAGCQ8JNFCkLXzmI7vNHCR+XpbZaMWQK/vQubr7PkYq8g470J/A==}
@@ -528,8 +537,8 @@ packages:
   '@types/json-schema@7.0.15':
     resolution: {integrity: sha512-5+fP8P8MFNC+AyZCDxrB2pkZFPGzqQWUzpSeuuVLvm8VMcorNYavBqoFcxK8bQz4Qsbn4oUEEem4wDLfcysGHA==}
 
-  '@types/node@22.9.1':
-    resolution: {integrity: sha512-p8Yy/8sw1caA8CdRIQBG5tiLHmxtQKObCijiAa9Ez+d4+PRffM4054xbju0msf+cvhJpnFEeNjxmVT/0ipktrg==}
+  '@types/node@22.9.3':
+    resolution: {integrity: sha512-F3u1fs/fce3FFk+DAxbxc78DF8x0cY09RRL8GnXLmkJ1jvx3TtPdWoTT5/NiYfI5ASqXBmfqJi9dZ3gxMx4lzw==}
 
   '@types/resolve@1.20.2':
     resolution: {integrity: sha512-60BCwRFOZCQhDncwQdxxeOEEkbc5dIMccYLwbxsS4TUNeVECQ/pBJ0j09mrHOl/JJvpRPGwO9SvE4nR2Nb/a4Q==}
@@ -537,8 +546,8 @@ packages:
   '@types/semver@7.5.8':
     resolution: {integrity: sha512-I8EUhyrgfLrcTkzV3TSsGyl1tSuPrEDzr0yd5m90UgNxQkyDXULk3b6MlQqTCpZpNtWe1K0hzclnZkTcLBe2UQ==}
 
-  '@types/web@0.0.180':
-    resolution: {integrity: sha512-G4sAw9smNoDTMBQtNupDd+2v9SWlqJfdOSRXbMg/KFLmYYhq+RI5oK98kXubfLB/49LKMN7eEzBaGtLMSEAy9A==}
+  '@types/web@0.0.183':
+    resolution: {integrity: sha512-O0VfT4Y5IMbGsuYo9ydjdbMcNx7JZmGXLBq6gpf1KRhN2KafbosWYl12QhbJReZP0vz3KaLR/2bGK5ggKN1j9w==}
 
   '@types/yargs-parser@21.0.3':
     resolution: {integrity: sha512-I4q9QU9MQv4oEOz4tAHJtNz1cwuLxn2F3xcc2iV5WdqLPpUnj30aUuxt1mAxYTG+oe8CZMV/+6rU4S4gRDzqtQ==}
@@ -2392,11 +2401,13 @@ snapshots:
 
   '@blake.regalia/belt@0.37.0': {}
 
-  '@blake.regalia/belt@0.45.1': {}
+  '@blake.regalia/belt@0.40.1': {}
+
+  '@blake.regalia/belt@0.45.2': {}
 
   '@blake.regalia/belt@0.6.4': {}
 
-  '@blake.regalia/eslint-config-elite@0.4.4(@typescript-eslint/parser@7.13.1(eslint@8.57.0)(typescript@5.6.3))(eslint@8.57.0)(ts-node@10.9.2(@types/node@22.9.1)(typescript@5.6.3))(typescript@5.6.3)':
+  '@blake.regalia/eslint-config-elite@0.4.4(@typescript-eslint/parser@7.13.1(eslint@8.57.0)(typescript@5.6.3))(eslint@8.57.0)(ts-node@10.9.2(@types/node@22.9.3)(typescript@5.6.3))(typescript@5.6.3)':
     dependencies:
       '@blake.regalia/belt': 0.31.1
       '@typescript-eslint/eslint-plugin': 7.3.1(@typescript-eslint/parser@7.13.1(eslint@8.57.0)(typescript@5.6.3))(eslint@8.57.0)(typescript@5.6.3)
@@ -2405,7 +2416,7 @@ snapshots:
       eslint-plugin-i: 2.29.1(@typescript-eslint/parser@7.13.1(eslint@8.57.0)(typescript@5.6.3))(eslint@8.57.0)
       eslint-plugin-modules-newline: 0.0.6
       eslint-plugin-sort-keys: 2.3.5
-      eslint-plugin-svelte: 2.35.1(eslint@8.57.0)(svelte@4.2.12)(ts-node@10.9.2(@types/node@22.9.1)(typescript@5.6.3))
+      eslint-plugin-svelte: 2.35.1(eslint@8.57.0)(svelte@4.2.12)(ts-node@10.9.2(@types/node@22.9.3)(typescript@5.6.3))
       eslint-plugin-typescript-sort-keys: 3.2.0(@typescript-eslint/parser@7.13.1(eslint@8.57.0)(typescript@5.6.3))(eslint@8.57.0)(typescript@5.6.3)
       svelte: 4.2.12
       svelte-eslint-parser: 0.33.1(svelte@4.2.12)
@@ -2757,9 +2768,9 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@solar-republic/contractor@0.9.1':
+  '@solar-republic/contractor@0.9.7':
     dependencies:
-      '@blake.regalia/belt': 0.45.1
+      '@blake.regalia/belt': 0.45.2
       '@types/yargs': 17.0.33
       kleur: 4.1.5
       ts-morph: 22.0.0
@@ -2783,6 +2794,10 @@ snapshots:
   '@solar-republic/wasm-secp256k1@0.2.8':
     dependencies:
       '@blake.regalia/belt': 0.37.0
+
+  '@solar-republic/wasm-secp256k1@0.4.2':
+    dependencies:
+      '@blake.regalia/belt': 0.40.1
 
   '@tootallnate/once@2.0.0': {}
 
@@ -2818,7 +2833,7 @@ snapshots:
 
   '@types/json-schema@7.0.15': {}
 
-  '@types/node@22.9.1':
+  '@types/node@22.9.3':
     dependencies:
       undici-types: 6.19.8
 
@@ -2826,7 +2841,7 @@ snapshots:
 
   '@types/semver@7.5.8': {}
 
-  '@types/web@0.0.180': {}
+  '@types/web@0.0.183': {}
 
   '@types/yargs-parser@21.0.3': {}
 
@@ -3463,7 +3478,7 @@ snapshots:
     dependencies:
       natural-compare: 1.4.0
 
-  eslint-plugin-svelte@2.35.1(eslint@8.57.0)(svelte@4.2.12)(ts-node@10.9.2(@types/node@22.9.1)(typescript@5.6.3)):
+  eslint-plugin-svelte@2.35.1(eslint@8.57.0)(svelte@4.2.12)(ts-node@10.9.2(@types/node@22.9.3)(typescript@5.6.3)):
     dependencies:
       '@eslint-community/eslint-utils': 4.4.0(eslint@8.57.0)
       '@jridgewell/sourcemap-codec': 1.4.15
@@ -3473,7 +3488,7 @@ snapshots:
       esutils: 2.0.3
       known-css-properties: 0.29.0
       postcss: 8.4.38
-      postcss-load-config: 3.1.4(postcss@8.4.38)(ts-node@10.9.2(@types/node@22.9.1)(typescript@5.6.3))
+      postcss-load-config: 3.1.4(postcss@8.4.38)(ts-node@10.9.2(@types/node@22.9.3)(typescript@5.6.3))
       postcss-safe-parser: 6.0.0(postcss@8.4.38)
       postcss-selector-parser: 6.0.16
       semver: 7.6.0
@@ -4298,13 +4313,13 @@ snapshots:
 
   picomatch@2.3.1: {}
 
-  postcss-load-config@3.1.4(postcss@8.4.38)(ts-node@10.9.2(@types/node@22.9.1)(typescript@5.6.3)):
+  postcss-load-config@3.1.4(postcss@8.4.38)(ts-node@10.9.2(@types/node@22.9.3)(typescript@5.6.3)):
     dependencies:
       lilconfig: 2.1.0
       yaml: 1.10.2
     optionalDependencies:
       postcss: 8.4.38
-      ts-node: 10.9.2(@types/node@22.9.1)(typescript@5.6.3)
+      ts-node: 10.9.2(@types/node@22.9.3)(typescript@5.6.3)
 
   postcss-safe-parser@6.0.0(postcss@8.4.38):
     dependencies:
@@ -4350,7 +4365,7 @@ snapshots:
       '@protobufjs/path': 1.1.2
       '@protobufjs/pool': 1.1.0
       '@protobufjs/utf8': 1.1.0
-      '@types/node': 22.9.1
+      '@types/node': 22.9.3
       long: 5.2.3
 
   protochain@1.0.5: {}
@@ -4689,14 +4704,14 @@ snapshots:
       '@ts-morph/common': 0.23.0
       code-block-writer: 13.0.1
 
-  ts-node@10.9.2(@types/node@22.9.1)(typescript@5.6.3):
+  ts-node@10.9.2(@types/node@22.9.3)(typescript@5.6.3):
     dependencies:
       '@cspotcode/source-map-support': 0.8.1
       '@tsconfig/node10': 1.0.9
       '@tsconfig/node12': 1.0.11
       '@tsconfig/node14': 1.0.3
       '@tsconfig/node16': 1.0.4
-      '@types/node': 22.9.1
+      '@types/node': 22.9.3
       acorn: 8.11.3
       acorn-walk: 8.3.2
       arg: 4.1.3
