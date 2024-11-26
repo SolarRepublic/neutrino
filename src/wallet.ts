@@ -9,8 +9,7 @@ import type {AsJson, Nilable} from '@blake.regalia/belt';
 import type {ProtoEnumCosmosTxSigningSignMode} from '@solar-republic/cosmos-grpc/cosmos/tx/signing/v1beta1/signing';
 import type {CwUint128, CwHexUpper, CwAccountAddr, SlimCoin, WeakUint128Str, CwUint64} from '@solar-republic/types';
 
-import type {SignatureAndRecovery} from '@solar-republic/wasm-secp256k1';
-import type {Secp256k1} from '@solar-republic/wasm-secp256k1/gzipped';
+import type {SignatureAndRecovery, Secp256k1} from '@solar-republic/wasm-secp256k1';
 
 import {text_to_bytes, bytes_to_hex, sha256, canonicalize_json, stringify_json, die} from '@blake.regalia/belt';
 
@@ -23,7 +22,7 @@ import {XC_PROTO_COSMOS_TX_SIGNING_SIGN_MODE_DIRECT} from '@solar-republic/cosmo
 import {encodeCosmosTxAuthInfo, encodeCosmosTxFee, encodeCosmosTxModeInfo, encodeCosmosTxModeInfoSingle, encodeCosmosTxSignDoc, encodeCosmosTxSignerInfo, encodeCosmosTxTxBody, encodeCosmosTxTxRaw} from '@solar-republic/cosmos-grpc/cosmos/tx/v1beta1/tx';
 import {bech32_encode} from '@solar-republic/crypto';
 
-import {initWasmSecp256k1} from '@solar-republic/wasm-secp256k1/gzipped';
+import {initWasmSecp256k1} from '@solar-republic/wasm-secp256k1';
 
 import {remote_service} from './_common';
 import {ripemd160} from './ripemd160.js';
