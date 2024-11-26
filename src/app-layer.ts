@@ -658,7 +658,7 @@ export const tx_responses_parse = async<
 export const secret_contract_responses_decrypt = async(
 	k_contract: SecretContract,
 	[xc_error, sx_res, g_meta, atu8_data]: TxResultTuple,
-	atu8_nonces: Uint8Array[]
+	a_nonces: Uint8Array[]
 ): Promise<[
 	a_error?: [
 		s_error?: string,
@@ -688,7 +688,7 @@ export const secret_contract_responses_decrypt = async(
 			const [atu8_ciphertext] = decodeSecretComputeMsgExecuteContractResponse(atu8_payload);
 
 			// decrypt ciphertext
-			const atu8_plaintext = await k_contract.wasm.decrypt(atu8_ciphertext!, atu8_nonces[i_msg]);
+			const atu8_plaintext = await k_contract.wasm.decrypt(atu8_ciphertext!, a_nonces[i_msg]);
 
 			// decode plaintext
 			s_plaintext = bytes_to_text(base64_to_bytes(bytes_to_text(atu8_plaintext)));
@@ -716,7 +716,7 @@ export const secret_contract_responses_decrypt = async(
 		const [, s_index, sb64_encrypted, si_action] = m_response;
 
 		// decrypt message from contract
-		const atu8_plaintext = await k_contract.wasm.decrypt(base64_to_bytes(sb64_encrypted), atu8_nonces[+s_index]);
+		const atu8_plaintext = await k_contract.wasm.decrypt(base64_to_bytes(sb64_encrypted), a_nonces[+s_index]);
 
 		// decode bytes
 		return [[bytes_to_text(atu8_plaintext) ?? s_error, +s_index]];
