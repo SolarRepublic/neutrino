@@ -354,7 +354,7 @@ export const subscribe_snip52_channels = async<
 		// check each channel operating in txhash mode
 		for(const a_data of a_dynamic) {
 			// compute notification ID
-			const si_notification = await a_data[3](si_txn.toLowerCase());
+			const si_notification = await a_data[3](si_txn);
 
 			// apply notification
 			await f_apply(si_notification, a_data, () => atu8_salt, g_data, h_events);
