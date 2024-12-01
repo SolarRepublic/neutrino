@@ -1,5 +1,5 @@
 /* eslint-disable prefer-const */
-import type {NaiveJsonString, Nilable, Promisable} from '@blake.regalia/belt';
+import type {NaiveJsonString, Promisable} from '@blake.regalia/belt';
 import type {TrustedContextUrl} from '@solar-republic/types';
 
 import {assign, is_function} from '@blake.regalia/belt';

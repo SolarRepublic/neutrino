@@ -2,14 +2,14 @@
 import type {TxMeta} from './app-layer';
 import type {CreateQueryArgsAndAuthParams} from './inferencing';
 import type {SecretContract} from './secret-contract';
-import type {AuthSecret, WeakSecretAccAddr} from './types';
+import type {AuthSecret} from './types';
 import type {Wallet} from './wallet';
 
 import type {Dict, JsonObject} from '@blake.regalia/belt';
 import type {ContractInterface} from '@solar-republic/contractor';
-import type {SlimCoin} from '@solar-republic/types';
+import type {SlimCoin, WeakSecretAccAddr} from '@solar-republic/types';
 
-import {__UNDEFINED, values} from '@blake.regalia/belt';
+import {__UNDEFINED, die, values} from '@blake.regalia/belt';
 
 import {exec_secret_contract, query_secret_contract} from './app-layer.js';
 
@@ -34,12 +34,12 @@ export interface SecretApp<
 	readonly wallet: Wallet;
 	readonly contract: SecretContract;
 
-	/**
-	 * A getter/setter function for gas price
-	 * @param xn_price - if set, replaces the gas price
-	 * @returns the new/current gas price
-	 */
-	price(xn_price?: number): number;
+	// /**
+	//  * A getter/setter function for gas price
+	//  * @param xn_price - if set, replaces the gas price
+	//  * @returns the new/current gas price
+	//  */
+	// price(xn_price?: number): number;
 
 	/**
 	 * A getter/setter function for granter address
@@ -59,6 +59,7 @@ export interface SecretApp<
 	 *  - [1]: `xc_code: number` - error code from chain, or non-OK HTTP status code from the LCD server.
 	 * 		A value of `0` indicates success.
 	 *  - [2]: `s_error: string` - error message from chain or HTTP response body
+	 *  - [3]: `d_res: Response` - HTTP response
 	 *  - [3]: `h_answer?: JsonObject` - contract response as JSON object on success
 	 */
 	query<
@@ -76,6 +77,7 @@ export interface SecretApp<
 		w_result: g_variant['response'] | undefined,
 		xc_code: number,
 		s_error: string,
+		d_res: Response,
 		h_answer?: g_variant['answer'],
 	]>;
 
@@ -125,48 +127,58 @@ export const SecretApp = <
 >(
 	k_wallet: Wallet<'secret'>,
 	k_contract: SecretContract<g_interface>,
-	x_gas_price: number,
 	sa_granter?: WeakSecretAccAddr | '' | undefined
-): SecretApp<g_interface> => ({
-	wallet: k_wallet,
-	contract: k_contract,
+): SecretApp<g_interface> => k_wallet.fees
+	? {
+		wallet: k_wallet,
+		contract: k_contract,
 
-	price: (x_price=x_gas_price) => x_gas_price = x_price,
+		granter: (sa_granter_new=sa_granter) => sa_granter = sa_granter_new,
 
-	granter: (sa_granter_new=sa_granter) => sa_granter = sa_granter_new,
-
-	query: (
-		si_method: string,
-		h_args=__UNDEFINED as any,
-		z_auth=__UNDEFINED as any
-	) => query_secret_contract(
-		k_contract as SecretContract,
-		si_method,
-		// eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-		(h_args || {}) as any,
-		z_auth
-	),
-
-	exec: async(
-		si_method: string,
-		h_args: JsonObject,
-		xg_limit: bigint,
-		a_funds?: SlimCoin[],
-		s_memo?: string
-	) => {
-		// execute the contract
-		const [xc_code, s_res, g_res, g_meta, h_events, si_txn] = await exec_secret_contract(
+		query: (
+			si_method: string,
+			h_args=__UNDEFINED as any,
+			z_auth=__UNDEFINED as any
+		) => query_secret_contract(
 			k_contract as SecretContract,
-			k_wallet,
-			{[si_method]:h_args},
-			exec_fees(xg_limit, x_gas_price),
-			xg_limit+'' as `${bigint}`,
-			sa_granter,
-			a_funds,
-			s_memo
-		);
+			si_method,
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+			(h_args || {}) as any,
+			z_auth
+		),
 
-		// entuple results
-		return [xc_code? __UNDEFINED: g_res? values(g_res)[0] as JsonObject: g_res, xc_code, s_res, g_meta, h_events, si_txn];
-	},
-});
+		exec: async(
+			si_method: string,
+			h_args: JsonObject,
+			xg_limit: bigint,
+			a_funds?: SlimCoin[],
+			s_memo?: string
+		) => {
+			// execute the contract
+			const [xc_code, s_res, g_res, g_meta, h_events, si_txn] = await exec_secret_contract(
+				k_contract as SecretContract,
+				k_wallet,
+				{[si_method]:h_args},
+				k_wallet.fees!(xg_limit),
+				xg_limit+'' as `${bigint}`,
+				sa_granter,
+				a_funds,
+				s_memo
+			);
+
+			// entuple results
+			return [
+				xc_code
+					? __UNDEFINED
+					: g_res
+						? values(g_res)[0] as JsonObject
+						: g_res,
+				xc_code,
+				s_res,
+				g_meta,
+				h_events,
+				si_txn,
+			];
+		},
+	}
+	: die('Must set gas fee on Wallet');

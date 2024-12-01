@@ -8,23 +8,23 @@ import type {CreateQueryArgsAndAuthParams} from './inferencing';
 import type {SecretContract} from './secret-contract';
 import type {EventUnlistener} from './tendermint-event-filter';
 import type {TendermintWs} from './tendermint-ws';
-import type {AuthSecret, LcdRpcWsStruct, CosmosQueryError, JsonRpcResponse, MsgQueryPermit, PermitConfig, WeakSecretAccAddr} from './types';
+import type {AuthSecret, LcdRpcWsStruct, JsonRpcResponse} from './types';
 import type {Wallet} from './wallet';
 
-import type {JsonObject, Nilable, Promisable, NaiveJsonString, Dict, AsJson, ES_TYPE} from '@blake.regalia/belt';
+import type {JsonObject, Nilable, Promisable, NaiveJsonString, Dict} from '@blake.regalia/belt';
 
-import type {ContractInterface, Snip20, Snip24} from '@solar-republic/contractor';
+import type {ContractInterface} from '@solar-republic/contractor';
 
 import type {CosmosBaseAbciTxResponse} from '@solar-republic/cosmos-grpc/cosmos/base/abci/v1beta1/abci';
 import type {CosmosTxGetTxResponse} from '@solar-republic/cosmos-grpc/cosmos/tx/v1beta1/service';
 import type {TendermintAbciExecTxResult} from '@solar-republic/cosmos-grpc/tendermint/abci/types';
-import type {SecretQueryPermit, SlimCoin, WeakAccountAddr, TrustedContextUrl, CwAccountAddr, WeakUint128Str, WeakUintStr, Datatypes} from '@solar-republic/types';
+import type {SlimCoin, WeakAccountAddr, TrustedContextUrl, CwAccountAddr, WeakUint128Str, WeakUintStr, WeakSecretAccAddr, Snip24QueryPermitSigned, Snip24QueryPermitParams, Snip24QueryPermitMsg} from '@solar-republic/types';
 
 import {__UNDEFINED, bytes_to_base64, timeout, base64_to_bytes, bytes_to_text, parse_json_safe, timeout_exec, die, assign, hex_to_bytes, is_number, stringify_json, try_async, is_error, defer} from '@blake.regalia/belt';
 import {safe_base64_to_bytes} from '@solar-republic/cosmos-grpc';
 import {decodeCosmosBaseAbciTxMsgData} from '@solar-republic/cosmos-grpc/cosmos/base/abci/v1beta1/abci';
 import {XC_PROTO_COSMOS_TX_BROADCAST_MODE_SYNC, queryCosmosTxGetTx, submitCosmosTxBroadcastTx} from '@solar-republic/cosmos-grpc/cosmos/tx/v1beta1/service';
-import {decodeSecretComputeMsgExecuteContractResponse, decodeSecretComputeMsgInstantiateContract, decodeSecretComputeMsgInstantiateContractResponse, decodeSecretComputeMsgStoreCode, decodeSecretComputeMsgStoreCodeResponse, SI_MESSAGE_TYPE_SECRET_COMPUTE_MSG_EXECUTE_CONTRACT, SI_MESSAGE_TYPE_SECRET_COMPUTE_MSG_EXECUTE_CONTRACT_RESPONSE, SI_MESSAGE_TYPE_SECRET_COMPUTE_MSG_INSTANTIATE_CONTRACT, SI_MESSAGE_TYPE_SECRET_COMPUTE_MSG_INSTANTIATE_CONTRACT_RESPONSE, SI_MESSAGE_TYPE_SECRET_COMPUTE_MSG_MIGRATE_CONTRACT, SI_MESSAGE_TYPE_SECRET_COMPUTE_MSG_MIGRATE_CONTRACT_RESPONSE, SI_MESSAGE_TYPE_SECRET_COMPUTE_MSG_STORE_CODE, SI_MESSAGE_TYPE_SECRET_COMPUTE_MSG_STORE_CODE_RESPONSE} from '@solar-republic/cosmos-grpc/secret/compute/v1beta1/msg';
+import {decodeSecretComputeMsgExecuteContractResponse, decodeSecretComputeMsgInstantiateContractResponse, decodeSecretComputeMsgStoreCodeResponse, SI_MESSAGE_TYPE_SECRET_COMPUTE_MSG_EXECUTE_CONTRACT_RESPONSE, SI_MESSAGE_TYPE_SECRET_COMPUTE_MSG_INSTANTIATE_CONTRACT_RESPONSE, SI_MESSAGE_TYPE_SECRET_COMPUTE_MSG_MIGRATE_CONTRACT_RESPONSE, SI_MESSAGE_TYPE_SECRET_COMPUTE_MSG_STORE_CODE_RESPONSE} from '@solar-republic/cosmos-grpc/secret/compute/v1beta1/msg';
 
 import {GC_NEUTRINO} from './config.js';
 import {exec_fees} from './secret-app.js';
@@ -215,42 +215,45 @@ const monitor_tx = async(
 		if(e_thrown) return f_shutdown(null, e_thrown as Error);
 
 		// destructure resolved value
-		const [d_res, s_res, g_res] = a_resolved!;
+		const [g_res, g_err, d_res, s_res] = a_resolved!;
 
-		// response body present
+		// successful
 		if(g_res) {
-			// successful
-			if(d_res.ok) {
-				// make fields compulsory
-				const g_tx_res = g_res.tx_response as O.Compulsory<CosmosBaseAbciTxResponse>;
+			// make fields compulsory
+			const g_tx_res = g_res.tx_response as O.Compulsory<CosmosBaseAbciTxResponse>;
 
-				// resolve
-				return f_shutdown(g_tx_res? [
-					g_tx_res.code ?? 0,
-					s_res,
-					assign({
-						log: g_tx_res.raw_log,
-						txhash: g_tx_res.txhash,
-					}, g_tx_res),
-					g_tx_res.data? hex_to_bytes(g_tx_res.data): __UNDEFINED,
-					index_abci_events(g_tx_res.events),
-				]: [
-					-1,
-					s_res,
-				]);
-			}
-
+			// resolve
+			return f_shutdown(g_tx_res? [
+				g_tx_res.code ?? 0,
+				s_res,
+				assign({
+					log: g_tx_res.raw_log,
+					txhash: g_tx_res.txhash,
+				}, g_tx_res),
+				g_tx_res.data? hex_to_bytes(g_tx_res.data): __UNDEFINED,
+				index_abci_events(g_tx_res.events),
+			]: [
+				-1,
+				s_res,
+			]);
+		}
+		// error
+		else if(g_err) {
 			// destructure parsed response body
 			const {
 				code: xc_code,
 				message: s_msg,
-			} = g_res as CosmosQueryError;
+			} = g_err;
 
 			// anything other than tx not found indicates a possible node error
 			if(!/tx not found/.test(s_msg || '')) {
 				// reject Promise
 				return f_shutdown(null, Error(`Unexpected query error to <${gc_node.lcd.origin}>: ${stringify_json(g_res)}`));
 			}
+		}
+		// invalid response body
+		else {
+			return f_shutdown(null, Error(`Server at <${gc_node.lcd.origin}> returned ${d_res.status} code with invalid body: ${sx_res}`));
 		}
 
 		// repeat
@@ -380,7 +383,7 @@ export const broadcast_result = async(
 	const [f_unlisten, dp_monitor, fke_monitor, f_set_res] = await monitor_tx(gc_node, si_txn, z_stream);
 
 	// attempt to submit tx
-	const [d_res, sx_res_broadcast, g_res] = await submitCosmosTxBroadcastTx(gc_node.lcd, atu8_raw, XC_PROTO_COSMOS_TX_BROADCAST_MODE_SYNC);
+	const [g_res, g_err, d_res, sx_res_broadcast] = await submitCosmosTxBroadcastTx(gc_node.lcd, atu8_raw, XC_PROTO_COSMOS_TX_BROADCAST_MODE_SYNC);
 
 	// set value
 	f_set_res(sx_res_broadcast);
@@ -416,6 +419,7 @@ export const broadcast_result = async(
  *  - [0]: `xc_code: number` - error code from chain, or non-OK HTTP status code from the LCD server.
  * 		A value of `0` indicates success.
  *  - [1]: `s_error: string` - error message from chain or HTTP response body
+ *  - [2]: `d_res: Response` - HTTP response
  *  - [3]: `h_answer?: JsonObject` - contract response as JSON object on success
  */
 // eslint-disable-next-line @typescript-eslint/naming-convention
@@ -426,7 +430,7 @@ export const query_secret_contract_raw = async<
 >(
 	k_contract: SecretContract<g_interface>,
 	h_query: g_variant['msg']
-): Promise<[xc_code: number, s_error: string, h_answer?: g_variant['answer']]> => k_contract.query(h_query);
+): Promise<[xc_code: number, s_error: string, d_res: Response, h_answer?: g_variant['answer']]> => k_contract.query(h_query);
 
 
 /**
@@ -503,6 +507,7 @@ export interface QueryContractInfer {
 		w_result: g_variant['response'] | undefined,
 		xc_code_x: number,
 		s_error: string,
+		d_res: Response,
 		h_answer?: g_variant['answer'],
 	]>;
 }
@@ -525,7 +530,7 @@ export const query_secret_contract: QueryContractInfer = async(
 	k_contract: SecretContract,
 	si_method: string,
 	...[h_args, z_auth]
-): Promise<[w_result: JsonObject | undefined, xc_code_p: number, s_error: string, h_answer?: JsonObject]> => {
+): Promise<[w_result: JsonObject | undefined, xc_code_p: number, s_error: string, d_res: Response, h_answer?: JsonObject]> => {
 	// debug
 	if(import.meta.env?.DEV) {
 		console.groupCollapsed(`❓ ${si_method}`);
@@ -535,22 +540,22 @@ export const query_secret_contract: QueryContractInfer = async(
 	}
 
 	// query the contract
-	const a_response = await query_secret_contract_raw(k_contract, format_secret_query(si_method, h_args || {}, z_auth));
+	const a4_response = await query_secret_contract_raw(k_contract, format_secret_query(si_method, h_args || {}, z_auth));
 
 	// debug
 	if(import.meta.env?.DEV) {
 		console.groupCollapsed(`🛰️ ${si_method}`);
-		console.debug(`Query response [code: ${a_response[0]}] from ${k_contract.addr} (${k_contract.info.label}):`);
-		console.debug(a_response[2]);
+		console.debug(`Query response [code: ${a4_response[0]}] from ${k_contract.addr} (${k_contract.info.label}):`);
+		console.debug(a4_response[3]);
 		console.groupEnd();
 	}
 
 	// put unwrapped result in front
 	return [
-		a_response[0]
+		a4_response[0]
 			? __UNDEFINED
-			: (a_response[2] as JsonObject)[si_method] as JsonObject,
-		...a_response,
+			: (a4_response[3] as JsonObject)[si_method] as JsonObject,
+		...a4_response,
 	];
 };
 
@@ -862,16 +867,16 @@ export const sign_secret_query_permit = async(
 	si_permit: string,
 	a_tokens: WeakAccountAddr<'secret'>[],
 	a_permissions: string[]
-): Promise<SecretQueryPermit> => {
+): Promise<Snip24QueryPermitSigned> => {
 	// prep params
-	const g_params: PermitConfig = {
+	const g_params: Snip24QueryPermitParams = {
 		permit_name: si_permit,
 		allowed_tokens: a_tokens as CwAccountAddr<'secret'>[],
 		permissions: a_permissions,
 	};
 
 	// sign query permit
-	const [atu8_signature, g_signed] = await sign_amino<[MsgQueryPermit]>(k_wallet, [{
+	const [atu8_signature, g_signed] = await sign_amino<[Snip24QueryPermitMsg]>(k_wallet, [{
 		type: 'query_permit',
 		value: g_params,
 	}], [['0', 'uscrt']], '1', ['0', '0']);

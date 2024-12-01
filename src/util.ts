@@ -4,7 +4,7 @@ import type {Dict, JsonValue} from '@blake.regalia/belt';
 import type {NetworkJsonResponse} from '@solar-republic/cosmos-grpc';
 import type {TendermintAbciEvent} from '@solar-republic/cosmos-grpc/tendermint/abci/types';
 
-import {bytes, each, die, is_string, is_function, is_array, try_sync} from '@blake.regalia/belt';
+import {bytes, each, die, is_string, is_function, is_array} from '@blake.regalia/belt';
 import {safe_base64_to_text} from '@solar-republic/cosmos-grpc';
 
 
@@ -83,7 +83,7 @@ export const successful = async <
 	f_task: (...a_args: a_args) => Promise<NetworkJsonResponse<w_out>>,
 	...a_args: a_args
 ): Promise<NonNullable<w_out>> => {
-	const [d_res, s_res, g_res] = await f_task(...a_args);
+	const [g_res, g_err, d_res, s_res] = await f_task(...a_args);
 
 	// response body present and operation was successful
 	if(g_res && d_res.ok) {

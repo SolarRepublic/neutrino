@@ -2,12 +2,12 @@
 import type {Pop} from 'ts-toolbelt/out/List/Pop';
 
 import type {SecretContract} from './secret-contract';
-import type {AuthSecret, MsgNotificationSeedUpdate, NotificationSeedUpdate, NotificationSeedUpdateConfig, TxResultWrapper, WeakSecretAccAddr, CwSecretAccAddr} from './types';
+import type {AuthSecret, TxResultWrapper} from './types';
 import type {Wallet} from './wallet';
 
 import type {CborValue, Dict, Promisable} from '@blake.regalia/belt';
 import type {Snip52, ContractInterface, Snip52Schema} from '@solar-republic/contractor';
-import type {CwBase64, TrustedContextUrl} from '@solar-republic/types';
+import type {CwBase64, CwSecretAccAddr, Snip52NotificationSeedUpdateMsg, Snip52NotificationSeedUpdateParams, Snip52NotificationSeedUpdateSigned, TrustedContextUrl, WeakSecretAccAddr} from '@solar-republic/types';
 
 import {hmac, base64_to_bytes, text_to_bytes, bytes_to_base64, sha256, biguint_to_bytes_be, bytes_to_biguint_be, cbor_decode_trivial, die, is_string, entries, bytes, hex_to_bytes, try_sync, create, assign, sha512, hkdf, SI_HASH_ALGORITHM_SHA512} from '@blake.regalia/belt';
 
@@ -379,15 +379,15 @@ export const sign_seed_update = async(
 	k_wallet: Wallet,
 	sa_contract: WeakSecretAccAddr,
 	sb64_previous: CwBase64
-): Promise<NotificationSeedUpdate> => {
+): Promise<Snip52NotificationSeedUpdateSigned> => {
 	// prep params
-	const g_params: NotificationSeedUpdateConfig = {
+	const g_params: Snip52NotificationSeedUpdateParams = {
 		contract: sa_contract as CwSecretAccAddr,
 		previous_seed: sb64_previous,
 	};
 
 	// sign query permit
-	const [atu8_signature, g_signed] = await sign_amino<[MsgNotificationSeedUpdate]>(k_wallet, [{
+	const [atu8_signature, g_signed] = await sign_amino<[Snip52NotificationSeedUpdateMsg]>(k_wallet, [{
 		type: 'notification_seed',
 		value: g_params,
 	}], [['0', 'uscrt']], '1', ['0', '0']);

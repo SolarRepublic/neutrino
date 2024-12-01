@@ -1,7 +1,6 @@
-import type {TendermintWsRestartParam} from './tendermint-ws';
 import type {JsonRpcResponse, TendermintEvent, TxResultWrapper} from './types';
 import type {StringFilter} from './util';
-import type {Dict, JsonObject, Promisable} from '@blake.regalia/belt';
+import type {Dict, Promisable} from '@blake.regalia/belt';
 import type {TrustedContextUrl} from '@solar-republic/types';
 
 import {parse_json_safe, entries, remove, try_sync, values, is_function, __UNDEFINED} from '@blake.regalia/belt';

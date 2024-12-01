@@ -3,18 +3,18 @@
 
 import type {S} from 'ts-toolbelt';
 
-import type {CosmosQueryError, CwSecretAccAddr, LcdRpcStruct, RemoteServiceArg, SlimAuthInfo, TypedAminoMsg, TypedStdSignDoc, WeakSecretAccAddr} from './types';
+import type {CosmosQueryError, LcdRpcStruct, RemoteServiceArg, SlimAuthInfo} from './types';
 
 import type {AsJson, Nilable} from '@blake.regalia/belt';
 import type {ProtoEnumCosmosTxSigningSignMode} from '@solar-republic/cosmos-grpc/cosmos/tx/signing/v1beta1/signing';
-import type {CwUint128, CwHexUpper, CwAccountAddr, SlimCoin, WeakUint128Str, CwUint64} from '@solar-republic/types';
+import type {CwUint128, CwHexUpper, CwAccountAddr, SlimCoin, WeakUint128Str, CwUint64, TypedAminoMsg, TypedStdSignDoc, WeakSecretAccAddr, CwSecretAccAddr} from '@solar-republic/types';
 
 import type {SignatureAndRecovery, Secp256k1} from '@solar-republic/wasm-secp256k1';
 
-import {text_to_bytes, bytes_to_hex, sha256, canonicalize_json, stringify_json, die} from '@blake.regalia/belt';
+import {text_to_bytes, bytes_to_hex, sha256, canonicalize_json, stringify_json, die, __UNDEFINED} from '@blake.regalia/belt';
 
 import {any, restruct_coin} from '@solar-republic/cosmos-grpc';
-import {destructCosmosAuthBaseAccount} from '@solar-republic/cosmos-grpc/cosmos/auth/v1beta1/auth';
+import {destructCosmosAuthBaseAccount, type CosmosAuthBaseAccount} from '@solar-republic/cosmos-grpc/cosmos/auth/v1beta1/auth';
 import {destructCosmosAuthQueryAccountResponse, queryCosmosAuthAccount} from '@solar-republic/cosmos-grpc/cosmos/auth/v1beta1/query';
 import {encodeCosmosCryptoSecp256k1PubKey} from '@solar-republic/cosmos-grpc/cosmos/crypto/secp256k1/keys';
 import {XC_PROTO_COSMOS_TX_SIGNING_SIGN_MODE_DIRECT} from '@solar-republic/cosmos-grpc/cosmos/tx/signing/v1beta1/signing';
@@ -26,6 +26,7 @@ import {initWasmSecp256k1} from '@solar-republic/wasm-secp256k1';
 
 import {remote_service} from './_common';
 import {ripemd160} from './ripemd160.js';
+import {exec_fees} from './secret-app';
 import {random_32} from './util.js';
 
 let Y_SECP256K1: Secp256k1;
@@ -33,6 +34,11 @@ let Y_SECP256K1: Secp256k1;
 
 type Zeroable<n_type extends number> = n_type | 0 | undefined;
 type Emptyable<s_type extends string> = s_type | '' | undefined;
+
+/**
+ * Tuple for specifying preferences for default gas price and denom
+ */
+export type GasPreferences = [x_gas_price: number, s_denom: string];
 
 
 export interface Wallet<s_hrp extends string=string> extends LcdRpcStruct {
@@ -57,6 +63,14 @@ export interface Wallet<s_hrp extends string=string> extends LcdRpcStruct {
 	 * @param atu8_k - optional entropy to use (defaults to secure random 32 bytes)
 	 */
 	sign(atu8_hash: Uint8Array, atu8_k?: Uint8Array): Promise<SignatureAndRecovery>;
+
+	/**
+	 * If gas preferences were specified, produces a `[`{@link SlimCoin `SlimCoin`}`]` containing
+	 * the gas fees needed to execute a transaction with the given gas limit
+	 * @param z_limit - the gas limit argument passed to {@link exec_fees}
+	 */
+	// eslint-disable-next-line @typescript-eslint/member-ordering
+	fees?: ((z_limit: Parameters<typeof exec_fees>[0]) => ReturnType<typeof exec_fees>) | undefined;
 }
 
 /**
@@ -78,6 +92,7 @@ export const pubkey_to_bech32 = async<
 	return bech32_encode(s_hrp, atu8_ripemd160);
 };
 
+
 /**
  * Creates a Secp256k1 wallet instance configured for a specific Cosmos chain and LCD/RPC endpoints,
  * capable of signing arbitrary message hashes.
@@ -93,6 +108,7 @@ export const Wallet = async<s_hrp extends string, si_chain extends string=string
 	si_chain: si_chain,
 	z_lcd: RemoteServiceArg,
 	z_rpc: RemoteServiceArg,
+	a_gas_prefs?: GasPreferences,
 	s_hrp: s_hrp=si_chain.replace(/-.*/, '') as s_hrp
 ): Promise<Wallet<string extends s_hrp? S.Split<si_chain, '-'>[0]: s_hrp>> => {
 	// init secp256k1 WASM
@@ -116,6 +132,10 @@ export const Wallet = async<s_hrp extends string, si_chain extends string=string
 		pk33: atu8_pk33,
 
 		sign: (atu8_hash: Uint8Array, atu8_k=random_32()) => Promise.resolve(Y_SECP256K1.sign(atu8_sk, atu8_hash, atu8_k)),
+
+		fees: a_gas_prefs
+			? z_limit => exec_fees(z_limit, ...a_gas_prefs)
+			: __UNDEFINED,
 	};
 };
 
@@ -131,21 +151,21 @@ export const auth = async(g_wallet: Pick<Wallet, 'lcd' | 'addr'>, a_auth?: Nilab
 	// resolve auth data
 	if(!a_auth) {
 		// submit gRPC-gateway query and destructure the response, extracting the response JSON
-		let [d_res, s_res, g_res] = await queryCosmosAuthAccount(g_wallet.lcd, g_wallet.addr);
+		let [g_res, g_err, d_res, s_res] = await queryCosmosAuthAccount(g_wallet.lcd, g_wallet.addr);
 
-		// JSON response
+		// success
 		if(g_res) {
-			// ok status
-			if(d_res.ok) {
-				// destructure the response JSON to get the account struct
-				let g_account = destructCosmosAuthQueryAccountResponse(g_res)[0];
+			// destructure the response JSON to get the account struct
+			let [g_account] = destructCosmosAuthQueryAccountResponse(g_res);
 
-				// destructure the account struct to get its account and sequence numbers
-				[,, sg_account, sg_sequence] = destructCosmosAuthBaseAccount(g_account!);
-			}
+			// destructure the account struct to get its account and sequence numbers
+			[,, sg_account, sg_sequence] = destructCosmosAuthBaseAccount(g_account as CosmosAuthBaseAccount);
+		}
+		// error
+		else if(g_err) {
 			// anything other than account not found
-			else if(5 !== (g_res as CosmosQueryError).code) {
-				die((g_res as CosmosQueryError).message);
+			if(5 !== g_err.code) {
+				die(g_err.message);
 			}
 		}
 		// no data
@@ -194,7 +214,7 @@ export const sign_amino = async<
 	const [sg_account, sg_sequence] = await auth(k_wallet, a_auth);
 
 	// produce sign doc
-	const g_signdoc = canonicalize_json({
+	const g_signdoc: g_signed = canonicalize_json({
 		chain_id: k_wallet.ref,
 		account_number: sg_account,
 		sequence: sg_sequence,
@@ -202,8 +222,8 @@ export const sign_amino = async<
 		fee: {
 			amount: a_fees.map(restruct_coin),
 			gas: sg_limit,
-			granter: sa_granter as CwSecretAccAddr,
-			payer: sa_payer as CwSecretAccAddr,
+			granter: sa_granter,
+			payer: sa_payer,
 		},
 		memo: s_memo || '',
 	}) as g_signed;

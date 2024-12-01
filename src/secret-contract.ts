@@ -5,13 +5,13 @@ import type {O} from 'ts-toolbelt';
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import type {query_secret_contract_raw} from './app-layer';
-import type {ContractInfo, CosmosQueryError, RemoteService, RemoteServiceArg, WeakSecretAccAddr} from './types';
+import type {ContractInfo, RemoteServiceArg} from './types';
 
 import type {Dict, JsonObject, Nilable} from '@blake.regalia/belt';
 
 import type {SecretAccAddr, ContractInterface} from '@solar-republic/contractor';
 import type {SecretComputeContractInfo} from '@solar-republic/cosmos-grpc/secret/compute/v1beta1/types';
-import type {CwHexLower, CwUint32, SlimCoin, WeakUintStr} from '@solar-republic/types';
+import type {CwHexLower, CwUint32, RemoteServiceDescriptor, SlimCoin, WeakSecretAccAddr} from '@solar-republic/types';
 
 import {__UNDEFINED, base64_to_bytes, base64_to_text, bytes_to_text, is_string, parse_json, stringify_json} from '@blake.regalia/belt';
 
@@ -57,7 +57,7 @@ export type SecretContract<
 	/**
 	 * URL of the LCD endpoint
 	 */
-	lcd: RemoteService;
+	lcd: RemoteServiceDescriptor;
 
 	/**
 	 * Contract address
@@ -86,11 +86,13 @@ export type SecretContract<
 	 *  - [0]: `xc_code: number` - error code from chain, or non-OK HTTP status code from the LCD server.
 	 * 		A value of `0` indicates success.
 	 *  - [1]: `s_error: string | undefined` - error message from chain or HTTP response body
-	 *  - [3]: `h_answer?: JsonObject` - contract response as JSON object on success
+	 *  - [3]: `d_res: Response` - HTTP response object
+	 *  - [4]: `h_answer?: JsonObject` - contract response as JSON object on success
 	 */
 	query(h_query: JsonObject, g_out?: SecretContractQueryIntermediates): Promise<[
 		xc_code: number,
 		s_error: string,
+		d_res: Response,
 		g_result: JsonObject,
 	]>;
 
@@ -233,59 +235,56 @@ export const SecretContract = async<
 			const atu8_nonce = g_out.n = atu8_msg.slice(0, 32);
 
 			// submit query
-			let [d_res_query, s_res_query, g_res_query] = await querySecretComputeQuerySecretContract(z_lcd, sa_contract, atu8_msg);
+			let [g_res_query, g_err_query, d_res_query, s_res_query] = await querySecretComputeQuerySecretContract(z_lcd, sa_contract, atu8_msg);
 
-			// JSON response
+			// success
 			if(g_res_query) {
-				// ok status
-				if(d_res_query.ok) {
-					// destructure
-					const [atu8_ciphertext] = destructSecretComputeQuerySecretContractResponse(g_res_query);
+				// destructure
+				const [atu8_ciphertext] = destructSecretComputeQuerySecretContractResponse(g_res_query);
 
-					// decrypt response
-					const atu8_plaintext = await k_wasm.decrypt(atu8_ciphertext!, atu8_nonce);
+				// decrypt response
+				const atu8_plaintext = await k_wasm.decrypt(atu8_ciphertext!, atu8_nonce);
 
-					// decode result
-					const sb64_response = bytes_to_text(atu8_plaintext);
-					const sx_result = base64_to_text(sb64_response);
+				// decode result
+				const sb64_response = bytes_to_text(atu8_plaintext);
+				const sx_result = base64_to_text(sb64_response);
 
-					// return response and json
-					return [0, __UNDEFINED, parse_json(sx_result)];
+				// return response and json
+				return [0, __UNDEFINED, d_res_query, parse_json(sx_result)];
+			}
+			// contract error
+			else if(g_err_query) {
+				// destructure as error
+				let {
+					code: xc_code,
+					message: s_message,
+				} = g_err_query;
+
+				// ensure non-zero
+				xc_code ||= -1 as CwUint32;
+
+				// encrypted error message
+				const m_error = /encrypted: ([\w+/=]+)/.exec(s_message || '');
+				if(m_error) {
+					// decode base64 string
+					const atu8_ciphertext = base64_to_bytes(m_error[1]);
+
+					// decrypt the ciphertext
+					const atu8_plaintext = await k_wasm.decrypt(atu8_ciphertext, atu8_nonce);
+
+					// decode
+					const sx_plaintext = bytes_to_text(atu8_plaintext);
+
+					// return tuple
+					return [xc_code, sx_plaintext, d_res_query];
 				}
-				// contract error
-				else {
-					// destructure as error
-					let {
-						code: xc_code,
-						message: s_message,
-					} = g_res_query as CosmosQueryError;
 
-					// ensure non-zero
-					xc_code ||= -1 as CwUint32;
-
-					// encrypted error message
-					const m_error = /encrypted: ([\w+/=]+)/.exec(s_message || '');
-					if(m_error) {
-						// decode base64 string
-						const atu8_ciphertext = base64_to_bytes(m_error[1]);
-
-						// decrypt the ciphertext
-						const atu8_plaintext = await k_wasm.decrypt(atu8_ciphertext, atu8_nonce);
-
-						// decode
-						const sx_plaintext = bytes_to_text(atu8_plaintext);
-
-						// return tuple
-						return [xc_code, sx_plaintext];
-					}
-
-					// plaintext error
-					return [xc_code, s_message];
-				}
+				// plaintext error
+				return [xc_code, s_message, d_res_query];
 			}
 
 			// some other error
-			return [d_res_query.status, s_res_query];
+			return [d_res_query.status, s_res_query, d_res_query];
 		},
 
 		// execute contract
