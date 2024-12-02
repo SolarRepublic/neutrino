@@ -11,7 +11,7 @@ import type {CwUint128, CwHexUpper, CwAccountAddr, SlimCoin, WeakUint128Str, CwU
 
 import type {SignatureAndRecovery, Secp256k1} from '@solar-republic/wasm-secp256k1';
 
-import {text_to_bytes, bytes_to_hex, sha256, canonicalize_json, stringify_json, die, __UNDEFINED} from '@blake.regalia/belt';
+import {text_to_bytes, bytes_to_hex, sha256, canonicalize_json, stringify_json, die, __UNDEFINED, is_number} from '@blake.regalia/belt';
 
 import {any, restruct_coin} from '@solar-republic/cosmos-grpc';
 import {destructCosmosAuthBaseAccount, type CosmosAuthBaseAccount} from '@solar-republic/cosmos-grpc/cosmos/auth/v1beta1/auth';
@@ -308,10 +308,10 @@ export const sign_direct = async(
  */
 export const create_tx_body = async(
 	xc_sign_mode: ProtoEnumCosmosTxSigningSignMode,
-	k_wallet: Parameters<typeof auth>[0] & Pick<Wallet, 'pk33'>,
+	k_wallet: Parameters<typeof auth>[0] & Pick<Wallet, 'pk33' | 'fees'>,
 	a_msgs: Uint8Array[],
-	a_fees: SlimCoin[],
 	zg_limit: bigint | WeakUint128Str,
+	z_fees?: [SlimCoin, ...SlimCoin[]] | number,
 	a_auth?: Nilable<SlimAuthInfo> | 0,  // eslint-disable-line @typescript-eslint/naming-convention
 	s_memo?: string,
 	sa_granter?: Emptyable<WeakSecretAccAddr>,
@@ -340,7 +340,10 @@ export const create_tx_body = async(
 	);
 
 	// encode fee
-	const atu8_fee = encodeCosmosTxFee(a_fees, zg_limit+'' as WeakUint128Str, sa_payer, sa_granter);
+	const atu8_fee = encodeCosmosTxFee(
+		k_wallet.fees?.(zg_limit) ?? (is_number(z_fees)? exec_fees(zg_limit, z_fees): z_fees || die('Must specify fee')),
+		zg_limit+'' as WeakUint128Str, sa_payer, sa_granter
+	);
 
 	// encode auth info
 	const atu8_auth = encodeCosmosTxAuthInfo([atu8_signer], atu8_fee);
@@ -372,8 +375,8 @@ export const create_tx_body = async(
 export const create_and_sign_tx_direct = async(
 	k_wallet: Wallet,
 	a_msgs: Uint8Array[],
-	a_fees: SlimCoin[],
 	zg_limit: bigint | WeakUint128Str,
+	z_fees?: [SlimCoin, ...SlimCoin[]] | number,
 	a_auth?: Nilable<SlimAuthInfo> | 0,  // eslint-disable-line @typescript-eslint/naming-convention
 	s_memo?: string,
 	sa_granter?: Emptyable<WeakSecretAccAddr>,
@@ -388,7 +391,7 @@ export const create_and_sign_tx_direct = async(
 		atu8_auth,
 		atu8_body,
 		sg_account,
-	] = await create_tx_body(XC_PROTO_COSMOS_TX_SIGNING_SIGN_MODE_DIRECT, k_wallet, a_msgs, a_fees, zg_limit, a_auth, s_memo, sa_granter, sa_payer);
+	] = await create_tx_body(XC_PROTO_COSMOS_TX_SIGNING_SIGN_MODE_DIRECT, k_wallet, a_msgs, zg_limit, z_fees, a_auth, s_memo, sa_granter, sa_payer);
 
 	// sign direct
 	const [atu8_signature, atu8_signdoc] = await sign_direct(k_wallet, atu8_auth, atu8_body, sg_account);

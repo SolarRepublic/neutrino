@@ -204,30 +204,38 @@ export const subscribe_snip52_channels = async<
 				h: s_param_h,
 			} = g_channel.parameters;
 
+			// convert k param to bigint
+			const xg_param_k = BigInt(n_param_k);
+
+			// compute number of bits needed for m param
+			const xg_bits = BigInt(Math.log2(n_param_m));
+
+			// prep mask for bottom bits
+			const xg_mask_lo = (1n << xg_bits) - 1n;
+
 			// size of each packet in bytes
 			const nb_packet = (g_channel.data as Snip52Schema.PacketDescriptor).packetSize;
 
 			// create bloom filter checker
 			h_blooms[si_channel] = async(si_txn, atu8_value) => {
 				// create filter as bigint
-				const xg_filter = bytes_to_biguint_be(atu8_value.subarray(0, n_param_m / 8));
+				const xg_filter = bytes_to_biguint_be(atu8_value.subarray(0, (n_param_m / 8) | 0));
 
 				// create notification id
 				const atu8_notification_id = await f_notification_id(si_txn);
 
 				// hash id
-				const atu8_superhash = await H_BLOOM_HASH_FUNCTIONS[s_param_h](atu8_notification_id);
+				const xg_superhash = bytes_to_biguint_be(await H_BLOOM_HASH_FUNCTIONS[s_param_h](atu8_notification_id));
 
-				// each hash
+				// check against filter
 				FILTER_CHECK: {
 					// each hash
-					for(let i_hash=0; i_hash<n_param_k; i_hash++) {
+					for(let xg_hash=0n; xg_hash<xg_param_k; xg_hash++) {
+						// 1 << bitsToUintBe(sliceBits(bloomHash, i*9, (i+1)*9))
+						const xg_toggle = 1n << ((xg_superhash >> (256n - xg_bits - (xg_hash * xg_bits))) & xg_mask_lo)
+	
 						// one of the hashes doesn't match; not meant for this recipient
-						if(xg_filter !== (xg_filter & (
-							1n << bytes_to_biguint_be(
-								atu8_superhash.subarray(i_hash * n_param_k, (i_hash + 1) * n_param_k)
-							)
-						))) break FILTER_CHECK;
+						if(!(xg_filter & xg_toggle)) break FILTER_CHECK;
 					}
 
 					// ref data portion
@@ -363,7 +371,7 @@ export const subscribe_snip52_channels = async<
 		// check each channel operating in bloom mode
 		for(const [si_channel, f_attempt] of entries(h_blooms)) {
 			// lookup payloads
-			for(const sb64_payload of h_events[`wasm.snip52:#${si_channel}`]) {
+			for(const sb64_payload of h_events[`wasm.snip52:#${si_channel}`] || []) {
 				// decode
 				const atu8_value = base64_to_bytes(sb64_payload);
 

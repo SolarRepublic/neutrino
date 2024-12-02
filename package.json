@@ -1,6 +1,6 @@
 {
   "name": "@solar-republic/neutrino",
-  "version": "1.7.0-beta.15",
+  "version": "1.7.0-beta.23",
   "description": "Ultra light-weight client library for Secret Network",
   "homepage": "https://starshell.net/",
   "repository": "github:SolarRepublic/neutrino",
@@ -69,7 +69,7 @@
   },
   "dependencies": {
     "@blake.regalia/belt": "^0.45.3",
-    "@solar-republic/cosmos-grpc": "^0.18.0-beta.2",
+    "@solar-republic/cosmos-grpc": "^0.18.0-beta.6",
     "@solar-republic/crypto": "^0.2.14",
     "@solar-republic/wasm-secp256k1": "^0.4.2"
   },

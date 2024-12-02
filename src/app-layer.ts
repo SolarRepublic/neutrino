@@ -765,8 +765,8 @@ export const exec_secret_contract = async<
 	h_exec: ContractInterface extends g_interface? JsonObject: {
 		[si_each in as_methods]: h_group[si_each]['msg'];
 	},
-	z_fees: [SlimCoin, ...SlimCoin[]] | number,
 	z_limit: WeakUint128Str | bigint,
+	z_fees?: [SlimCoin, ...SlimCoin[]] | number,
 	sa_granter?: WeakSecretAccAddr | '',
 	a_funds?: SlimCoin[],
 	s_memo?: string
@@ -785,8 +785,8 @@ export const exec_secret_contract = async<
 	let [atu8_tx_raw, , si_txn] = await create_and_sign_tx_direct(
 		k_wallet,
 		[atu8_msg],
-		is_number(z_fees)? exec_fees(z_limit, z_fees): z_fees,
 		z_limit+'' as WeakUint128Str,
+		z_fees,
 		0,
 		s_memo,
 		sa_granter

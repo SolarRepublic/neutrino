@@ -12,8 +12,8 @@ importers:
         specifier: ^0.45.3
         version: 0.45.3
       '@solar-republic/cosmos-grpc':
-        specifier: ^0.18.0-beta.2
-        version: 0.18.0-beta.2
+        specifier: ^0.18.0-beta.6
+        version: 0.18.0-beta.6
       '@solar-republic/crypto':
         specifier: ^0.2.14
         version: 0.2.14
@@ -482,8 +482,8 @@ packages:
     resolution: {integrity: sha512-hMqGh97K1vrsYbdqRhXgHnwYH3UVYoQJywWfS9Sahnxh74K+pRpku3L/kV/Wk/wxJGaD0Rxoe22Afqf5YfupmQ==}
     hasBin: true
 
-  '@solar-republic/cosmos-grpc@0.18.0-beta.2':
-    resolution: {integrity: sha512-K6Wn+HLDI9wanb5G8ThXHtsXZZCzWxFTe/UV1lr3TtCEbKCu/Unkcn8m+CZhb6Lc/qP3+aW7d+LyMUeH3sH0zQ==}
+  '@solar-republic/cosmos-grpc@0.18.0-beta.6':
+    resolution: {integrity: sha512-KXSy7ZWyF+ML4QzNOUhTIX8RJnFYG+A6duWoeFw6ZM2/ifB7lFttaNFXberhcISSE7igt8TFrkeavMM+6YLEyQ==}
     hasBin: true
 
   '@solar-republic/crypto@0.2.14':
@@ -2777,7 +2777,7 @@ snapshots:
       ts-toolbelt: 9.6.0
       yargs: 17.7.2
 
-  '@solar-republic/cosmos-grpc@0.18.0-beta.2':
+  '@solar-republic/cosmos-grpc@0.18.0-beta.6':
     dependencies:
       '@solar-republic/crypto': 0.2.14
       google-protobuf: 3.21.4

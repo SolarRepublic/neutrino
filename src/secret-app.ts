@@ -159,8 +159,8 @@ export const SecretApp = <
 				k_contract as SecretContract,
 				k_wallet,
 				{[si_method]:h_args},
-				k_wallet.fees!(xg_limit),
 				xg_limit+'' as `${bigint}`,
+				__UNDEFINED,
 				sa_granter,
 				a_funds,
 				s_memo
