@@ -43,8 +43,8 @@ importers:
         specifier: ^5.0.7
         version: 5.0.7(rollup@4.18.0)
       '@solar-republic/contractor':
-        specifier: ^0.9.7
-        version: 0.9.7
+        specifier: ^0.9.9
+        version: 0.9.9
       '@solar-republic/types':
         specifier: ^0.3.4
         version: 0.3.4
@@ -478,8 +478,8 @@ packages:
     resolution: {integrity: sha512-2bRovzs0nJZFlCN3rXirE4gwxCn97JNjMmwpecqlbgV9WcxX7WRuIrgzx/X7Ib7MYRbyUTpBYE0s2x6AmZXnlg==}
     engines: {node: ^14.17.0 || ^16.13.0 || >=18.0.0}
 
-  '@solar-republic/contractor@0.9.7':
-    resolution: {integrity: sha512-hMqGh97K1vrsYbdqRhXgHnwYH3UVYoQJywWfS9Sahnxh74K+pRpku3L/kV/Wk/wxJGaD0Rxoe22Afqf5YfupmQ==}
+  '@solar-republic/contractor@0.9.9':
+    resolution: {integrity: sha512-C1qxJVRHx7TaaAQc7ivU8QlcdNOBvSaFHNPLdLHjtTRVqgKMV91C7Xh+wY4CkijtaCLCBNr/1721w8xR9OSuuw==}
     hasBin: true
 
   '@solar-republic/cosmos-grpc@0.18.0-beta.6':
@@ -2768,7 +2768,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@solar-republic/contractor@0.9.7':
+  '@solar-republic/contractor@0.9.9':
     dependencies:
       '@blake.regalia/belt': 0.45.3
       '@types/yargs': 17.0.33
