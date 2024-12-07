@@ -782,7 +782,7 @@ export const exec_secret_contract = async<
 	let [atu8_msg, atu8_nonce] = await k_contract.exec(h_exec, k_wallet.addr, a_funds);
 
 	// sign in direct mode
-	let [atu8_tx_raw, , si_txn] = await create_and_sign_tx_direct(
+	let [atu8_tx_raw, si_txn] = await create_and_sign_tx_direct(
 		k_wallet,
 		[atu8_msg],
 		z_limit+'' as WeakUint128Str,

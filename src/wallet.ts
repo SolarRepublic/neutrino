@@ -377,8 +377,8 @@ export const create_and_sign_tx_direct = async(
 	sa_payer?: Emptyable<WeakSecretAccAddr>
 ): Promise<[
 	atu8_raw: Uint8Array,
-	atu8_signdoc: Uint8Array,
 	si_txn: CwHexUpper,
+	atu8_signdoc: Uint8Array,
 ]> => {
 	// create tx
 	const [
@@ -397,7 +397,7 @@ export const create_and_sign_tx_direct = async(
 	const si_txn = bytes_to_hex(await sha256(atu8_raw)).toUpperCase();
 
 	// return tuple of raw tx bytes, sign doc, and tx hash id
-	return [atu8_raw, atu8_signdoc, si_txn];
+	return [atu8_raw, si_txn, atu8_signdoc];
 };
 
 // /**
