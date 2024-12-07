@@ -54,13 +54,14 @@ const wallet = await Wallet(
   import.meta.env.CHAIN_ID,
   import.meta.env.LCD_URL,
   import.meta.env.RPC_URL,
+  [0.125, 'uscrt']  // set default gas price
 );
 
 // create a handle for communicating with some SNIP-20 contract
 const contract = await SecretContract<Snip20>(wallet.lcd, import.meta.env.TOKEN_ADDRESS);
 
-// create a context for querying and executing the contract using the wallet and some gas price
-const token = await SecretApp(wallet, contract, 0.125);
+// create a context for querying and executing the contract as the given wallet
+const token = await SecretApp(wallet, contract);
 
 
 // prepare a viewing key
