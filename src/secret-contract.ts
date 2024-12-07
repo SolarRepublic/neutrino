@@ -144,7 +144,7 @@ export const SecretContract = async<
 	z_lcd: RemoteServiceArg,
 	sa_contract: WeakSecretAccAddr,
 	atu8_seed: Nilable<Uint8Array>=__UNDEFINED,
-	a_padding?: [nb_pad_query?: number, nb_pad_exec?: number],
+	a_block_sizes?: [nb_block_query?: number, nb_block_exec?: number],
 	z_info: KnownContractInfo|ContractCacheOption=XC_CONTRACT_CACHE_ACCEPT
 ): Promise<SecretContract<g_interface>> => {
 	// uniquely identify this request pattern
@@ -231,7 +231,7 @@ export const SecretContract = async<
 		// @ts-expect-error typed in interface
 		async query(h_query, g_out={}) {
 			// encrypt and encode query msg
-			const atu8_msg = await k_wasm.encodeMsg(sb16_code_hash, h_query, a_padding?.[0] ?? GC_NEUTRINO.PAD_QUERY);
+			const atu8_msg = await k_wasm.encodeMsg(sb16_code_hash, h_query, a_block_sizes?.[0] ?? GC_NEUTRINO.PAD_QUERY);
 
 			// extract nonce
 			const atu8_nonce = g_out.n = atu8_msg.slice(0, 32);
@@ -292,7 +292,7 @@ export const SecretContract = async<
 		// execute contract
 		async exec(h_exec, sa_sender, a_funds=[]) {
 			// encrypt and encode execution body
-			const atu8_body = await k_wasm.encodeMsg(sb16_code_hash, h_exec, a_padding?.[1] ?? GC_NEUTRINO.PAD_EXEC);
+			const atu8_body = await k_wasm.encodeMsg(sb16_code_hash, h_exec, a_block_sizes?.[1] ?? GC_NEUTRINO.PAD_EXEC);
 
 			// extract nonce
 			const atu8_nonce = atu8_body.slice(0, 32);
