@@ -131,7 +131,7 @@ export const Wallet = async<s_hrp extends string, si_chain extends string=string
 
 		pk33: atu8_pk33,
 
-		sign: (atu8_hash: Uint8Array, atu8_k=random_32()) => Promise.resolve(Y_SECP256K1.sign(atu8_sk, atu8_hash, atu8_k)),
+		sign: (atu8_msg: Uint8Array, atu8_k=random_32()) => sha256(atu8_msg).then(atu8_hash => Y_SECP256K1.sign(atu8_sk, atu8_hash, atu8_k)),
 
 		fees: a_gas_prefs
 			? z_limit => exec_fees(z_limit, ...a_gas_prefs)
@@ -235,11 +235,8 @@ export const sign_amino = async<
 			.replace(/</g, '\\u003c')
 			.replace(/>/g, '\\u003e'));
 
-	// hash message
-	const atu8_hash = await sha256(atu8_signdoc);
-
 	// sign it
-	const [atu8_signature] = await k_wallet.sign(atu8_hash);
+	const [atu8_signature] = await k_wallet.sign(atu8_signdoc);
 
 	// tuple of signature and sign doc
 	return [atu8_signature, g_signdoc];
@@ -281,11 +278,8 @@ export const sign_direct = async(
 	// encode signdoc
 	const atu8_doc = encodeCosmosTxSignDoc(atu8_body, atu8_auth, k_wallet.ref, sg_account);
 
-	// hash message
-	const atu8_hash = await sha256(atu8_doc);
-
-	// sign message hash
-	const [atu8_signature] = await k_wallet.sign(atu8_hash);
+	// sign message
+	const [atu8_signature] = await k_wallet.sign(atu8_doc);
 
 	// return tuple of signature and signdoc
 	return [atu8_signature, atu8_doc];
