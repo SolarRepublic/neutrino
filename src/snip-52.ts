@@ -7,6 +7,7 @@ import type {Wallet} from './wallet';
 
 import type {CborValue, Dict, Promisable} from '@blake.regalia/belt';
 import type {Snip52, ContractInterface, Snip52Schema} from '@solar-republic/contractor';
+import type {TendermintAbciTxResult} from '@solar-republic/cosmos-grpc/tendermint/abci/types';
 import type {CwBase64, CwSecretAccAddr, Snip52NotificationSeedUpdateMsg, Snip52NotificationSeedUpdateParams, Snip52NotificationSeedUpdateSigned, TrustedContextUrl, WeakSecretAccAddr} from '@solar-republic/types';
 
 import {hmac, base64_to_bytes, text_to_bytes, bytes_to_base64, sha256, biguint_to_bytes_be, bytes_to_biguint_be, cbor_decode_trivial, die, is_string, entries, bytes, hex_to_bytes, try_sync, create, assign, sha512, hkdf, SI_HASH_ALGORITHM_SHA512} from '@blake.regalia/belt';
@@ -44,7 +45,7 @@ const decode_data = (
 	g_schema: Snip52Schema.DataDescriptor
 ): [Snip52Schema.AnyValueSequenced, number] => {
 	// parse datatype
-	const [s_datatype, s_size, s_dim1, s_dim2] = /^(\w+)(\d+)(\[\d+\])?(\[\d+\])?$/.exec(g_schema.type)!;
+	const [, s_datatype, s_size, s_dim1, s_dim2] = /^(\w+?)(\d*)(\[\d+\])?(\[\d+\])?$/.exec(g_schema.type)!;
 
 	// init read offset
 	let ib_read = 0;
@@ -96,6 +97,16 @@ const decode_data = (
 };
 
 /**
+ * Generates the bloom mode callback
+ */
+type Snip52BloomCallback<g_data, w_return> = (
+	z_data: g_data,
+	atu8_data: Uint8Array,
+	g_tx: TendermintAbciTxResult,
+	h_events: Dict<string[]>,
+) => w_return;
+
+/**
  * Subscribes to the set of channels given by a dict of callbacks, each of which will be invoked for every
  * new notification emitted on that channel. 
  * Returns a Promise resolving to a callback that removes the listener. Promise resolves once all subscriptions
@@ -115,17 +126,29 @@ export const subscribe_snip52_channels = async<
 	z_auth: Exclude<AuthSecret, string>,
 	h_channels: {
 		[si_channel in as_channels]?: h_channels[si_channel] extends {cbor: CborValue}
+			// direct notification with CBOR data
 			? (<
 				w_data extends h_channels[si_channel]['cbor'],
-			>(w_data: w_data) => Promisable<void>)
+			>(
+				w_data: w_data,
+				g_tx: TendermintAbciTxResult,
+				h_events: Dict<string[]>,
+			) => Promisable<void>)
 			: h_channels[si_channel] extends {schema: Snip52Schema.Element}
-				? (g_data: Snip52Schema.ParseDescriptorSequenced<h_channels[si_channel]['schema']> | undefined, atu8_data: Uint8Array) => void
+				// bloom callback
+				? Snip52BloomCallback<Snip52Schema.ParseDescriptorSequenced<h_channels[si_channel]['schema']> | undefined, void>
+				// unknown, union of both; defer generic to function call
 				: (<
 					w_data extends CborValue=CborValue,
 				>(w_data: w_data) => Promisable<void>)
 				| (<
 					g_descriptor extends Snip52Schema.Element,
-				>(z_data: Snip52Schema.ParseDescriptorSequenced<g_descriptor>, atu8_data: Uint8Array) => Promisable<void>);
+				>(
+					z_data: Snip52Schema.ParseDescriptorSequenced<g_descriptor>,
+					atu8_data: Uint8Array,
+					g_tx: TendermintAbciTxResult,
+					h_events: Dict<string[]>,
+				) => Promisable<void>);
 	}
 ) => {
 	// init Tendermint event filter
@@ -141,6 +164,8 @@ export const subscribe_snip52_channels = async<
 	const h_blooms: Dict<(
 		si_txn: string,
 		atu8_value: Uint8Array,
+		g_data: TxResultWrapper,
+		h_events: Dict<string[]>,
 	) => Promise<void>> = {};
 
 	// fetch channel info for all requested channels at once
@@ -214,10 +239,10 @@ export const subscribe_snip52_channels = async<
 			const xg_mask_lo = (1n << xg_bits) - 1n;
 
 			// size of each packet in bytes
-			const nb_packet = (g_channel.data as Snip52Schema.PacketDescriptor).packetSize;
+			const nb_packet = (g_channel.data as Snip52Schema.PacketDescriptor).packet_size;
 
 			// create bloom filter checker
-			h_blooms[si_channel] = async(si_txn, atu8_value) => {
+			h_blooms[si_channel] = async(si_txn, atu8_value, {TxResult:g_tx}, h_events) => {
 				// create filter as bigint
 				const xg_filter = bytes_to_biguint_be(atu8_value.subarray(0, (n_param_m / 8) | 0));
 
@@ -258,16 +283,19 @@ export const subscribe_snip52_channels = async<
 						for(let ib_read=8; ib_read<(nb_packet+8)*+m_packets[1]; ib_read+=nb_packet+8) {
 							// found matching packet id
 							if(xg_packet_id === bytes_to_biguint_be(atu8_data.subarray(ib_read-8, ib_read))) {
-								// select packet ikm
-								const atu8_ikm = atu8_data.subarray(ib_read, ib_read+nb_packet);
+								// create packet ikm
+								const atu8_ikm = atu8_notification_id.subarray(8, 32);
 
 								// derive packet key
 								const atu8_key = nb_packet > 24
-									? await hkdf(atu8_ikm, nb_packet, bytes(64), bytes(), SI_HASH_ALGORITHM_SHA512)
+									? await hkdf(atu8_ikm, nb_packet*8, bytes(64), bytes(), SI_HASH_ALGORITHM_SHA512)
 									: atu8_ikm.subarray(0, nb_packet);
 
+								// extract packet ciphertext
+								const atu8_ciphertext = atu8_data.subarray(ib_read, ib_read+nb_packet);
+
 								// decrypt packet
-								const atu8_plaintext = xor_bytes(atu8_data, atu8_key);
+								const atu8_plaintext = xor_bytes(atu8_ciphertext, atu8_key);
 
 								// decode packet
 								[z_data] = decode_data(atu8_plaintext, (g_schema as Snip52Schema.PacketDescriptor).data);
@@ -285,7 +313,7 @@ export const subscribe_snip52_channels = async<
 					}
 
 					// received notification
-					try_sync(() => (h_channels[si_channel] as ((z: typeof z_data, atu8: Uint8Array) => Promisable<void>))(z_data, atu8_data));
+					try_sync(() => (h_channels[si_channel] as Snip52BloomCallback<typeof z_data, Promisable<void>>)(z_data, atu8_data, g_tx, h_events));
 				}
 			};
 		}
@@ -376,7 +404,7 @@ export const subscribe_snip52_channels = async<
 				const atu8_value = base64_to_bytes(sb64_payload);
 
 				// check filter and decode data if applicable
-				void f_attempt(si_txn, atu8_value);
+				void f_attempt(si_txn, atu8_value, g_data, h_events);
 			}
 		}
 	});
