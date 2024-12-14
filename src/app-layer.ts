@@ -158,7 +158,8 @@ const monitor_tx = async(
 	gc_node: LcdRpcWsStruct,
 	si_txn: string,
 	z_stream?: TendermintEventFilter | TendermintWs | undefined,
-	xt_wait_before_polling=GC_NEUTRINO.WS_TIMEOUT*3
+	xt_wait_before_polling=GC_NEUTRINO.WS_TIMEOUT*3,
+	xt_polling_interval=GC_NEUTRINO.POLLING_INTERVAL
 ): Promise<[
 	fk_unlisten: EventUnlistener,
 	dp_monitor: Promise<TxResultTuple>,
@@ -274,7 +275,7 @@ const monitor_tx = async(
 
 		// timed out waiting to connect; start polling
 		if(!k_tef_local) {
-			i_fallback = setTimeout(attempt_fallback_lcd_query, xt_polling=GC_NEUTRINO.POLLING_INTERVAL);
+			i_fallback = setTimeout(attempt_fallback_lcd_query, xt_polling=xt_polling_interval);
 		}
 		// succeeded; set filter
 		else {
@@ -285,7 +286,7 @@ const monitor_tx = async(
 	// in case WebSocket is silently dead and polling hasn't already been scheduled
 	if(!i_fallback) {
 		// set polling rate
-		xt_polling = GC_NEUTRINO.POLLING_INTERVAL;
+		xt_polling = xt_polling_interval;
 
 		// start attempting fallback queries
 		i_fallback = setTimeout(attempt_fallback_lcd_query, xt_wait_before_polling);
@@ -377,10 +378,12 @@ export const broadcast_result = async(
 	gc_node: LcdRpcWsStruct,
 	atu8_raw: Uint8Array,
 	si_txn: string,
-	z_stream?: TendermintEventFilter | TendermintWs | undefined
+	z_stream?: TendermintEventFilter | TendermintWs | undefined,
+	xt_wait_before_polling?: number,
+	xt_polling_interval?: number
 ): Promise<TxResultTuple> => {
 	// start monitoring tx
-	const [f_unlisten, dp_monitor, fke_monitor, f_set_res] = await monitor_tx(gc_node, si_txn, z_stream);
+	const [f_unlisten, dp_monitor, fke_monitor, f_set_res] = await monitor_tx(gc_node, si_txn, z_stream, xt_wait_before_polling, xt_polling_interval);
 
 	// attempt to submit tx
 	const [g_res, g_err, d_res, sx_res_broadcast] = await submitCosmosTxBroadcastTx(gc_node.lcd, atu8_raw, XC_PROTO_COSMOS_TX_BROADCAST_MODE_SYNC);

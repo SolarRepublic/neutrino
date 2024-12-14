@@ -72,7 +72,7 @@ export const index_abci_events = (
 
 /**
  * Performs a network gRPC request and only returns on success, throws otherwise
- * @param f_task 
+ * @param f_request 
  * @param a_args 
  * @returns 
  */
@@ -80,16 +80,12 @@ export const successful = async <
 	w_out extends JsonValue | undefined,
 	a_args extends any[],
 >(
-	f_task: (...a_args: a_args) => Promise<NetworkJsonResponse<w_out>>,
-	...a_args: a_args
+	f_request: (...a_args: a_args) => Promise<NetworkJsonResponse<w_out>>,
+	...a_args: NoInfer<a_args>
 ): Promise<NonNullable<w_out>> => {
-	const [g_res, g_err, d_res, s_res] = await f_task(...a_args);
+	// attempt request
+	const [g_res, g_err, d_res, s_res] = await f_request(...a_args);
 
-	// response body present and operation was successful
-	if(g_res && d_res.ok) {
-		return g_res;
-	}
-
-	// die with error message
-	die(d_res.status+': '+s_res, g_res);
+	// response body on success or die with error message
+	return g_res ?? die(d_res.status+': '+s_res, g_err);
 };
