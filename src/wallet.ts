@@ -379,6 +379,7 @@ export const create_and_sign_tx_direct = async(
 	atu8_raw: Uint8Array,
 	si_txn: CwHexUpper,
 	atu8_signdoc: Uint8Array,
+	atu8_signature: Uint8Array,
 ]> => {
 	// create tx
 	const [
@@ -396,8 +397,8 @@ export const create_and_sign_tx_direct = async(
 	// compute transaction hash id
 	const si_txn = bytes_to_hex(await sha256(atu8_raw)).toUpperCase();
 
-	// return tuple of raw tx bytes, sign doc, and tx hash id
-	return [atu8_raw, si_txn, atu8_signdoc];
+	// return tuple of raw tx bytes, tx hash id, sign doc, and signature
+	return [atu8_raw, si_txn, atu8_signdoc, atu8_signature];
 };
 
 // /**
