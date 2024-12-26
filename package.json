@@ -43,11 +43,11 @@
     "@noble/secp256k1": "^2.1.0",
     "@rollup/plugin-commonjs": "^25.0.7",
     "@rollup/plugin-replace": "^5.0.7",
-    "@solar-republic/contractor": "^0.9.9",
-    "@solar-republic/types": "^0.3.4",
+    "@solar-republic/contractor": "^0.10.1",
+    "@solar-republic/types": "^0.3.5",
     "@types/chai": "^5.0.1",
-    "@types/node": "^22.10.1",
-    "@types/web": "^0.0.183",
+    "@types/node": "^22.10.2",
+    "@types/web": "^0.0.188",
     "@typescript-eslint/parser": "^7.13.1",
     "chai": "^5.1.1",
     "chai-bites": "^0.1.2",
@@ -68,7 +68,7 @@
     "ws": "^8.18.0"
   },
   "dependencies": {
-    "@blake.regalia/belt": "^0.45.3",
+    "@blake.regalia/belt": "^0.48.3",
     "@solar-republic/cosmos-grpc": "^0.18.0-beta.6",
     "@solar-republic/crypto": "^0.2.14",
     "@solar-republic/wasm-secp256k1": "^0.4.2"
