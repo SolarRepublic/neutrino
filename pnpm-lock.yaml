@@ -43,11 +43,11 @@ importers:
         specifier: ^5.0.7
         version: 5.0.7(rollup@4.18.0)
       '@solar-republic/contractor':
-        specifier: ^0.10.1
-        version: 0.10.1
+        specifier: ^0.10.2
+        version: 0.10.2
       '@solar-republic/types':
-        specifier: ^0.3.5
-        version: 0.3.5
+        specifier: ^0.3.6
+        version: 0.3.6
       '@types/chai':
         specifier: ^5.0.1
         version: 5.0.1
@@ -478,8 +478,8 @@ packages:
     resolution: {integrity: sha512-2bRovzs0nJZFlCN3rXirE4gwxCn97JNjMmwpecqlbgV9WcxX7WRuIrgzx/X7Ib7MYRbyUTpBYE0s2x6AmZXnlg==}
     engines: {node: ^14.17.0 || ^16.13.0 || >=18.0.0}
 
-  '@solar-republic/contractor@0.10.1':
-    resolution: {integrity: sha512-maH8g0CZNEUmxkjVlfuLlnvINPB2gMrfzW9Ot8ZBgzlB+SPvgkPkGGozsOpPrdsXZKXwqdrVDrMVcaQIcK0Lnw==}
+  '@solar-republic/contractor@0.10.2':
+    resolution: {integrity: sha512-Vuht0Bma3s0JMmQW6nHWIQtbiekIJPvWNoKKoCLXO7vS1ajPrdi0Cq8B5DbDAxqgJ9MFfvpcJWPai5vLxCW1Ew==}
     hasBin: true
 
   '@solar-republic/cosmos-grpc@0.18.0-beta.6':
@@ -489,8 +489,8 @@ packages:
   '@solar-republic/crypto@0.2.14':
     resolution: {integrity: sha512-lm9U5QuBamqYAsdrJsnVfE7Uef4TyCvgLsgypPI1/RNjFdRCeKpMXoCRmJxeu3m/FzOhmPvX3WDd+ePCGw149w==}
 
-  '@solar-republic/types@0.3.5':
-    resolution: {integrity: sha512-f+/RTSOB9x2yL5thjKF6E7qWCJgftaRexNVl4zCXPOk3cvh1u9WEr2LUw36Ne++kV2UDQMpQKoP8y67K1y8E0A==}
+  '@solar-republic/types@0.3.6':
+    resolution: {integrity: sha512-UOtrAiRWZW3IEvAJDFxfSgXMdYDZ8azs1A+33RjezQoUPpZgCq4HevIjBMDwBELetyUVkjVPMN70y7dPvOg6WA==}
 
   '@solar-republic/wasm-secp256k1@0.2.8':
     resolution: {integrity: sha512-tFSO+YOqZt/E6EvrjxhxcrPAn8hs5cPx2Op/+rzznrQuMHEONxvb3MFiw9V8JbcMvrMiCypLvFR7nkrI8+h3sg==}
@@ -2768,7 +2768,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@solar-republic/contractor@0.10.1':
+  '@solar-republic/contractor@0.10.2':
     dependencies:
       '@blake.regalia/belt': 0.48.3
       '@types/yargs': 17.0.33
@@ -2789,7 +2789,7 @@ snapshots:
       '@solar-republic/wasm-secp256k1': 0.2.8
       hash-wasm: 4.11.0
 
-  '@solar-republic/types@0.3.5': {}
+  '@solar-republic/types@0.3.6': {}
 
   '@solar-republic/wasm-secp256k1@0.2.8':
     dependencies:
