@@ -10,6 +10,7 @@ export * from './poly1305.js';
 export * from './ripemd160.js';
 export * from './secret-app.js';
 export * from './secret-contract.js';
+export * from './secret-response.js';
 export * from './secret-wasm.js';
 export * from './snip-52.js';
 export * from './tendermint-ws.js';

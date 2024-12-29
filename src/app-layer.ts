@@ -49,14 +49,13 @@ export type TxMeta = {
  * Encapsulates the canonicalized response of transaction, regardless of whether it came from websocket or RPC query
  * 
  *  - [0]: `xc_error: number` - error code from chain, or non-OK HTTP status code from the LCD server.
- * 		A value of `0` indicates success.
- *  - [1]: `s_res: string` - message text. on success, will be the response string.
- * 		on error, will be either the error string from HTTP response text, chain error message,
- * 		or contract error as a JSON string.
+ * 		A value of `0` indicates success. A value of `-1` indicates a JSON parsing error.
+ *  - [1]: `s_error: string` - raw response text from the initial broadcast request (result of CheckTx).
+ *  		Implementing members may override this field to provide more relevant error text.
  *  - [2]: `sb16_txn: CwHexUpper` - the transaction hash of the attempted transaction
  *  - [3]: `g_meta?:`{@link TxMeta `TxMeta`} - information about the tx
  *  - [4]: `h_events?: Dict<string[]>` - all event attributes indexed by their full key path
- *  - [5]: `atu8_data?: Uint8Array` - the raw response bytes
+ *  - [5]: `atu8_data?: Uint8Array` - on success, the raw tx response data bytes
  */
 export type TxResponseTuple = [
 	xc_error: number,
@@ -379,12 +378,15 @@ export const expect_tx = async(
  * @returns a {@link TxResponseTuple}
  * 
  * Which is a tuple of `[number, string,`{@link TxMeta `TxMeta`}`?, Uint8Array?, Dict<string[]>]`
- *  - [0]: `xc_code: number` - error code from chain, or non-OK HTTP status code from the LCD server.
+ * 
+ *  - [0]: `xc_error: number` - error code from chain, or non-OK HTTP status code from the LCD server.
  * 		A value of `0` indicates success. A value of `-1` indicates a JSON parsing error.
- *  - [1]: `sx_res: string` - raw response text from the initial broadcast request (result of CheckTx)
- *  - [2]: `g_meta?:`{@link TxMeta `TxMeta`} - information about the tx
- *  - [3]: `atu8_data?: Uint8Array` - on success, the tx response data
+ *  - [1]: `s_res: string` - raw response text from the initial broadcast request (result of CheckTx)
+ *  		Implementing members may override this field to provide more relevant error text.
+ *  - [2]: `sb16_txn: CwHexUpper` - the transaction hash of the attempted transaction
+ *  - [3]: `g_meta?:`{@link TxMeta `TxMeta`} - information about the tx
  *  - [4]: `h_events?: Dict<string[]>` - all event attributes indexed by their full key path
+ *  - [5]: `atu8_data?: Uint8Array` - on success, the raw tx response data bytes
  */
 export const broadcast_result = async(
 	gc_node: LcdRpcWsStruct,
