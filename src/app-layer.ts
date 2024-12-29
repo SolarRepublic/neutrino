@@ -11,23 +11,21 @@ import type {TendermintWs} from './tendermint-ws';
 import type {AuthSecret, LcdRpcWsStruct, JsonRpcResponse} from './types';
 import type {Wallet} from './wallet';
 
-import type {JsonObject, Nilable, Promisable, NaiveJsonString, Dict} from '@blake.regalia/belt';
+import type {JsonObject, Nilable, Promisable, NaiveJsonString, Dict, NaiveHexUpper} from '@blake.regalia/belt';
 
 import type {ContractInterface} from '@solar-republic/contractor';
 
 import type {CosmosBaseAbciTxResponse} from '@solar-republic/cosmos-grpc/cosmos/base/abci/v1beta1/abci';
 import type {CosmosTxGetTxResponse} from '@solar-republic/cosmos-grpc/cosmos/tx/v1beta1/service';
 import type {TendermintAbciExecTxResult} from '@solar-republic/cosmos-grpc/tendermint/abci/types';
-import type {SlimCoin, WeakAccountAddr, TrustedContextUrl, CwAccountAddr, WeakUint128Str, WeakUintStr, WeakSecretAccAddr, Snip24QueryPermitSigned, Snip24QueryPermitParams, Snip24QueryPermitMsg} from '@solar-republic/types';
+import type {SlimCoin, WeakAccountAddr, TrustedContextUrl, CwAccountAddr, WeakUint128Str, WeakUintStr, WeakSecretAccAddr, Snip24QueryPermitSigned, Snip24QueryPermitParams, Snip24QueryPermitMsg, CwBase64, CwHexUpper} from '@solar-republic/types';
 
-import {__UNDEFINED, bytes_to_base64, timeout, base64_to_bytes, bytes_to_text, parse_json_safe, timeout_exec, die, assign, hex_to_bytes, is_number, stringify_json, try_async, is_error, defer} from '@blake.regalia/belt';
+import {__UNDEFINED, bytes_to_base64, timeout, parse_json_safe, timeout_exec, die, assign, hex_to_bytes, stringify_json, try_async, is_error, defer} from '@blake.regalia/belt';
 import {safe_base64_to_bytes} from '@solar-republic/cosmos-grpc';
-import {decodeCosmosBaseAbciTxMsgData} from '@solar-republic/cosmos-grpc/cosmos/base/abci/v1beta1/abci';
 import {XC_PROTO_COSMOS_TX_BROADCAST_MODE_SYNC, queryCosmosTxGetTx, submitCosmosTxBroadcastTx} from '@solar-republic/cosmos-grpc/cosmos/tx/v1beta1/service';
-import {decodeSecretComputeMsgExecuteContractResponse, decodeSecretComputeMsgInstantiateContractResponse, decodeSecretComputeMsgStoreCodeResponse, SI_MESSAGE_TYPE_SECRET_COMPUTE_MSG_EXECUTE_CONTRACT_RESPONSE, SI_MESSAGE_TYPE_SECRET_COMPUTE_MSG_INSTANTIATE_CONTRACT_RESPONSE, SI_MESSAGE_TYPE_SECRET_COMPUTE_MSG_MIGRATE_CONTRACT_RESPONSE, SI_MESSAGE_TYPE_SECRET_COMPUTE_MSG_STORE_CODE_RESPONSE} from '@solar-republic/cosmos-grpc/secret/compute/v1beta1/msg';
 
 import {GC_NEUTRINO} from './config.js';
-import {exec_fees} from './secret-app.js';
+import {secret_response_decrypt} from './secret-response';
 import {F_TEF_RESTART_ANY_ERRORS, SX_QUERY_TM_EVENT_TX, TendermintEventFilter} from './tendermint-event-filter.js';
 import {index_abci_events} from './util.js';
 import {create_and_sign_tx_direct, sign_amino} from './wallet.js';
@@ -48,14 +46,25 @@ export type TxMeta = {
 };
 
 /**
- * Encapsulates the canonicalized result of transaction, regardless of whether it came from websocket or RPC query
+ * Encapsulates the canonicalized response of transaction, regardless of whether it came from websocket or RPC query
+ * 
+ *  - [0]: `xc_error: number` - error code from chain, or non-OK HTTP status code from the LCD server.
+ * 		A value of `0` indicates success.
+ *  - [1]: `s_res: string` - message text. on success, will be the response string.
+ * 		on error, will be either the error string from HTTP response text, chain error message,
+ * 		or contract error as a JSON string.
+ *  - [2]: `sb16_txn: CwHexUpper` - the transaction hash of the attempted transaction
+ *  - [3]: `g_meta?:`{@link TxMeta `TxMeta`} - information about the tx
+ *  - [4]: `h_events?: Dict<string[]>` - all event attributes indexed by their full key path
+ *  - [5]: `atu8_data?: Uint8Array` - the raw response bytes
  */
-export type TxResultTuple = [
-	xc_code: number,
-	sx_res: string,
+export type TxResponseTuple = [
+	xc_error: number,
+	s_res: string,
+	sb16_txn: CwHexUpper,
 	g_meta?: TxMeta | undefined,
-	atu8_data?: Uint8Array | undefined,
 	h_events?: Dict<string[]> | undefined,
+	atu8_data?: Uint8Array | undefined,
 ];
 
 export type RetryParams = [
@@ -124,10 +133,10 @@ export const subscribe_tendermint_events = (
 			// expect confirmation
 			if('0' !== g_data?.id || '{}' !== stringify_json(g_data?.result)) {
 				// reject
-				fe_reject(g_data);
+				fe_reject(g_data);  // eslint-disable-line @typescript-eslint/prefer-promise-reject-errors
 
 				// close socket
-				return this.close();
+				this.close(); return;
 			}
 
 			// each subsequent message
@@ -156,21 +165,21 @@ export const subscribe_tendermint_events = (
  */
 const monitor_tx = async(
 	gc_node: LcdRpcWsStruct,
-	si_txn: string,
-	z_stream?: TendermintEventFilter | TendermintWs | undefined,
+	sb16_txn: string,
+	z_stream?: TendermintEventFilter | TendermintWs,
 	xt_wait_before_polling=GC_NEUTRINO.WS_TIMEOUT*3,
 	xt_polling_interval=GC_NEUTRINO.POLLING_INTERVAL
 ): Promise<[
 	fk_unlisten: EventUnlistener,
-	dp_monitor: Promise<TxResultTuple>,
+	dp_monitor: Promise<TxResponseTuple>,
 	fke_monitor: {
-		(w_return: TxResultTuple): void;
+		(w_return: TxResponseTuple): void;
 		(w_return: Nilable<void>, e_reject: Error): void;
 	},
 	f_set_res: (sx_override: string) => void,
-]> => {
+	]> => {
 	// create deferred promise
-	const [dp_monitor, fke_monitor] = defer<TxResultTuple>();
+	const [dp_monitor, fke_monitor] = defer<TxResponseTuple>();
 
 	// event filter unlistener
 	let f_unlisten: EventUnlistener | undefined;
@@ -202,18 +211,18 @@ const monitor_tx = async(
 
 	// shutdown
 	// eslint-disable-next-line no-sequences
-	let f_shutdown = (w_resolve: Nilable<TxResultTuple>, e_reject?: Nilable<Error>) => (f_teardown(), fke_monitor(w_resolve as void, e_reject as Error));
+	let f_shutdown = (w_resolve: Nilable<TxResponseTuple>, e_reject?: Nilable<Error>) => (f_teardown(), fke_monitor(w_resolve as void, e_reject!));
 
 	// polling fallback using LCD query
 	let attempt_fallback_lcd_query = async() => {
 		// submit query request
-		const [a_resolved, e_thrown] = await try_async(() => queryCosmosTxGetTx(gc_node.lcd, si_txn));
+		const [a_resolved, e_thrown] = await try_async(() => queryCosmosTxGetTx(gc_node.lcd, sb16_txn));
 
 		// timeout was cancelled while querying; silently exit
 		if(!i_fallback) return;
 
 		// network error; reject outer promise
-		if(e_thrown) return f_shutdown(null, e_thrown as Error);
+		if(e_thrown) { f_shutdown(null, e_thrown as Error); return; }
 
 		// destructure resolved value
 		const [g_res, g_err, d_res, s_res] = a_resolved!;
@@ -224,19 +233,21 @@ const monitor_tx = async(
 			const g_tx_res = g_res.tx_response as O.Compulsory<CosmosBaseAbciTxResponse>;
 
 			// resolve
-			return f_shutdown(g_tx_res? [
+			f_shutdown(g_tx_res? [
 				g_tx_res.code ?? 0,
 				s_res,
+				sb16_txn as CwHexUpper,
 				assign({
 					log: g_tx_res.raw_log,
 					txhash: g_tx_res.txhash,
 				}, g_tx_res),
-				g_tx_res.data? hex_to_bytes(g_tx_res.data): __UNDEFINED,
 				index_abci_events(g_tx_res.events),
+				g_tx_res.data? hex_to_bytes(g_tx_res.data): __UNDEFINED,
 			]: [
 				-1,
 				s_res,
-			]);
+				sb16_txn as CwHexUpper,
+			]); return;
 		}
 		// error
 		else if(g_err) {
@@ -247,14 +258,14 @@ const monitor_tx = async(
 			} = g_err;
 
 			// anything other than tx not found indicates a possible node error
-			if(!/tx not found/.test(s_msg || '')) {
+			if(!(s_msg || '').includes('tx not found')) {
 				// reject Promise
-				return f_shutdown(null, Error(`Unexpected query error to <${gc_node.lcd.origin}>: ${stringify_json(g_res)}`));
+				f_shutdown(null, Error(`Unexpected query error to <${gc_node.lcd.origin}>: ${stringify_json(g_res)}`)); return;
 			}
 		}
 		// invalid response body
 		else {
-			return f_shutdown(null, Error(`Server at <${gc_node.lcd.origin}> returned ${d_res.status} code with invalid body: ${sx_res}`));
+			f_shutdown(null, Error(`Server at <${gc_node.lcd.origin}> returned ${d_res.status} code with invalid body: ${sx_res}`)); return;
 		}
 
 		// repeat
@@ -269,7 +280,7 @@ const monitor_tx = async(
 		// attempt to create filter
 		const [k_tef_local] = await timeout_exec(
 			GC_NEUTRINO.WS_TIMEOUT,
-			// eslint-disable-next-line @typescript-eslint/no-unused-vars
+
 			() => TendermintEventFilter(gc_node.ws || gc_node.rpc.origin, SX_QUERY_TM_EVENT_TX, F_TEF_RESTART_ANY_ERRORS, z_stream as TendermintWs | undefined)
 		);
 
@@ -296,7 +307,7 @@ const monitor_tx = async(
 	let sx_res = '';
 
 	// listen for tx hash event
-	f_unlisten = k_tef?.when('tx.hash', si_txn, ({value:{TxResult:g_txres}}, h_events) => {
+	f_unlisten = k_tef?.when('tx.hash', sb16_txn, ({value:{TxResult:g_txres}}, h_events) => {
 		// ref result struct
 		const g_result = g_txres?.result as O.Compulsory<TendermintAbciExecTxResult>;
 
@@ -304,16 +315,17 @@ const monitor_tx = async(
 		f_shutdown(g_txres? [
 			g_txres.result?.code ?? 0,
 			sx_res,
+			sb16_txn as CwHexUpper,
 			assign({
 				height: g_txres.height!,
-				txhash: si_txn,
+				txhash: sb16_txn,
 			}, g_result),
-			safe_base64_to_bytes(g_result.data),
 			h_events,
+			safe_base64_to_bytes(g_result.data),
 		]: [
 			-1,
 			sx_res,
-			__UNDEFINED,
+			sb16_txn as CwHexUpper,
 			__UNDEFINED,
 			h_events,
 		]);
@@ -333,9 +345,9 @@ const monitor_tx = async(
 /**
  * Starts monitoring the chain in anticipation of a new transaction with the given hash
  * @param gc_node 
- * @param si_txn 
+ * @param sb16_txn 
  * @param z_stream 
- * @returns a {@link TxResultTuple}
+ * @returns a {@link TxResponseTuple}
  * 
  * Which is a tuple of `[number, string,`{@link TxMeta `TxMeta`}`?, Uint8Array?, Dict<string[]>]`
  *  - [0]: `xc_code: number` - error code from chain, or non-OK HTTP status code from the LCD server.
@@ -347,11 +359,11 @@ const monitor_tx = async(
  */
 export const expect_tx = async(
 	gc_node: LcdRpcWsStruct,
-	si_txn: string,
-	z_stream?: TendermintEventFilter | TendermintWs | undefined
-): Promise<TxResultTuple> => {
+	sb16_txn: string,
+	z_stream?: TendermintEventFilter | TendermintWs
+): Promise<TxResponseTuple> => {
 	// start monitoring tx
-	const [, dp_monitor] = await monitor_tx(gc_node, si_txn, z_stream);
+	const [, dp_monitor] = await monitor_tx(gc_node, sb16_txn, z_stream);
 
 	// return monitor promise
 	return dp_monitor;
@@ -362,9 +374,9 @@ export const expect_tx = async(
  * Broadcast a transaction to the network for its result
  * @param gc_node - 
  * @param atu8_raw -  
- * @param si_txn -
+ * @param sb16_txn -
  * @param z_stream - 
- * @returns a {@link TxResultTuple}
+ * @returns a {@link TxResponseTuple}
  * 
  * Which is a tuple of `[number, string,`{@link TxMeta `TxMeta`}`?, Uint8Array?, Dict<string[]>]`
  *  - [0]: `xc_code: number` - error code from chain, or non-OK HTTP status code from the LCD server.
@@ -377,13 +389,13 @@ export const expect_tx = async(
 export const broadcast_result = async(
 	gc_node: LcdRpcWsStruct,
 	atu8_raw: Uint8Array,
-	si_txn: string,
-	z_stream?: TendermintEventFilter | TendermintWs | undefined,
+	sb16_txn: string,
+	z_stream?: TendermintEventFilter | TendermintWs,
 	xt_wait_before_polling?: number,
 	xt_polling_interval?: number
-): Promise<TxResultTuple> => {
+): Promise<TxResponseTuple> => {
 	// start monitoring tx
-	const [f_unlisten, dp_monitor, fke_monitor, f_set_res] = await monitor_tx(gc_node, si_txn, z_stream, xt_wait_before_polling, xt_polling_interval);
+	const [f_unlisten, dp_monitor, fke_monitor, f_set_res] = await monitor_tx(gc_node, sb16_txn, z_stream, xt_wait_before_polling, xt_polling_interval);
 
 	// attempt to submit tx
 	const [g_res, g_err, d_res, sx_res_broadcast] = await submitCosmosTxBroadcastTx(gc_node.lcd, atu8_raw, XC_PROTO_COSMOS_TX_BROADCAST_MODE_SYNC);
@@ -403,6 +415,7 @@ export const broadcast_result = async(
 		fke_monitor([
 			d_res.ok? g_res?.tx_response?.code ?? -1: d_res.status,
 			sx_res_broadcast,
+			sb16_txn as CwHexUpper,
 			g_meta? assign({
 				log: g_meta.raw_log,
 			}, g_meta as TxMeta): __UNDEFINED,
@@ -425,7 +438,7 @@ export const broadcast_result = async(
  *  - [2]: `d_res: Response` - HTTP response
  *  - [3]: `h_answer?: JsonObject` - contract response as JSON object on success
  */
-// eslint-disable-next-line @typescript-eslint/naming-convention
+
 export const query_secret_contract_raw = async<
 	g_interface extends ContractInterface,
 	h_variants extends ContractInterface.MsgAndAnswer<g_interface, 'queries'>,
@@ -492,28 +505,26 @@ export const format_secret_query = (
 	}) as JsonObject;
 
 
-export interface QueryContractInfer {
-	<
-		g_interface extends ContractInterface,
-		h_variants extends ContractInterface.MsgAndAnswer<g_interface, 'queries'>=ContractInterface.MsgAndAnswer<g_interface, 'queries'>,
-		si_method extends Extract<keyof h_variants, string>=Extract<keyof h_variants, string>,
-		g_variant extends h_variants[si_method]=h_variants[si_method],
-	>(
-		k_contract: SecretContract<g_interface>,
-		si_method: si_method,
-		...[h_args, z_auth]: CreateQueryArgsAndAuthParams<
-			h_variants,
-			si_method,
-			ContractInterface extends g_interface? 1: 0
-		>
-	): Promise<[
+export type QueryContractInfer = <
+	g_interface extends ContractInterface,
+	h_variants extends ContractInterface.MsgAndAnswer<g_interface, 'queries'>=ContractInterface.MsgAndAnswer<g_interface, 'queries'>,
+	si_method extends Extract<keyof h_variants, string>=Extract<keyof h_variants, string>,
+	g_variant extends h_variants[si_method]=h_variants[si_method],
+>(
+	k_contract: SecretContract<g_interface>,
+	si_method: si_method,
+	...[h_args, z_auth]: CreateQueryArgsAndAuthParams<
+		h_variants,
+		si_method,
+		ContractInterface extends g_interface? 1: 0
+	>
+) => Promise<[
 		w_result: g_variant['response'] | undefined,
 		xc_code_x: number,
 		s_error: string,
 		d_res: Response,
 		h_answer?: g_variant['answer'],
-	]>;
-}
+]>;
 
 /**
  * Query a Secret Contract method and automatically apply an auth secret if one is provided.
@@ -557,182 +568,11 @@ export const query_secret_contract: QueryContractInfer = async(
 	return [
 		a4_response[0]
 			? __UNDEFINED
-			: (a4_response[3] as JsonObject)[si_method] as JsonObject,
+			: (a4_response[3]!)[si_method] as JsonObject,
 		...a4_response,
 	];
 };
 
-
-/**
- * Creates a decoder dict for parsing secret compute transaction responses
- * @param k_contract - the {@link SecretContract} that transaction is being executed against
- * @param atu8_nonce - the nonce that was used for encrypting the outgoing message
- * @returns decoder dict appropriate for use in {@link tx_responses_parse}
- */
-export const tx_response_decoder_secret_compute: (
-	k_contract: SecretContract,
-	atu8_nonce: Uint8Array,
-) => Parameters<typeof tx_responses_parse>[1] = (k_contract, atu8_nonce) => {
-	// decryptor function common to execution & migration responses
-	const f_decryptor = async(atu8_payload: Uint8Array) => {
-		// decode payload
-		const [atu8_ciphertext] = decodeSecretComputeMsgExecuteContractResponse(atu8_payload);
-
-		// decrypt ciphertext
-		const atu8_plaintext = await k_contract.wasm.decrypt(atu8_ciphertext!, atu8_nonce);
-
-		// decode plaintext
-		const s_plaintext = bytes_to_text(base64_to_bytes(bytes_to_text(atu8_plaintext)));
-
-		// entuple results
-		return [s_plaintext, parse_json_safe<JsonObject>(s_plaintext)] as const;
-	};
-
-	// create decoder dict
-	return {
-		// execution/migration response parser
-		[SI_MESSAGE_TYPE_SECRET_COMPUTE_MSG_EXECUTE_CONTRACT_RESPONSE]: f_decryptor,
-
-		// migration response is same as execute response
-		[SI_MESSAGE_TYPE_SECRET_COMPUTE_MSG_MIGRATE_CONTRACT_RESPONSE]: async(atu8_payload: Uint8Array) => atu8_payload?.length
-			? f_decryptor(atu8_payload)
-			: [''],
-
-		// store code decoder
-		[SI_MESSAGE_TYPE_SECRET_COMPUTE_MSG_STORE_CODE_RESPONSE]: decodeSecretComputeMsgStoreCodeResponse,
-
-		// instantiation decoder
-		[SI_MESSAGE_TYPE_SECRET_COMPUTE_MSG_INSTANTIATE_CONTRACT_RESPONSE]: decodeSecretComputeMsgInstantiateContractResponse,
-	};
-};
-
-
-/**
- * Applies the given decoders dict to the raw transaction response data bytes
- * @param atu8_data - transaction response data bytes
- * @param h_decoders - dict of decoders used to parse each message's response data
- * @returns Array of tuples of `[any?, string, Uint8Array]`:
- *  - [0]: `w_return?: any` - result of applying the typed data to its decoder
- *  - [1]: `s_type: string` - proto 'any' "type" string
- *  - [2]: `atu8_payload: Uint8Array` - proto 'any' "value" bytes
- */
-export const tx_responses_parse = async<
-	// eslint-disable-next-line @typescript-eslint/consistent-indexed-object-style
-	const h_decoders extends {
-		[s_type in string]: h_decoders[s_type] extends (atu8_payload: Uint8Array, i_msg: number) => Promisable<infer w_return>
-			? {
-				(atu8_payload: Uint8Array, i_msg: number): w_return;
-			}
-			: {
-				(atu8_payload: Uint8Array, i_msg: number): any;
-			};
-	},
->(
-	atu8_data: Uint8Array | undefined,
-	h_decoders: h_decoders
-): Promise<{
-	[s_type in keyof h_decoders]: [
-		w_return: Awaited<ReturnType<h_decoders[s_type]>>,
-		s_type: s_type,
-		atu8_data: Uint8Array,
-	]
-}[keyof h_decoders][]> => {
-	// decode tx msg data
-	let [a_data, a_msg_responses] = decodeCosmosBaseAbciTxMsgData(atu8_data!);
-
-	// decode responses
-	return await Promise.all((a_msg_responses || a_data)!.map(async([s_type, atu8_payload], i_msg) => [
-		await h_decoders[s_type!]?.(atu8_payload!, i_msg),
-		s_type!,
-		atu8_payload!,
-	]));
-};
-
-
-/**
- * Decrypts response data from a Secret Contract execution or migration, parsing & marshalling any errors
- * @param k_contract 
- * @param param1 
- * @param atu8_nonce 
- * @returns a two-part tuple where tuple at [0]?:
- *  - [0]: `s_error?: string` - the error message for the entire transaction
- *  - [1]: `i_message?: number` - `-1` if JSON parsing error, `undefined` if error is generic and not associated to any particular message, otherwise the 0-based index of the message that caused the error
- *  
- * ... and the tuple at [1]?:
- *  - [0]: `readonly [s_plaintext: string, g_answer?: JsonObject]` - the parsed execution/migration response
- *  - [1]: `s_type: string` - the secret compute execute contract message type string
- *  - [2]: `atu8_payload: string` - the raw execution response bytes
- */
-export const secret_contract_responses_decrypt = async(
-	k_contract: SecretContract,
-	[xc_error, sx_res, g_meta, atu8_data]: TxResultTuple,
-	a_nonces: Uint8Array[]
-): Promise<[
-	a_error?: [
-		s_error?: string,
-		i_message?: number,
-	] | undefined,
-	a_results?: [
-		readonly [
-			s_plaintext: string,
-			g_answer?: JsonObject | undefined,
-		],
-		s_type?: typeof SI_MESSAGE_TYPE_SECRET_COMPUTE_MSG_EXECUTE_CONTRACT_RESPONSE
-			| typeof SI_MESSAGE_TYPE_SECRET_COMPUTE_MSG_MIGRATE_CONTRACT_RESPONSE,
-		atu8_payload?: Uint8Array,
-	][],
-]> => {
-	// prep plaintext
-	let s_plaintext!: string;
-
-	// invalid json
-	if(xc_error < 0) return [[sx_res, xc_error]];
-
-	// no errors
-	if(!xc_error) {
-		// execution/migration response parser
-		const f_decryptor = async(atu8_payload: Uint8Array, i_msg: number) => {
-			// decode payload
-			const [atu8_ciphertext] = decodeSecretComputeMsgExecuteContractResponse(atu8_payload);
-
-			// decrypt ciphertext
-			const atu8_plaintext = await k_contract.wasm.decrypt(atu8_ciphertext!, a_nonces[i_msg]);
-
-			// decode plaintext
-			s_plaintext = bytes_to_text(base64_to_bytes(bytes_to_text(atu8_plaintext)));
-
-			// entuple results
-			return [s_plaintext, parse_json_safe<JsonObject>(s_plaintext)] as const;
-		};
-
-		// add compute response parser
-		return [__UNDEFINED, await tx_responses_parse(atu8_data, {
-			[SI_MESSAGE_TYPE_SECRET_COMPUTE_MSG_EXECUTE_CONTRACT_RESPONSE]: f_decryptor,
-			[SI_MESSAGE_TYPE_SECRET_COMPUTE_MSG_MIGRATE_CONTRACT_RESPONSE]: (atu8_payload, i_msg) => atu8_payload?.length
-				? f_decryptor(atu8_payload, i_msg)
-				: [''] as const,
-		})];
-	}
-
-	// error
-	const s_error = g_meta?.log ?? sx_res;
-
-	// encrypted error message
-	const m_response = /(\d+):(?: \w+:)*? encrypted: (.+?): (.+?) contract/.exec(s_error);
-	if(m_response) {
-		// destructure match
-		const [, s_index, sb64_encrypted, si_action] = m_response;
-
-		// decrypt message from contract
-		const atu8_plaintext = await k_contract.wasm.decrypt(base64_to_bytes(sb64_encrypted), a_nonces[+s_index]);
-
-		// decode bytes
-		return [[bytes_to_text(atu8_plaintext) ?? s_error, +s_index]];
-	}
-
-	// entuple error
-	return [[s_plaintext ?? s_error]];
-};
 
 
 /**
@@ -745,16 +585,11 @@ export const secret_contract_responses_decrypt = async(
  * @param sa_granter - optional granter address to use to pay for gas fee
  * @param a_funds - optional Array of {@link SlimCoin} of funds to send into the contract with the tx
  * @param s_memo - optional memo field
- * @returns tuple of `[number, string, TxResponse?]`
- *  - [0]: `xc_code: number` - error code from chain, or non-OK HTTP status code from the LCD server.
- * 		A value of `0` indicates success.
- *  - [1]: `s_res: string` - message text. on success, will be the contract's raw response string.
- * 		on error, will be either the error string from HTTP response text, chain error message,
- * 		or contract error as a JSON string.
- *  - [2]: `g_res?: JsonObject` - on success, the parsed contract's response JSON object
- *  - [3]: `g_meta?:`{@link TxMeta `TxMeta`} - information about the tx
- *  - [4]: `h_events?: Dict<string[]>` - all event attributes indexed by their full key path
- *  - [5]: `si_txn?: string` - the transaction hash if a broadcast attempt was made
+ * @returns tuple of `[a2_result?: ExecResult, a6_response:`{@link TxResponseTuple `TxResponseTuple`}`]`
+ *  - [0]: `a2_result?: ExecResult` - will be `undefined` if there was an error, otherwise a tuple where:
+ *  -  - [0]: `g_res: undefined | JsonObject` - the contract's response parsed as JSON if it was parseable
+ *  -  - [1]: `s_res: string` - the contract's raw response string
+ *  - [1]: `a6_response: `{@link TxResponseTuple `TxResponseTuple`} - the response from broadcasting the transaction
  * 
  * @throws a {@link BroadcastResultErr}
  */
@@ -774,12 +609,11 @@ export const exec_secret_contract = async<
 	a_funds?: SlimCoin[],
 	s_memo?: string
 ): Promise<[
-	xc_code: number,
-	s_res: string,
-	g_res?: undefined | (ContractInterface extends g_interface? JsonObject: h_group[as_methods]['answer']),
-	g_meta?: TxMeta | undefined,
-	h_events?: Dict<string[]> | undefined,
-	si_txn?: string | undefined,
+	a_result: undefined | [
+		g_res: (ContractInterface extends g_interface? JsonObject: h_group[as_methods]['answer']),
+		s_res: string,
+	],
+	a6_broadcast: TxResponseTuple,
 ]> => {
 	// construct execution message and save nonce
 	let [atu8_msg, atu8_nonce] = await k_contract.exec(h_exec, k_wallet.addr, a_funds);
@@ -807,13 +641,16 @@ export const exec_secret_contract = async<
 	}
 
 	// broadcast to chain
-	const [xc_error, sx_res, g_meta, atu8_data, h_events] = await broadcast_result(k_wallet, atu8_tx_raw, si_txn);
+	const a6_broadcast = await broadcast_result(k_wallet, atu8_tx_raw, si_txn);
+
+	// detuple broadcast result
+	const [xc_error, sx_res,, g_meta, h_events] = a6_broadcast;
 
 	// invalid json
-	if(xc_error < 0) return [xc_error, sx_res];
+	if(xc_error < 0) return [__UNDEFINED, a6_broadcast];
 
 	// decrypt response
-	const [a_error, a_results] = await secret_contract_responses_decrypt(k_contract, [xc_error, sx_res, g_meta, atu8_data], [atu8_nonce]);
+	const [a_error, a_results] = await secret_response_decrypt(k_contract.wasm, a6_broadcast, [atu8_nonce]);
 
 	// error
 	if(xc_error) {
@@ -826,8 +663,11 @@ export const exec_secret_contract = async<
 			console.groupEnd();
 		}
 
+		// set error text
+		a6_broadcast[1] = a_error?.[0] ?? sx_res;
+
 		// entuple error
-		return [xc_error, a_error![0]!, g_meta, __UNDEFINED, __UNDEFINED, si_txn];
+		return [__UNDEFINED, a6_broadcast];
 	}
 
 	// detuple results from single message response success
@@ -853,7 +693,7 @@ export const exec_secret_contract = async<
 	}
 
 	// entuple results
-	return [xc_error, s_plaintext, g_answer, g_meta, h_events, si_txn];
+	return [[g_answer!, s_plaintext], a6_broadcast];
 };
 
 
@@ -865,7 +705,7 @@ export const exec_secret_contract = async<
  * @param a_permissions 
  * @returns 
  */
-export const sign_secret_query_permit = async(
+export const snip24_amino_sign = async(
 	k_wallet: Wallet,
 	si_permit: string,
 	a_tokens: WeakAccountAddr<'secret'>[],

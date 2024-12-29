@@ -6,13 +6,11 @@ import {assign, is_function} from '@blake.regalia/belt';
 
 import {subscribe_tendermint_events} from './app-layer';
 
-export type TendermintWsRestartParam = boolean | 0 | 1 | {
-	(d_event: CloseEvent | undefined): Promisable<
+export type TendermintWsRestartParam = boolean | 0 | 1 | ((d_event: CloseEvent | undefined) => Promisable<
 		boolean | 0 | 1 | (
 			(d_ws: WebSocket) => Promisable<void>
 		)
-	>;
-};
+>);
 
 export type TendermintWs = {
 	/**
@@ -26,7 +24,7 @@ export const TendermintWs = async(
 	p_rpc: TrustedContextUrl,
 	sx_query: string,
 	fk_message: (d_event: MessageEvent<NaiveJsonString>) => any,
-	z_restart?: TendermintWsRestartParam | undefined,
+	z_restart?: TendermintWsRestartParam,
 	dc_ws?: typeof WebSocket
 ): Promise<TendermintWs> => {
 	let d_ws!: WebSocket;
@@ -39,7 +37,7 @@ export const TendermintWs = async(
 		// close event
 		async onclose(d_event) {
 			// notify caller
-			const z_restart_ans = b_restart_fn? await (z_restart as Function)(d_event): z_restart;
+			const z_restart_ans = b_restart_fn? await (z_restart as Exclude<TendermintWsRestartParam, boolean | number>)(d_event): z_restart;
 
 			// truthy value means user wants to restart WebSocket
 			if(z_restart_ans) {
@@ -47,7 +45,7 @@ export const TendermintWs = async(
 				await f_reconnect();
 
 				// user wants to receive new WebSocket once its open
-				if(is_function(z_restart_ans)) void z_restart_ans(d_ws);
+				if(is_function(z_restart_ans)) void (z_restart_ans as (d_ws: WebSocket) => Promisable<void>)(d_ws);
 			}
 		},
 	} satisfies Partial<WebSocket>);

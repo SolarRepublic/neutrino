@@ -25,14 +25,19 @@ export interface SecretWasm {
 	decodeMsg(sb64_msg: NaiveBase64): Promise<[string, CwHexLower, Uint8Array]>;
 }
 
+/**
+ * Creates an instance used for coding messages between client and network
+ * @param atu8_consensus_pk - the consensus I/O public key
+ * @param atu8_seed - the seed for this instance
+ * @returns 
+ */
 export const SecretWasm = (atu8_consensus_pk: Uint8Array, atu8_seed?: Nilable<Uint8Array>): SecretWasm => {
-	atu8_seed = atu8_seed || random_32();
+	// default to random seed if unset and copy to new secret key
+	const atu8_sk = (atu8_seed || random_32()).slice();
 
+	// validate key lengths
 	if(32 !== atu8_consensus_pk.byteLength) die(`Invalid consensus key length`);
-	if(32 !== atu8_seed.byteLength) die(`Invalid seed length`);
-
-	// copy seed to new private key
-	const atu8_sk = atu8_seed.slice();
+	if(32 !== atu8_sk.byteLength) die(`Invalid seed length`);
 
 	// derive curve25119 public key
 	const _atu8_pk = ecs_mul_base(atu8_sk);

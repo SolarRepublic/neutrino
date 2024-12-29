@@ -1,7 +1,8 @@
+import type {TxMeta} from './app-layer';
 import type {AsJson, Dict, JsonObject, JsonValue, Nilable} from '@blake.regalia/belt';
 import type {SecretAccAddr} from '@solar-republic/contractor';
 import type {TendermintAbciTxResult} from '@solar-republic/cosmos-grpc/tendermint/abci/types';
-import type {WeakUint128Str, TrustedContextUrl, CwUint32, WeakSecretAccAddr, Snip24QueryPermitSigned, RemoteServiceDescriptor} from '@solar-republic/types';
+import type {WeakUint128Str, TrustedContextUrl, CwUint32, WeakSecretAccAddr, Snip24QueryPermitSigned, RemoteServiceDescriptor, CwHexUpper} from '@solar-republic/types';
 
 
 export type CosmosQueryError = AsJson<{
@@ -15,6 +16,7 @@ export type ContractInfo = {
 	creator: SecretAccAddr;
 	label: string;
 };
+
 
 
 export type AuthSecret_ViewerInfo = [sh_key: string, sa_viewer?: WeakSecretAccAddr];

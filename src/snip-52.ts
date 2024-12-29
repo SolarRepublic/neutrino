@@ -352,8 +352,7 @@ export const subscribe_snip52_channels = async<
 				let atu8_message = chacha20_poly1305_open(atu8_seed, atu8_nonce, atu8_payload.subarray(-XN_16), atu8_payload.subarray(0, -XN_16), atu8_aad);
 
 				// call listener with decrypted data
-				// eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-				try_sync(() => fk_notification(cbor_decode_trivial(atu8_message)[0] as any));
+				try_sync(() => fk_notification(cbor_decode_trivial(atu8_message)[0]));
 
 				// callback for each handled notification
 				await fk_handled?.();
@@ -411,7 +410,7 @@ export const subscribe_snip52_channels = async<
 };
 
 
-export const sign_seed_update = async(
+export const snip52_seed_update_sign = async(
 	k_wallet: Wallet,
 	sa_contract: WeakSecretAccAddr,
 	sb64_previous: CwBase64

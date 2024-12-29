@@ -21,7 +21,7 @@ const quarterround = (atu32_d: Uint32Array, i_a: number, i_b: number, i_c: numbe
  */
 export const chacha20 = (atu8_key: Uint8Array, atu8_nonce: Uint8Array, atu8_data: Uint8Array, xn_counter=0): Uint8Array => {
 	// iterator
-	let i_each;
+	let i_each: number;
 
 	// prepare output
 	const atu8_out = bytes(atu8_data.length);

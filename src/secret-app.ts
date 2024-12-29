@@ -1,11 +1,11 @@
 /* eslint-disable @typescript-eslint/naming-convention */
-import type {TxMeta} from './app-layer';
+import type {TxMeta, TxResponseTuple} from './app-layer';
 import type {CreateQueryArgsAndAuthParams} from './inferencing';
 import type {SecretContract} from './secret-contract';
 import type {AuthSecret} from './types';
 import type {Wallet} from './wallet';
 
-import type {Dict, JsonObject} from '@blake.regalia/belt';
+import type {JsonObject} from '@blake.regalia/belt';
 import type {ContractInterface} from '@solar-republic/contractor';
 import type {SlimCoin, WeakSecretAccAddr} from '@solar-republic/types';
 
@@ -113,12 +113,12 @@ export interface SecretApp<
 		a_funds?: SlimCoin[],
 		s_memo?: string
 	): Promise<[
-		w_result: h_group[as_methods]['response'] | undefined,
-		xc_code: number,
-		s_response: string,
-		g_meta: TxMeta | undefined,
-		h_events: Dict<string[]> | undefined,
-		si_txn: string | undefined,
+		w_result: undefined | h_group[as_methods]['response'],
+		a2_result: undefined | [
+			g_res: undefined | JsonObject,
+			s_res: string,
+		],
+		a6_response: TxResponseTuple,
 	]>;
 }
 
@@ -127,7 +127,7 @@ export const SecretApp = <
 >(
 	k_wallet: Wallet<'secret'>,
 	k_contract: SecretContract<g_interface>,
-	sa_granter?: WeakSecretAccAddr | '' | undefined
+	sa_granter?: WeakSecretAccAddr | ''
 ): SecretApp<g_interface> => k_wallet.fees
 	? {
 		wallet: k_wallet,
@@ -155,7 +155,7 @@ export const SecretApp = <
 			s_memo?: string
 		) => {
 			// execute the contract
-			const [xc_code, s_res, g_res, g_meta, h_events, si_txn] = await exec_secret_contract(
+			const [a2_result, a6_response] = await exec_secret_contract(
 				k_contract as SecretContract,
 				k_wallet,
 				{[si_method]:h_args},
@@ -166,18 +166,19 @@ export const SecretApp = <
 				s_memo
 			);
 
+			// detuple contract result
+			const [g_res] = a2_result || [];
+
+			// detuple broadacast result
+			const [xc_error] = a6_response;
+
 			// entuple results
 			return [
-				xc_code
-					? __UNDEFINED
-					: g_res
-						? values(g_res)[0] as JsonObject
-						: g_res,
-				xc_code,
-				s_res,
-				g_meta,
-				h_events,
-				si_txn,
+				!xc_error && g_res
+					? values(g_res)[0] as JsonObject
+					: __UNDEFINED,
+				a2_result,
+				a6_response,
 			];
 		},
 	}

@@ -14,7 +14,7 @@ import {queryCosmosFeegrantAllowances} from '@solar-republic/cosmos-grpc/cosmos/
 // import {ent_to_sk} from '../scrap/secp256k1';
 import {initWasmSecp256k1} from '@solar-republic/wasm-secp256k1/gzipped';
 
-import {exec_secret_contract, retry, sign_secret_query_permit} from '../src/app-layer';
+import {exec_secret_contract, retry, snip24_amino_sign} from '../src/app-layer';
 import {SecretContract} from '../src/secret-contract';
 import {random_32} from '../src/util';
 import {Wallet} from '../src/wallet';
@@ -69,7 +69,7 @@ export async function connect() {
 	}
 
 	// sign a query permit
-	const g_permit = await sign_secret_query_permit(k_wallet, 'test', [k_contract.addr], ['balance', 'owner']);
+	const g_permit = await snip24_amino_sign(k_wallet, 'test', [k_contract.addr], ['balance', 'owner']);
 
 
 	// define executables

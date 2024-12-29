@@ -1,4 +1,4 @@
-/* eslint-disable prefer-const */
+
 
 import type {Dict, JsonValue} from '@blake.regalia/belt';
 import type {NetworkJsonResponse} from '@solar-republic/cosmos-grpc';
@@ -81,7 +81,7 @@ export const successful = async <
 	a_args extends any[],
 >(
 	f_request: (...a_args: a_args) => Promise<NetworkJsonResponse<w_out>>,
-	...a_args: NoInfer<a_args>
+	...a_args: NoInfer<a_args>  // eslint-disable-line @typescript-eslint/naming-convention
 ): Promise<NonNullable<w_out>> => {
 	// attempt request
 	const [g_res, g_err, d_res, s_res] = await f_request(...a_args);

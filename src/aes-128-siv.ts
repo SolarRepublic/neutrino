@@ -1,6 +1,6 @@
 import {ATU8_NIL, base64_to_text, bytes, bytes_to_base64, bytes_to_text, die} from '@blake.regalia/belt';
 
-import {NB_AES_BLOCK, aes_ctr, aes_key, s2v} from './aes.js';
+import {NB_AES_BLOCK, aes_ctr, aes_key, aes_siv_s2v} from './aes.js';
 
 
 // splits an AES-128 SIV key
@@ -32,7 +32,6 @@ const zero_iv = (atu8_iv: Uint8Array) => {
  * @param a_ad - optional associated data (defaults to `[new Uint8Array(0)]` for Secret Network)
  * @returns ciphertext output
  */
-// eslint-disable-next-line @typescript-eslint/naming-convention
 export const aes_128_siv_encrypt = async(atu8_key: Uint8Array, atu8_plaintext: Uint8Array, a_ad=[ATU8_NIL]): Promise<Uint8Array> => {
 	// construct aes keys
 	const [d_key_cbc, d_key_ctr] = await split_siv_key(atu8_key);
@@ -41,7 +40,7 @@ export const aes_128_siv_encrypt = async(atu8_key: Uint8Array, atu8_plaintext: U
 	const atu8_payload = bytes(NB_AES_BLOCK + atu8_plaintext.byteLength);
 
 	// V = S2V(K1, AD1, ..., ADn, P))
-	const atu8_iv = await s2v(d_key_cbc, atu8_plaintext, a_ad);
+	const atu8_iv = await aes_siv_s2v(d_key_cbc, atu8_plaintext, a_ad);
 
 	// set tag into payload
 	atu8_payload.set(atu8_iv, 0);
@@ -63,7 +62,6 @@ export const aes_128_siv_encrypt = async(atu8_key: Uint8Array, atu8_plaintext: U
  * @param a_ad - optional associated data (defaults to `[new Uint8Array(0)]` for Secret Network)
  * @returns plaintext output
  */
-// eslint-disable-next-line @typescript-eslint/naming-convention
 export const aes_128_siv_decrypt = async(
 	atu8_key: Uint8Array,
 	atu8_payload: Uint8Array,
@@ -87,7 +85,7 @@ export const aes_128_siv_decrypt = async(
 	const atu8_plaintext = await aes_ctr(d_key_ctr, atu8_iv, atu8_ciphertext);
 
 	// authenticate
-	const atu8_cmac = await s2v(d_key_cbc, atu8_plaintext, a_ad);
+	const atu8_cmac = await aes_siv_s2v(d_key_cbc, atu8_plaintext, a_ad);
 
 	// assert expected length
 	if(atu8_cmac.length !== NB_AES_BLOCK || atu8_tag.length !== NB_AES_BLOCK) die(`Invalid tag/CMAC lengths`);

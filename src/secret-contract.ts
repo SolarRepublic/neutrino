@@ -1,42 +1,49 @@
+/* eslint-disable no-console */
 /* eslint-disable prefer-const */
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import type {O} from 'ts-toolbelt';
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-import type {query_secret_contract_raw} from './app-layer';
+import type {TxResponseTuple} from './app-layer';
 import type {ContractInfo, RemoteServiceArg} from './types';
-
+import type {Wallet} from './wallet';
 import type {Dict, JsonObject, Nilable} from '@blake.regalia/belt';
-
 import type {SecretAccAddr, ContractInterface} from '@solar-republic/contractor';
+import type {CosmosClient, RequestDescriptor} from '@solar-republic/cosmos-grpc';
 import type {SecretComputeContractInfo} from '@solar-republic/cosmos-grpc/secret/compute/v1beta1/types';
-import type {CwHexLower, CwUint32, RemoteServiceDescriptor, SlimCoin, WeakSecretAccAddr} from '@solar-republic/types';
+import type {CwHexLower, CwSecretAccAddr, CwUint32, RemoteServiceDescriptor, SlimCoin, TrustedContextUrl, WeakSecretAccAddr, WeakUintStr} from '@solar-republic/types';
 
-import {__UNDEFINED, base64_to_bytes, base64_to_text, bytes_to_text, is_string, parse_json, stringify_json} from '@blake.regalia/belt';
+import {__UNDEFINED, base64_to_bytes, base64_to_text, bytes, bytes_to_hex, bytes_to_text, is_string, parse_json, sha256, stringify_json} from '@blake.regalia/belt';
 
 import {encodeGoogleProtobufAny, type EncodedGoogleProtobufAny} from '@solar-republic/cosmos-grpc/google/protobuf/any';
-import {SI_MESSAGE_TYPE_SECRET_COMPUTE_MSG_EXECUTE_CONTRACT, encodeSecretComputeMsgExecuteContract} from '@solar-republic/cosmos-grpc/secret/compute/v1beta1/msg';
-import {destructSecretComputeQueryCodeHashResponse, destructSecretComputeQueryContractInfoResponse, destructSecretComputeQuerySecretContractResponse, querySecretComputeCodeHashByCodeId, querySecretComputeContractInfo, querySecretComputeQuerySecretContract} from '@solar-republic/cosmos-grpc/secret/compute/v1beta1/query';
+import {SI_MESSAGE_TYPE_SECRET_COMPUTE_MSG_EXECUTE_CONTRACT, SI_MESSAGE_TYPE_SECRET_COMPUTE_MSG_INSTANTIATE_CONTRACT, SI_MESSAGE_TYPE_SECRET_COMPUTE_MSG_STORE_CODE, decodeSecretComputeMsgInstantiateContractResponse, decodeSecretComputeMsgStoreCodeResponse, encodeSecretComputeMsgExecuteContract, encodeSecretComputeMsgInstantiateContract, encodeSecretComputeMsgStoreCode} from '@solar-republic/cosmos-grpc/secret/compute/v1beta1/msg';
+import {destructSecretComputeQueryCodeHashResponse, destructSecretComputeQueryContractInfoResponse, destructSecretComputeQuerySecretContractResponse, querySecretComputeCodeHashByCodeId, querySecretComputeCodes, querySecretComputeContractInfo, querySecretComputeQuerySecretContract} from '@solar-republic/cosmos-grpc/secret/compute/v1beta1/query';
 import {destructSecretRegistrationKey} from '@solar-republic/cosmos-grpc/secret/registration/v1beta1/msg';
 import {querySecretRegistrationTxKey} from '@solar-republic/cosmos-grpc/secret/registration/v1beta1/query';
 
 import {remote_service} from './_common';
+import {broadcast_result} from './app-layer';
 import {GC_NEUTRINO} from './config.js';
+import {secret_response_decrypt} from './secret-response';
 import {SecretWasm} from './secret-wasm.js';
 import {successful} from './util.js';
+import {create_and_sign_tx_direct} from './wallet';
 
 
 export type KnownContractInfo = O.Required<SecretComputeContractInfo, 'code_id' | 'label'>;
 
+export type SecretNetworkInfo = [
+	k_wasm: SecretWasm,
+	atu8_conspk: Uint8Array,
+];
+
+// cache of Secret WASM code info
 const h_codes_cache: Record<ContractInfo['code_id'], CwHexLower> = {};
 
+// cache of Secret contract info
 const h_contract_cache: Record<WeakSecretAccAddr, KnownContractInfo> = {};
 
-const h_networks = {} as Dict<{
-	wasm: SecretWasm;
-	conspk: Uint8Array;
-}>;
+// cache of persistent fields associated with network
+const h_networks = {} as Dict<SecretNetworkInfo>;
 
 
 /**
@@ -125,6 +132,53 @@ export const XC_CONTRACT_CACHE_ACCEPT = 1;
  */
 export type ContractCacheOption = typeof XC_CONTRACT_CACHE_BYPASS | typeof XC_CONTRACT_CACHE_ACCEPT;
 
+// retrieves network info from cache or from chain
+const retrieve_network_info = async(
+	z_lcd: RemoteServiceArg,
+	atu8_seed?: Nilable<Uint8Array>
+): Promise<SecretNetworkInfo> => {
+	// uniquely identify this request pattern
+	let si_lcd = stringify_json(is_string(z_lcd)
+		? [z_lcd, '', '']
+		: [
+			z_lcd.origin,
+			z_lcd.headers,
+			z_lcd.redirect,
+		].map(s => s || '')
+	);
+
+	// try loading entry from cache
+	let a2_cached = h_networks[si_lcd];
+
+	// network not yet cached
+	if(!a2_cached) {
+		// fetch consensus io pubkey
+
+		let g_res_reg = await successful(querySecretRegistrationTxKey, z_lcd);
+
+		// destructure response
+		let [atu8_consensus_pk] = destructSecretRegistrationKey(g_res_reg);
+
+		// instantiate default secret wasm using random seed and save to cache
+		h_networks[si_lcd] = a2_cached = [
+			SecretWasm(atu8_consensus_pk!),
+			atu8_consensus_pk!,
+		];
+	}
+
+	// entuple result
+	return [
+		// custom seed specified...
+		atu8_seed
+			// ...create new instance
+			? SecretWasm(a2_cached[1], atu8_seed)
+			// no custom seed; re-use default WASM instance
+			: a2_cached[0],
+		// consensus public key
+		a2_cached[1],
+	];
+};
+
 /**
  * Creates a low-level handle for a Secret Contract. Accepts contract info as an argument, or how to use
  * the cache. If no info is provided or cached, or the cache is bypassed, then it queries the chain for
@@ -143,45 +197,12 @@ export const SecretContract = async<
 >(
 	z_lcd: RemoteServiceArg,
 	sa_contract: WeakSecretAccAddr,
-	atu8_seed: Nilable<Uint8Array>=__UNDEFINED,
+	atu8_seed?: Nilable<Uint8Array>,
 	a_block_sizes?: [nb_block_query?: number, nb_block_exec?: number],
 	z_info: KnownContractInfo|ContractCacheOption=XC_CONTRACT_CACHE_ACCEPT
 ): Promise<SecretContract<g_interface>> => {
-	// uniquely identify this request pattern
-	let si_lcd = stringify_json(is_string(z_lcd)
-		? [z_lcd, '', '']
-		: [
-			z_lcd.origin,
-			z_lcd.headers,
-			z_lcd.redirect,
-		].map(s => s || '')
-	);
-
-	// try loading entry from cache
-	let g_cached = h_networks[si_lcd];
-
-	// network not yet cached
-	if(!g_cached) {
-		// fetch consensus io pubkey
-		// eslint-disable-next-line @typescript-eslint/no-unused-vars
-		let g_res_reg = await successful(querySecretRegistrationTxKey, z_lcd);
-
-		// destructure response
-		let [atu8_consensus_pk] = destructSecretRegistrationKey(g_res_reg);
-
-		// instantiate default secret wasm using random seed and save to cache
-		h_networks[si_lcd] = g_cached = {
-			wasm: SecretWasm(atu8_consensus_pk!),
-			conspk: atu8_consensus_pk!,
-		};
-	}
-
-	// custom seed specified...
-	const k_wasm = atu8_seed
-		// ...create instance
-		? SecretWasm(g_cached.conspk, atu8_seed)
-		// no custom seed; re-use default wasm instance
-		: g_cached.wasm;
+	// retrieve Secret network info
+	const [k_wasm] = await retrieve_network_info(z_lcd, atu8_seed);
 
 	// ref contract info
 	let g_info = XC_CONTRACT_CACHE_ACCEPT === z_info? h_contract_cache[sa_contract]: z_info;
@@ -197,16 +218,16 @@ export const SecretContract = async<
 	}
 
 	// ref code id
-	const si_code = g_info.code_id!;  // eslint-disable-line @typescript-eslint/no-unnecessary-type-assertion
+	const sg_code = g_info.code_id!;
 
 	// ref code hash
-	let sb16_code_hash = h_codes_cache[si_code];
+	let sb16_code_hash = h_codes_cache[sg_code];
 	if(!sb16_code_hash) {
 		// refload code hash
-		let g_res_hash = await successful(querySecretComputeCodeHashByCodeId, z_lcd, si_code);
+		let g_res_hash = await successful(querySecretComputeCodeHashByCodeId, z_lcd, sg_code);
 
 		// destruct response
-		sb16_code_hash = h_codes_cache[si_code] = destructSecretComputeQueryCodeHashResponse(g_res_hash)[0]!;
+		sb16_code_hash = h_codes_cache[sg_code] = destructSecretComputeQueryCodeHashResponse(g_res_hash)[0]!;
 	}
 
 
@@ -308,3 +329,309 @@ export const SecretContract = async<
 		},
 	};
 };
+
+
+/**
+ * Uploads the given Secret WASM bytecode to the chain, short-circuiting if the code already exists
+ * @param k_wallet 
+ * @param atu8_wasm - WASMByteCode can be raw or gzip compressed
+ * @param a_options - an optional tuple of properties to attach to the uploaded code where:
+ *  - 0: `s_source?: string` - a valid absolute HTTPS URI to the contract's source code
+ *  - 1: `s_builder?: string` - a valid docker image name with tag
+ * @returns 
+ */
+export async function secret_contract_upload_code(
+	k_wallet: Wallet,
+	atu8_wasm: Uint8Array,
+	z_limit: bigint | WeakUintStr,
+	[s_source, s_builder]: [
+		s_source?: TrustedContextUrl,
+		s_builder?: `${string}/${string}:${string}`,
+	]=[],
+	s_memo?: string,
+	sa_granter?: WeakSecretAccAddr,
+	ylc_client: CosmosClient | RequestDescriptor=k_wallet.lcd
+): Promise<[
+	sg_code_id: undefined | WeakUintStr,
+	sb16_hash: CwHexLower,
+	a6_broadcast?: TxResponseTuple,
+	]> {
+	// decompressed bytecode
+	let atu8_bytecode = atu8_wasm;
+
+	// gzip-encoded; decompress
+	if(0x1f === atu8_wasm[0] && 0x8b === atu8_wasm[1]) {
+		// no access to DecompressionStream
+		if('undefined' === typeof DecompressionStream) throw Error('neutrino unable to decompress gzip-encoded WASM');
+
+		// decompress
+		atu8_bytecode = bytes(
+			await new Response(
+				new Blob([atu8_wasm]).stream()
+					.pipeThrough(new DecompressionStream('gzip'))
+			).arrayBuffer());
+	}
+
+	// hash raw bytecode
+	const atu8_hash = await sha256(atu8_bytecode);
+	const sb16_hash = bytes_to_hex(atu8_hash);
+
+	// fetch all uploaded codes
+	const g_codes = await successful(querySecretComputeCodes, ylc_client);
+
+	// already uploaded
+	const g_existing = g_codes?.code_infos?.find(g => g.code_hash === sb16_hash);
+	if(g_existing) {
+		// debug
+		if(import.meta.env?.DEV) {
+			console.debug(`🔦 Found matching code ID ${g_existing.code_id} already uploaded to network`);
+		}
+
+		// entuple result
+		return [
+			g_existing.code_id as WeakUintStr,
+			sb16_hash,
+		];
+	}
+
+	// encode message
+	const atu8_msg = encodeGoogleProtobufAny(
+		SI_MESSAGE_TYPE_SECRET_COMPUTE_MSG_STORE_CODE,
+		encodeSecretComputeMsgStoreCode(
+			k_wallet.addr,
+			atu8_wasm,
+			s_source,
+			s_builder
+		)
+	);
+
+	// sign in direct mode
+	const [atu8_tx_raw, si_txn] = await create_and_sign_tx_direct(
+		k_wallet,
+		[atu8_msg],
+		z_limit,
+		__UNDEFINED,
+		0,
+		s_memo,
+		sa_granter
+	);
+
+	// debug info
+	if(import.meta.env?.DEV) {
+		console.groupCollapsed(`📦 Uploading ${Math.round(atu8_wasm.length / 1024)}kib contract bytecode...`);
+		console.debug([
+			`Uploading contract code of ${atu8_wasm.length} bytes from ${k_wallet.addr}`,
+			`  limit: ${z_limit} ┃ hash: ${si_txn}`+(sa_granter? ` ┃ granter: ${sa_granter}`: '')+(s_memo? ` ┃ memo: ${s_memo}`: ''),
+		].join('\n'));
+		console.groupEnd();
+	}
+
+	// broadcast to chain and detuple result
+	const a6_broadcast = await broadcast_result(k_wallet, atu8_tx_raw, si_txn);
+
+	// detuple
+	const [xc_code, sx_res,, g_meta,, atu8_data] = a6_broadcast;
+
+	// non-zero response code
+	if(xc_code) {
+		// debug
+		if(import.meta.env?.DEV) {
+			console.groupCollapsed(`❌ Upload failed [code: ${xc_code}]`);
+			console.debug('meta: ', g_meta);
+			console.debug('res: ', sx_res);
+			console.groupEnd();
+		}
+
+		// set error text
+		a6_broadcast[1] = g_meta?.log ?? sx_res;
+
+		// exit with error result
+		return [__UNDEFINED, sb16_hash, a6_broadcast];
+	}
+
+	// decode response
+	const [sg_code_id] = decodeSecretComputeMsgStoreCodeResponse(atu8_data!);
+
+	// debug info
+	if(import.meta.env?.DEV) {
+		console.groupCollapsed(`✅ Upload succeeded`);
+
+		if(g_meta) {
+			const {
+				gas_used: sg_used,
+				gas_wanted: sg_wanted,
+			} = g_meta;
+
+			console.debug(`gas used/wanted: ${sg_used}/${sg_wanted}  (${+sg_wanted - +sg_used}) wasted)`);
+		}
+
+		console.debug('code ID: ', sg_code_id);
+		console.debug('meta: ', g_meta);
+		console.debug('txhash: ', si_txn);
+		console.groupEnd();
+	}
+
+	// entuple result
+	return [
+		sg_code_id,
+		sb16_hash,
+		a6_broadcast,
+	];
+}
+
+
+/**
+ * Instantiates the given code into a contract
+ * @param k_wallet 
+ * @param sg_code_id 
+ * @param h_init_msg 
+ * @returns 
+ */
+export const secret_contract_instantiate = async(
+	k_wallet: Wallet,
+	sg_code_id: WeakUintStr,
+	h_init_msg: JsonObject,
+	zg_limit: bigint|WeakUintStr,
+	[
+		sa_admin,
+		s_label,
+		a_funds,
+	]: [
+		sa_admin?: Nilable<WeakSecretAccAddr | ''>,
+		s_label?: Nilable<string>,
+		a_funds?: SlimCoin[],
+	]=[],
+	[
+		s_memo,
+		sa_granter,
+	]: [
+		s_memo?: string,
+		sa_granter?: WeakSecretAccAddr|'',
+	]=[],
+	atu8_seed?: Nilable<Uint8Array>,
+	g_out: SecretContractQueryIntermediates={}
+): Promise<[
+	a_response: undefined | [
+		sa_contract: CwSecretAccAddr,
+		readonly [
+			s_plaintext: string,
+			g_answer?: undefined | JsonObject,
+		],
+	],
+	a6_broadcast: TxResponseTuple,
+]> => {
+	// retrieve Secret network info
+	const [k_wasm] = await retrieve_network_info(k_wallet.lcd, atu8_seed);
+
+	// ref code hash
+	let sb16_code_hash = h_codes_cache[sg_code_id];
+	if(!sb16_code_hash) {
+		// refload code hash
+		let g_res_hash = await successful(querySecretComputeCodeHashByCodeId, k_wallet.lcd, sg_code_id);
+
+		// destruct response
+		sb16_code_hash = h_codes_cache[sg_code_id] = destructSecretComputeQueryCodeHashResponse(g_res_hash)[0]!;
+	}
+
+	// encrypt init message
+	const atu8_body = await k_wasm.encodeMsg(sb16_code_hash, h_init_msg);
+
+	// extract nonce
+	const atu8_nonce = g_out.n = atu8_body.slice(0, 32);
+
+	// encode instantiation message
+	const atu8_msg = encodeGoogleProtobufAny(
+		SI_MESSAGE_TYPE_SECRET_COMPUTE_MSG_INSTANTIATE_CONTRACT,
+		encodeSecretComputeMsgInstantiateContract(
+			k_wallet.addr,
+			null,
+			sg_code_id,
+			s_label || h_init_msg['name'] as string,
+			atu8_body,
+			a_funds,
+			__UNDEFINED,
+			sa_admin
+		)
+	);
+
+	// sign in direct mode
+	const [atu8_tx_raw, si_txn] = await create_and_sign_tx_direct(
+		k_wallet,
+		[atu8_msg],
+		zg_limit,
+		__UNDEFINED,
+		0,
+		s_memo,
+		sa_granter
+	);
+
+	// debug info
+	if(import.meta.env?.DEV) {
+		console.groupCollapsed(`🛞 Instantiating code ID ${sg_code_id}...`);
+		console.debug([
+			`Instantiating code ID ${sg_code_id} with ${stringify_json(h_init_msg)}`,
+			`  limit: ${zg_limit} ┃ hash: ${si_txn}`+(sa_granter? ` ┃ granter: ${sa_granter}`: '')+(s_memo? ` ┃ memo: ${s_memo}`: ''),
+		].join('\n'));
+		console.groupEnd();
+	}
+
+	// broadcast to chain
+	const a6_broadcast = await broadcast_result(k_wallet, atu8_tx_raw, si_txn);
+
+	// detuple broadcast result
+	const [xc_error, sx_res,, g_meta, h_events, atu8_data] = a6_broadcast;
+
+	// invalid json
+	if(xc_error < 0) return [__UNDEFINED, a6_broadcast];
+
+	// decrypt response
+	const [a_error, a_responses] = await secret_response_decrypt(k_wasm, a6_broadcast, [atu8_nonce]);
+
+	// non-zero response code
+	if(xc_error) {
+		// debug
+		if(import.meta.env?.DEV) {
+			console.groupCollapsed(`❌ Instantiation failed [code: ${xc_error}]`);
+			console.debug('meta: ', g_meta);
+			console.debug('res: ', sx_res);
+			console.groupEnd();
+		}
+
+		// set error text
+		a6_broadcast[1] = a_error?.[0] ?? g_meta?.log ?? sx_res;
+
+		// return error
+		return [__UNDEFINED, a6_broadcast];
+	}
+
+	// decode response
+	const [sa_contract] = decodeSecretComputeMsgInstantiateContractResponse(atu8_data!);
+
+	// debug info
+	if(import.meta.env?.DEV) {
+		console.groupCollapsed(`✅ Instantiation succeeded`);
+
+		if(g_meta) {
+			const {
+				gas_used: sg_used,
+				gas_wanted: sg_wanted,
+			} = g_meta;
+
+			console.debug(`gas used/wanted: ${sg_used}/${sg_wanted}  (${+sg_wanted - +sg_used}) wasted)`);
+		}
+
+		console.debug('meta: ', g_meta);
+		console.debug('txhash: ', si_txn);
+		console.groupEnd();
+	}
+
+	// detuple response for first and only message
+	const [[a2_result]] = a_responses!;
+
+	// return entupled result
+	return [
+		[sa_contract as CwSecretAccAddr, a2_result],
+		a6_broadcast,
+	];
+};
+

@@ -107,7 +107,7 @@ export const aes_cmac_init = async(d_key_mac: CryptoKey): Promise<(atu8_data: Ui
 };
 
 // performs S2V operation
-export const s2v = async(d_key_rkd: CryptoKey, atu8_plaintext: Uint8Array, a_ad=[ATU8_NIL]): Promise<Uint8Array> => {
+export const aes_siv_s2v = async(d_key_rkd: CryptoKey, atu8_plaintext: Uint8Array, a_ad=[ATU8_NIL]): Promise<Uint8Array> => {
 	const f_cmac = await aes_cmac_init(d_key_rkd);
 
 	// D = AES-CMAC(K, <zero>)
