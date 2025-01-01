@@ -1,5 +1,4 @@
-/* eslint-disable no-console */
-/* eslint-disable prefer-const */
+/* eslint-disable no-console, prefer-const */
 
 import type {O} from 'ts-toolbelt';
 
@@ -14,6 +13,7 @@ import type {CwHexLower, CwSecretAccAddr, CwUint32, RemoteServiceDescriptor, Sli
 
 import {__UNDEFINED, base64_to_bytes, base64_to_text, bytes, bytes_to_hex, bytes_to_text, is_string, parse_json, sha256, stringify_json} from '@blake.regalia/belt';
 
+import {decodeCosmosBaseAbciTxMsgData} from '@solar-republic/cosmos-grpc/cosmos/base/abci/v1beta1/abci';
 import {encodeGoogleProtobufAny, type EncodedGoogleProtobufAny} from '@solar-republic/cosmos-grpc/google/protobuf/any';
 import {SI_MESSAGE_TYPE_SECRET_COMPUTE_MSG_EXECUTE_CONTRACT, SI_MESSAGE_TYPE_SECRET_COMPUTE_MSG_INSTANTIATE_CONTRACT, SI_MESSAGE_TYPE_SECRET_COMPUTE_MSG_STORE_CODE, decodeSecretComputeMsgInstantiateContractResponse, decodeSecretComputeMsgStoreCodeResponse, encodeSecretComputeMsgExecuteContract, encodeSecretComputeMsgInstantiateContract, encodeSecretComputeMsgStoreCode} from '@solar-republic/cosmos-grpc/secret/compute/v1beta1/msg';
 import {destructSecretComputeQueryCodeHashResponse, destructSecretComputeQueryContractInfoResponse, destructSecretComputeQuerySecretContractResponse, querySecretComputeCodeHashByCodeId, querySecretComputeCodes, querySecretComputeContractInfo, querySecretComputeQuerySecretContract} from '@solar-republic/cosmos-grpc/secret/compute/v1beta1/query';
@@ -449,8 +449,11 @@ export async function secret_contract_upload_code(
 		return [__UNDEFINED, sb16_hash, a6_broadcast];
 	}
 
+	// decode message responses
+	const [, [[, atu8_response]=[]]=[]] = decodeCosmosBaseAbciTxMsgData(atu8_data!);
+
 	// decode response
-	const [sg_code_id] = decodeSecretComputeMsgStoreCodeResponse(atu8_data!);
+	const [sg_code_id] = decodeSecretComputeMsgStoreCodeResponse(atu8_response!);
 
 	// debug info
 	if(import.meta.env?.DEV) {
