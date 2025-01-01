@@ -607,8 +607,11 @@ export const secret_contract_instantiate = async(
 		return [__UNDEFINED, a6_broadcast];
 	}
 
+	// detuple response grouop for first and only message response
+	const [[a2_result,, atu8_response]] = a_responses!;
+
 	// decode response
-	const [sa_contract] = decodeSecretComputeMsgInstantiateContractResponse(atu8_data!);
+	const [sa_contract] = decodeSecretComputeMsgInstantiateContractResponse(atu8_response!);
 
 	// debug info
 	if(import.meta.env?.DEV) {
@@ -627,9 +630,6 @@ export const secret_contract_instantiate = async(
 		console.debug('txhash: ', si_txn);
 		console.groupEnd();
 	}
-
-	// detuple response for first and only message
-	const [[a2_result]] = a_responses!;
 
 	// return entupled result
 	return [
