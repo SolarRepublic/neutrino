@@ -64,7 +64,7 @@ export const secret_response_decoders: (
 			const [, atu8_ciphertext] = decodeSecretComputeMsgInstantiateContractResponse(atu8_payload);
 
 			// return decrypted contract response
-			return await f_decryptor(atu8_ciphertext!, i_msg);
+			return atu8_payload.length? await f_decryptor(atu8_ciphertext!, i_msg): [''];
 		},
 	};
 };
