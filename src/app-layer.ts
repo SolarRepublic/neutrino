@@ -156,6 +156,11 @@ export const subscribe_tendermint_events = (
 				},
 			}));
 		},
+
+		// error event
+		onerror(d_event: ErrorEvent) {
+			fe_reject(Error(d_event.message));
+		},
 	} as Pick<WebSocket, 'onmessage' | 'onopen'>));
 
 
