@@ -20,7 +20,7 @@ import type {CosmosTxGetTxResponse} from '@solar-republic/cosmos-grpc/cosmos/tx/
 import type {TendermintAbciExecTxResult} from '@solar-republic/cosmos-grpc/tendermint/abci/types';
 import type {SlimCoin, WeakAccountAddr, TrustedContextUrl, CwAccountAddr, WeakUint128Str, WeakUintStr, WeakSecretAccAddr, Snip24QueryPermitSigned, Snip24QueryPermitParams, Snip24QueryPermitMsg, CwBase64, CwHexUpper} from '@solar-republic/types';
 
-import {__UNDEFINED, bytes_to_base64, timeout, parse_json_safe, timeout_exec, die, assign, hex_to_bytes, stringify_json, try_async, is_error, defer} from '@blake.regalia/belt';
+import {__UNDEFINED, bytes_to_base64, timeout, parse_json_safe, timeout_exec, die, assign, hex_to_bytes, stringify_json, try_async, is_error, defer, Debouncer} from '@blake.regalia/belt';
 import {safe_base64_to_bytes} from '@solar-republic/cosmos-grpc';
 import {XC_PROTO_COSMOS_TX_BROADCAST_MODE_SYNC, queryCosmosTxGetTx, submitCosmosTxBroadcastTx} from '@solar-republic/cosmos-grpc/cosmos/tx/v1beta1/service';
 
@@ -107,23 +107,6 @@ export const retry = async<w_out>(
 };
 
 
-// probe a WebSocket endpoint and confirm it is available
-const probe_websocket = async(p_rpc: TrustedContextUrl | `wss://${string}`) => {
-	// send probe request with automatic timeout
-	const d_res = await fetch(p_rpc.replace(/^ws/, 'http')+'/websocket', {
-		headers: {
-			'Connection': 'Upgrade',
-			'Upgrade': 'websocket',
-			'Sec-WebSocket-Version': '13',
-			'Sec-WebSocket-Key': 'dGhlIHNhbXBsZSBub25jZQ==',  // for some reason, implementations only support using the sample key from the spec 🤯
-		},
-		signal: AbortSignal.timeout(GC_NEUTRINO.WS_TIMEOUT),
-	});
-
-	// did not get expected HTTP response status code
-	if(101 !== d_res.status) die(`Unexpected response status ${d_res.status} while probing WebSocket endpoint ${p_rpc}: """${(await d_res.text()).trim()}"""\nheaders: ${JSON.stringify(d_res.headers, null, '  ')}`);
-};
-
 /**
  * Opens a new Tendermint JSONRPC WebSocket and immediately subscribes using the given query.
  * Returns a Promise that resolves once a subscription confirmation message is received.
@@ -137,48 +120,74 @@ export const subscribe_tendermint_events = (
 	p_rpc: TrustedContextUrl | `wss://${string}`,
 	sx_query: string,
 	fk_message: (d_event: MessageEvent<NaiveJsonString>) => any,
-	dc_ws=WebSocket
-): Promise<WebSocket> => probe_websocket(p_rpc).then(() => new Promise((fk_resolve, fe_reject) => assign(
-	// normalize protocol from http(s) => ws and append /websocket to path
-	new dc_ws(p_rpc.replace(/^http/, 'ws')+'/websocket'), {
-		// first message should be subscription confirmation
-		onmessage(g_msg) {
-			// parse message
-			const g_data = parse_json_safe<JsonRpcResponse<Record<string, never>>>(g_msg.data as NaiveJsonString);
+	dc_ws=WebSocket,
+	xt_timeout=GC_NEUTRINO.WS_TIMEOUT
+): Promise<WebSocket> => new Promise((fk_resolve, fe_reject) => {
+	// if WebSocket doens't open within allotted timeframe, probe and die
+	let i_open = setTimeout(async() => {
+		// send probe request with automatic timeout
+		const d_res = await fetch(p_rpc.replace(/^ws/, 'http')+'/websocket', {
+			headers: {
+				'Connection': 'Upgrade',
+				'Upgrade': 'websocket',
+				'Sec-WebSocket-Version': '13',
+				'Sec-WebSocket-Key': 'dGhlIHNhbXBsZSBub25jZQ==',  // for some reason, implementations only support using the sample key from the spec 🤯
+			},
+			signal: AbortSignal.timeout(xt_timeout),
+		});
 
-			// expect confirmation
-			if('0' !== g_data?.id || '{}' !== stringify_json(g_data?.result)) {
-				// reject
-				fe_reject(g_data);  // eslint-disable-line @typescript-eslint/prefer-promise-reject-errors
+		// did not get expected HTTP response status code, or unknown reason for timeout
+		fe_reject(Error(101 === d_res.status
+			? `Bad response status ${d_res.status} while probing WebSocket endpoint ${p_rpc}: ${(await d_res.text()).trim()}\nheaders: ${JSON.stringify(d_res.headers, null, '  ')}`
+			: `Timed out while waiting for otherwise healthy WebSocket to open at ${p_rpc}`));
+	}, xt_timeout);
 
-				// close socket
-				this.close(); return;
-			}
+	// create WebSocket
+	return assign(
+		// normalize protocol from http(s) => ws and append /websocket to path
+		new dc_ws(p_rpc.replace(/^http/, 'ws')+'/websocket'), {
+			// first message should be subscription confirmation
+			onmessage(g_msg) {
+				// parse message
+				const g_data = parse_json_safe<JsonRpcResponse<Record<string, never>>>(g_msg.data as NaiveJsonString);
 
-			// each subsequent message
-			this.onmessage = fk_message;
+				// expect confirmation
+				if('0' !== g_data?.id || '{}' !== stringify_json(g_data?.result)) {
+					// reject
+					fe_reject(g_data);  // eslint-disable-line @typescript-eslint/prefer-promise-reject-errors
 
-			// resolve now that subscription has been confirmed
-			fk_resolve(this);
-		},
+					// close socket
+					this.close(); return;
+				}
 
-		// open event
-		onopen() {
-			// subscribe to event
-			this.send(stringify_json({
-				id: '0',
-				method: 'subscribe',
-				params: {
-					query: sx_query,
-				},
-			}));
-		},
+				// each subsequent message
+				this.onmessage = fk_message;
 
-		// error event
-		onerror(d_event: ErrorEvent) {
-			fe_reject(Error(d_event.message));
-		},
-	} as Pick<WebSocket, 'onmessage' | 'onopen'>)));
+				// resolve now that subscription has been confirmed
+				fk_resolve(this);
+			},
+
+			// open event
+			onopen() {
+				// cancel open timeout
+				clearTimeout(i_open);
+
+				// subscribe to event
+				this.send(stringify_json({
+					id: '0',
+					method: 'subscribe',
+					params: {
+						query: sx_query,
+					},
+				}));
+			},
+
+			// error event
+			onerror(d_event: ErrorEvent) {
+				fe_reject(Error(d_event.message));
+			},
+		} as Pick<WebSocket, 'onmessage' | 'onopen'>);
+});
 
 
 /**
