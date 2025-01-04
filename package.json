@@ -39,15 +39,15 @@
     "@blake.regalia/tsconfig": "^0.2.0",
     "@cosmjs/amino": "^0.32.4",
     "@nfps.dev/rollup-plugin-microweb": "^0.3.5",
-    "@noble/secp256k1": "^2.1.0",
+    "@noble/secp256k1": "^2.2.2",
     "@rollup/plugin-commonjs": "^28.0.2",
     "@rollup/plugin-replace": "^6.0.2",
-    "@solar-republic/contractor": "^0.10.2",
-    "@solar-republic/types": "^0.3.6",
+    "@solar-republic/contractor": "^0.10.3",
+    "@solar-republic/types": "^0.3.7",
     "@types/chai": "^5.0.1",
-    "@types/node": "^22.10.2",
+    "@types/node": "^22.10.5",
     "@types/web": "^0.0.188",
-    "@typescript-eslint/parser": "^8.18.2",
+    "@typescript-eslint/parser": "^8.19.0",
     "chai": "^5.1.2",
     "chai-bites": "^0.2.0",
     "curve25519-js": "^0.0.4",
@@ -67,9 +67,9 @@
     "ws": "^8.18.0"
   },
   "dependencies": {
-    "@blake.regalia/belt": "^0.48.4",
+    "@blake.regalia/belt": "^0.52.1",
     "@solar-republic/cosmos-grpc": "^0.18.0-beta.10",
-    "@solar-republic/crypto": "^0.2.14",
+    "@solar-republic/crypto": "^0.3.1",
     "@solar-republic/wasm-secp256k1": "^0.4.2"
   },
   "publishConfig": {

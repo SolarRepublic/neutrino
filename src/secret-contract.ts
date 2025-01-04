@@ -11,7 +11,7 @@ import type {CosmosClient, RequestDescriptor} from '@solar-republic/cosmos-grpc'
 import type {SecretComputeContractInfo} from '@solar-republic/cosmos-grpc/secret/compute/v1beta1/types';
 import type {CwHexLower, CwSecretAccAddr, CwUint32, RemoteServiceDescriptor, SlimCoin, TrustedContextUrl, WeakSecretAccAddr, WeakUintStr} from '@solar-republic/types';
 
-import {__UNDEFINED, base64_to_bytes, base64_to_text, bytes, bytes_to_hex, bytes_to_text, is_string, parse_json, sha256, stringify_json} from '@blake.regalia/belt';
+import {__UNDEFINED, base64_to_bytes, base64_to_text, bytes, bytes_to_hex, bytes_to_text, gunzip_bytes, is_string, parse_json, sha256, stringify_json} from '@blake.regalia/belt';
 
 import {decodeCosmosBaseAbciTxMsgData} from '@solar-republic/cosmos-grpc/cosmos/base/abci/v1beta1/abci';
 import {encodeGoogleProtobufAny, type EncodedGoogleProtobufAny} from '@solar-republic/cosmos-grpc/google/protobuf/any';
@@ -361,15 +361,7 @@ export async function secret_contract_upload_code(
 
 	// gzip-encoded; decompress
 	if(0x1f === atu8_wasm[0] && 0x8b === atu8_wasm[1]) {
-		// no access to DecompressionStream
-		if('undefined' === typeof DecompressionStream) throw Error('neutrino unable to decompress gzip-encoded WASM');
-
-		// decompress
-		atu8_bytecode = bytes(
-			await new Response(
-				new Blob([atu8_wasm]).stream()
-					.pipeThrough(new DecompressionStream('gzip'))
-			).arrayBuffer());
+		atu8_bytecode = await gunzip_bytes(atu8_wasm);
 	}
 
 	// hash raw bytecode
