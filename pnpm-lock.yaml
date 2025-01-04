@@ -12,11 +12,11 @@ importers:
         specifier: ^0.52.1
         version: 0.52.1(@typescript-eslint/parser@8.19.0(eslint@9.17.0)(typescript@5.7.2))(eslint@9.17.0)(ts-node@10.9.2(@types/node@22.10.5)(typescript@5.7.2))(typescript@5.7.2)
       '@solar-republic/cosmos-grpc':
-        specifier: ^0.18.0-beta.10
-        version: 0.18.0-beta.10
+        specifier: ^0.18.0-beta.11
+        version: 0.18.0-beta.11(@typescript-eslint/parser@8.19.0(eslint@9.17.0)(typescript@5.7.2))(eslint@9.17.0)(ts-node@10.9.2(@types/node@22.10.5)(typescript@5.7.2))(typescript@5.7.2)
       '@solar-republic/crypto':
-        specifier: ^0.3.1
-        version: 0.3.1(@typescript-eslint/parser@8.19.0(eslint@9.17.0)(typescript@5.7.2))(eslint@9.17.0)(ts-node@10.9.2(@types/node@22.10.5)(typescript@5.7.2))(typescript@5.7.2)
+        specifier: ^0.3.2
+        version: 0.3.2(@typescript-eslint/parser@8.19.0(eslint@9.17.0)(typescript@5.7.2))(eslint@9.17.0)(ts-node@10.9.2(@types/node@22.10.5)(typescript@5.7.2))(typescript@5.7.2)
       '@solar-republic/wasm-secp256k1':
         specifier: ^0.4.2
         version: 0.4.2
@@ -122,9 +122,6 @@ packages:
   '@babel/runtime@7.24.1':
     resolution: {integrity: sha512-+BIznRzyqBf+2wCTxcKE3wDjfGeCoVE61KSHGpkzqrLi8qxqFwBeUFyId2cxkTmm55fzDGnm0+yCxaxygrLUnQ==}
     engines: {node: '>=6.9.0'}
-
-  '@blake.regalia/belt@0.37.0':
-    resolution: {integrity: sha512-kpAXIn9ioUBVRjwvtyyjZRzwQ2MRJbI/AKY+4maQZD+daG/9tbCN0ET8BP9WzfqD0jZ8i5TIjEByjUdWpzn1MQ==}
 
   '@blake.regalia/belt@0.40.1':
     resolution: {integrity: sha512-1KgtASOjGtzcC8IjL2gm4Ofwk9HvGW+l5VsqbKgxGrceEiVcccPf65eX20hek3p7prpNwbw9vImlXEU0Bii7Aw==}
@@ -534,21 +531,15 @@ packages:
     resolution: {integrity: sha512-ggrQDiwJGhM3wy6Pr2d160uMpWwQRtXQ/EiC8He/AX9lBM7M4ukSI/cxuL6Y86GsID3vBVyz7VtymE75sFVwkQ==}
     hasBin: true
 
-  '@solar-republic/cosmos-grpc@0.18.0-beta.10':
-    resolution: {integrity: sha512-claeM10exyzBcQUAW3lFCZS1EK6x0+rTSxJNH/0EhLzavBh5q64GF27uoG4gWAWJlVVkCUqc7uZV4N1LiEu1Bw==}
+  '@solar-republic/cosmos-grpc@0.18.0-beta.11':
+    resolution: {integrity: sha512-Xv5HUPQEoo5KNt5ZJ6UJAa1OTPr7G2uKB5gP55uo4IrmVDCcsBppZ1MkXSkPcBzy/ot2Vgv0xPgq+2zp/gVmyg==}
     hasBin: true
 
-  '@solar-republic/crypto@0.2.14':
-    resolution: {integrity: sha512-lm9U5QuBamqYAsdrJsnVfE7Uef4TyCvgLsgypPI1/RNjFdRCeKpMXoCRmJxeu3m/FzOhmPvX3WDd+ePCGw149w==}
-
-  '@solar-republic/crypto@0.3.1':
-    resolution: {integrity: sha512-hj49VUNxU8XGMwbaXlGwuTTSVDx3uxYzlO/10CUtalDXwVbRK4JJg9PfxxrCLcyTvtUajKAaBGsxZiqiuNjyfg==}
+  '@solar-republic/crypto@0.3.2':
+    resolution: {integrity: sha512-nKUodQiwhywt/vW/oatB2QU+FQ1ztr9MVImg5vDSWtrR/+wTI69uT+XYBfCydUDW4RQ3VaNuGwets+oz52gvkA==}
 
   '@solar-republic/types@0.3.7':
     resolution: {integrity: sha512-yyCwcZimAqmzl3QRAUXXxOOqusWE+UGR8qLYTFS0xtHGSstb/1E8s21KtbuNud2B+DuhkWD/ToDyS+CJMAQDow==}
-
-  '@solar-republic/wasm-secp256k1@0.2.8':
-    resolution: {integrity: sha512-tFSO+YOqZt/E6EvrjxhxcrPAn8hs5cPx2Op/+rzznrQuMHEONxvb3MFiw9V8JbcMvrMiCypLvFR7nkrI8+h3sg==}
 
   '@solar-republic/wasm-secp256k1@0.4.2':
     resolution: {integrity: sha512-sGHHRFc4ZZGE7aVMp7mpKGJN6dqgo8gF3yzB/IBlBC8nk0OQ9+hk3ls6nGpcxDabXXpB0PAQW+vl/Xs7FnfvCg==}
@@ -1406,9 +1397,6 @@ packages:
 
   has-unicode@2.0.1:
     resolution: {integrity: sha512-8Rf9Y83NBReMnx0gFzA8JImQACstCYWUplepDa9xprwwtmgEZUF0h/i5xSA625zB/I37EtrswSST6OXxwaaIJQ==}
-
-  hash-wasm@4.11.0:
-    resolution: {integrity: sha512-HVusNXlVqHe0fzIzdQOGolnFN6mX/fqcrSAOcTBXdvzrXVHwTz11vXeKRmkR5gTuwVpvHZEIyKoePDvuAR+XwQ==}
 
   hash-wasm@4.12.0:
     resolution: {integrity: sha512-+/2B2rYLb48I/evdOIhP+K/DD2ca2fgBjp6O+GBEnCDk2e4rpeXIK8GvIyRPjTezgmWn9gmKwkQjjx6BtqDHVQ==}
@@ -2495,8 +2483,6 @@ snapshots:
     dependencies:
       regenerator-runtime: 0.14.1
 
-  '@blake.regalia/belt@0.37.0': {}
-
   '@blake.regalia/belt@0.40.1': {}
 
   '@blake.regalia/belt@0.48.4': {}
@@ -2949,19 +2935,21 @@ snapshots:
       - ts-node
       - typescript
 
-  '@solar-republic/cosmos-grpc@0.18.0-beta.10':
+  '@solar-republic/cosmos-grpc@0.18.0-beta.11(@typescript-eslint/parser@8.19.0(eslint@9.17.0)(typescript@5.7.2))(eslint@9.17.0)(ts-node@10.9.2(@types/node@22.10.5)(typescript@5.7.2))(typescript@5.7.2)':
     dependencies:
-      '@solar-republic/crypto': 0.2.14
+      '@solar-republic/crypto': 0.3.2(@typescript-eslint/parser@8.19.0(eslint@9.17.0)(typescript@5.7.2))(eslint@9.17.0)(ts-node@10.9.2(@types/node@22.10.5)(typescript@5.7.2))(typescript@5.7.2)
       google-protobuf: 3.21.4
       protobufjs: 7.4.0
+    transitivePeerDependencies:
+      - '@typescript-eslint/parser'
+      - eslint
+      - eslint-import-resolver-typescript
+      - eslint-import-resolver-webpack
+      - supports-color
+      - ts-node
+      - typescript
 
-  '@solar-republic/crypto@0.2.14':
-    dependencies:
-      '@blake.regalia/belt': 0.37.0
-      '@solar-republic/wasm-secp256k1': 0.2.8
-      hash-wasm: 4.11.0
-
-  '@solar-republic/crypto@0.3.1(@typescript-eslint/parser@8.19.0(eslint@9.17.0)(typescript@5.7.2))(eslint@9.17.0)(ts-node@10.9.2(@types/node@22.10.5)(typescript@5.7.2))(typescript@5.7.2)':
+  '@solar-republic/crypto@0.3.2(@typescript-eslint/parser@8.19.0(eslint@9.17.0)(typescript@5.7.2))(eslint@9.17.0)(ts-node@10.9.2(@types/node@22.10.5)(typescript@5.7.2))(typescript@5.7.2)':
     dependencies:
       '@blake.regalia/belt': 0.52.1(@typescript-eslint/parser@8.19.0(eslint@9.17.0)(typescript@5.7.2))(eslint@9.17.0)(ts-node@10.9.2(@types/node@22.10.5)(typescript@5.7.2))(typescript@5.7.2)
       '@solar-republic/wasm-secp256k1': 0.4.2
@@ -2976,10 +2964,6 @@ snapshots:
       - typescript
 
   '@solar-republic/types@0.3.7': {}
-
-  '@solar-republic/wasm-secp256k1@0.2.8':
-    dependencies:
-      '@blake.regalia/belt': 0.37.0
 
   '@solar-republic/wasm-secp256k1@0.4.2':
     dependencies:
@@ -3941,8 +3925,6 @@ snapshots:
   has-flag@4.0.0: {}
 
   has-unicode@2.0.1: {}
-
-  hash-wasm@4.11.0: {}
 
   hash-wasm@4.12.0: {}
 

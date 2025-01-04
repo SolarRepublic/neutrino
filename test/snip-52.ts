@@ -14,7 +14,7 @@ import {bech32_encode} from '@solar-republic/crypto';
 
 import {connect} from './live';
 import {exec_secret_contract, query_secret_contract} from '../dist/mjs/app-layer';
-import {sign_seed_update, subscribe_snip52_channels} from '../dist/mjs/snip-52';
+import {snip52_seed_update_sign, subscribe_snip52_channels} from '../dist/mjs/snip-52';
 
 const SI_COMMAND = process.argv[2] as 'init' | 'trigger' | 'update' | 'export' ?? 'subscribe';
 
@@ -89,7 +89,7 @@ const SI_COMMAND = process.argv[2] as 'init' | 'trigger' | 'update' | 'export' ?
 			const {seed:sb64_seed} = (await channel_info())!;
 
 			// sign new doc
-			const g_update = await sign_seed_update(k_wallet, k_contract.addr, sb64_seed);
+			const g_update = await snip52_seed_update_sign(k_wallet, k_contract.addr, sb64_seed);
 
 			// execute update
 			const a_response = await exec_secret_contract(k_contract, k_wallet, {
@@ -106,7 +106,7 @@ const SI_COMMAND = process.argv[2] as 'init' | 'trigger' | 'update' | 'export' ?
 			const {seed:sb64_seed} = (await channel_info())!;
 
 			// sign new doc
-			const g_update = await sign_seed_update(k_wallet, k_contract.addr, text_to_base64('not-seed') as unknown as CwBase64);
+			const g_update = await snip52_seed_update_sign(k_wallet, k_contract.addr, text_to_base64('not-seed') as unknown as CwBase64);
 
 			// execute update
 			const a_response = await exec_secret_contract(k_contract, k_wallet, {

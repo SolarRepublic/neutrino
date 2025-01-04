@@ -107,6 +107,23 @@ export const retry = async<w_out>(
 };
 
 
+// probe a WebSocket endpoint and confirm it is available
+const probe_websocket = async(p_rpc: TrustedContextUrl | `wss://${string}`) => {
+	// send probe request with automatic timeout
+	const d_res = await fetch(p_rpc.replace(/^ws/, 'http')+'/websocket', {
+		headers: {
+			'Connection': 'Upgrade',
+			'Upgrade': 'websocket',
+			'Sec-WebSocket-Version': '13',
+			'Sec-WebSocket-Key': 'dGhlIHNhbXBsZSBub25jZQ==',  // for some reason, implementations only support using the sample key from the spec 🤯
+		},
+		signal: AbortSignal.timeout(GC_NEUTRINO.WS_TIMEOUT),
+	});
+
+	// did not get expected HTTP response status code
+	if(101 !== d_res.status) die(`Unexpected response status ${d_res.status} while probing WebSocket endpoint ${p_rpc}: """${(await d_res.text()).trim()}"""\nheaders: ${JSON.stringify(d_res.headers, null, '  ')}`);
+};
+
 /**
  * Opens a new Tendermint JSONRPC WebSocket and immediately subscribes using the given query.
  * Returns a Promise that resolves once a subscription confirmation message is received.
@@ -121,9 +138,9 @@ export const subscribe_tendermint_events = (
 	sx_query: string,
 	fk_message: (d_event: MessageEvent<NaiveJsonString>) => any,
 	dc_ws=WebSocket
-): Promise<WebSocket> => new Promise((fk_resolve, fe_reject) => assign(
+): Promise<WebSocket> => probe_websocket(p_rpc).then(() => new Promise((fk_resolve, fe_reject) => assign(
 	// normalize protocol from http(s) => ws and append /websocket to path
-	new dc_ws('ws'+p_rpc.replace(/^(http|ws)/, '')+'/websocket'), {
+	new dc_ws(p_rpc.replace(/^http/, 'ws')+'/websocket'), {
 		// first message should be subscription confirmation
 		onmessage(g_msg) {
 			// parse message
@@ -161,7 +178,7 @@ export const subscribe_tendermint_events = (
 		onerror(d_event: ErrorEvent) {
 			fe_reject(Error(d_event.message));
 		},
-	} as Pick<WebSocket, 'onmessage' | 'onopen'>));
+	} as Pick<WebSocket, 'onmessage' | 'onopen'>)));
 
 
 /**

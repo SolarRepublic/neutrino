@@ -68,8 +68,8 @@
   },
   "dependencies": {
     "@blake.regalia/belt": "^0.52.1",
-    "@solar-republic/cosmos-grpc": "^0.18.0-beta.10",
-    "@solar-republic/crypto": "^0.3.1",
+    "@solar-republic/cosmos-grpc": "^0.18.0-beta.11",
+    "@solar-republic/crypto": "^0.3.2",
     "@solar-republic/wasm-secp256k1": "^0.4.2"
   },
   "publishConfig": {
