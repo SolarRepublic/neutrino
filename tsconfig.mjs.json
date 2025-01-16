@@ -11,6 +11,7 @@
 		"declarationDir": "dist/mjs",
 		// "noImplicitReturns": false,
 
+		"module": "ES2022",
 		"moduleResolution": "Bundler",
 	},
 

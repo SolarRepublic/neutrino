@@ -9,6 +9,7 @@
 		"declaration": true,
 		"declarationDir": "dist/nil",
 		"noImplicitReturns": false,
+		"module": "ES2022",
 		"moduleResolution": "Bundler",
 	},
 
