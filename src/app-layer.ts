@@ -125,21 +125,45 @@ export const subscribe_tendermint_events = (
 ): Promise<WebSocket> => new Promise((fk_resolve, fe_reject) => {
 	// if WebSocket doens't open within allotted timeframe, probe and die
 	let i_open = setTimeout(async() => {
-		// send probe request with automatic timeout
-		const d_res = await fetch(p_rpc.replace(/^ws/, 'http')+'/websocket', {
-			headers: {
-				'Connection': 'Upgrade',
-				'Upgrade': 'websocket',
-				'Sec-WebSocket-Version': '13',
-				'Sec-WebSocket-Key': 'dGhlIHNhbXBsZSBub25jZQ==',  // for some reason, implementations only support using the sample key from the spec 🤯
-			},
-			signal: AbortSignal.timeout(xt_timeout),
-		});
+		// // send probe request with automatic timeout
+		// const d_res = await fetch(p_rpc.replace(/^ws/, 'http')+'/websocket', {
+		// 	headers: {
+		// 		'Connection': 'Upgrade',
+		// 		'Upgrade': 'websocket',
+		// 		'Sec-WebSocket-Version': '13',
+		// 		'Sec-WebSocket-Key': 'dGhlIHNhbXBsZSBub25jZQ==',  // for some reason, implementations only support using the sample key from the spec 🤯
+		// 	},
+		// 	signal: AbortSignal.timeout(xt_timeout),
+		// });
 
-		// did not get expected HTTP response status code, or unknown reason for timeout
-		fe_reject(Error(101 === d_res.status
-			? `Bad response status ${d_res.status} while probing WebSocket endpoint ${p_rpc}: ${(await d_res.text()).trim()}\nheaders: ${JSON.stringify(d_res.headers, null, '  ')}`
-			: `Timed out while waiting for otherwise healthy WebSocket to open at ${p_rpc}`));
+		// // did not get expected HTTP response status code, or unknown reason for timeout
+		// fe_reject(Error(101 === d_res.status
+		// 	? `Bad response status ${d_res.status} while probing WebSocket endpoint ${p_rpc}: ${(await d_res.text()).trim()}\nheaders: ${JSON.stringify(d_res.headers, null, '  ')}`
+		// 	: `Timed out while waiting for otherwise healthy WebSocket to open at ${p_rpc}`));
+
+		// send probe request with automatic timeout
+		const [d_res, e_fetch] = await try_async(() => fetch(p_rpc.replace(/^ws/, 'http')+'/status', {
+			signal: AbortSignal.timeout(xt_timeout),
+		}));
+
+		// fetch error
+		if(is_error(e_fetch)) {
+			// abort/timeout
+			if(['AbortError', 'TimeoutError'].includes(e_fetch.name)) {
+				fe_reject(Error(`Timed out while attempting to reach ${p_rpc}`));
+			}
+			else {
+				fe_reject(e_fetch);
+			}
+		}
+		// request returned
+		else if(d_res) {
+			// did not get expected HTTP response status code, or unknown reason for timeout
+			fe_reject(Error((d_res.ok
+				? `Unable to diagnose misbehaving WebSocket endpoint at ${p_rpc} in current environment`
+				: `Bad response status ${d_res.status} while probing WebSocket endpoint ${p_rpc}: ${(await d_res.text()).trim()}`
+			)+`\nheaders: ${JSON.stringify(d_res.headers, null, '  ')}`));
+		}
 	}, xt_timeout);
 
 	// create WebSocket
