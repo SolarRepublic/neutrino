@@ -50,8 +50,8 @@ export type TxMeta = {
  * 
  *  - [0]: `xc_error: number` - error code from chain, or non-OK HTTP status code from the LCD server.
  * 		A value of `0` indicates success. A value of `-1` indicates a JSON parsing error.
- *  - [1]: `s_error: string` - raw response text from the initial broadcast request (result of CheckTx).
- *  		Implementing members may override this field to provide more relevant error text.
+ *  - [1]: `s_error: string` - on success, raw response text from the initial broadcast request (result of CheckTx).
+ *  		Otherwise, the error text. Implementing members may override this field to provide more relevant error text.
  *  - [2]: `sb16_txn: CwHexUpper` - the transaction hash of the attempted transaction
  *  - [3]: `g_meta?:`{@link TxMeta `TxMeta`} - information about the tx
  *  - [4]: `h_events?: Dict<string[]>` - all event attributes indexed by their full key path
@@ -59,7 +59,7 @@ export type TxMeta = {
  */
 export type TxResponseTuple = [
 	xc_error: number,
-	s_res: string,
+	s_reslog: string,
 	sb16_txn: CwHexUpper,
 	g_meta?: TxMeta | undefined,
 	h_events?: Dict<string[]> | undefined,
@@ -289,7 +289,7 @@ const monitor_tx = async(
 			// resolve
 			f_shutdown(g_tx_res? [
 				g_tx_res.code ?? 0,
-				s_res,
+				g_tx_res.raw_log || s_res,
 				sb16_txn as CwHexUpper,
 				assign({
 					log: g_tx_res.raw_log,
@@ -334,7 +334,6 @@ const monitor_tx = async(
 		// attempt to create filter
 		const [k_tef_local] = await timeout_exec(
 			GC_NEUTRINO.WS_TIMEOUT,
-
 			() => TendermintEventFilter(gc_node.ws || gc_node.rpc.origin, SX_QUERY_TM_EVENT_TX, F_TEF_RESTART_ANY_ERRORS, z_stream as TendermintWs | undefined)
 		);
 
@@ -368,7 +367,7 @@ const monitor_tx = async(
 		// return parsed result
 		f_shutdown(g_txres? [
 			g_txres.result?.code ?? 0,
-			sx_res,
+			g_result.log || sx_res,
 			sb16_txn as CwHexUpper,
 			assign({
 				height: g_txres.height!,
@@ -471,7 +470,7 @@ export const broadcast_result = async(
 		// resolve with error
 		fke_monitor([
 			d_res.ok? g_res?.tx_response?.code ?? -1: d_res.status,
-			sx_res_broadcast,
+			g_res?.tx_response?.raw_log || g_meta?.raw_log || sx_res_broadcast,
 			sb16_txn as CwHexUpper,
 			g_meta? assign({
 				log: g_meta.raw_log,
