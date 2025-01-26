@@ -17,7 +17,7 @@ import {initWasmSecp256k1} from '@solar-republic/wasm-secp256k1/gzipped';
 import {exec_secret_contract, retry, snip24_amino_sign} from '../src/app-layer';
 import {SecretContract} from '../src/secret-contract';
 import {random_32} from '../src/util';
-import {Wallet} from '../src/wallet';
+import {CosmosSigner} from '../src/cosmos-signer';
 
 
 const h_env = process.env;

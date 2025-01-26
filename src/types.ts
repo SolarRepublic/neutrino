@@ -1,6 +1,7 @@
 import type {TxMeta} from './app-layer';
 import type {AsJson, Dict, JsonObject, JsonValue, Nilable} from '@blake.regalia/belt';
 import type {SecretAccAddr} from '@solar-republic/contractor';
+import type {CosmosClientLcd} from '@solar-republic/cosmos-grpc';
 import type {TendermintAbciTxResult} from '@solar-republic/cosmos-grpc/tendermint/abci/types';
 import type {WeakUint128Str, TrustedContextUrl, CwUint32, WeakSecretAccAddr, Snip24QueryPermitSigned, RemoteServiceDescriptor, CwHexUpper} from '@solar-republic/types';
 
@@ -40,11 +41,11 @@ export type RemoteServiceArg<p_urls extends string=never> = (TrustedContextUrl |
 /**
  * Bundles LCD and RPC endpoint URLs together
  */
-export interface LcdRpcStruct {
+export interface CosmosClientLcdRpcStruct {
 	/**
 	 * The LCD endpoint the struct is configured for
 	 */
-	lcd: RemoteServiceDescriptor;
+	lcd: CosmosClientLcd;
 
 	/**
 	 * RPC endpoint used for confirming broadcasted transactions
@@ -53,9 +54,9 @@ export interface LcdRpcStruct {
 }
 
 /**
- * Extends the {@link LcdRpcStruct} with an option to override the WebSocket URL
+ * Extends the {@link CosmosClientLcdRpcStruct} with an option to override the WebSocket URL
  */
-export type LcdRpcWsStruct = LcdRpcStruct & {
+export type CosmosClientLcdRpcWsStruct = CosmosClientLcdRpcStruct & {
 	/**
 	 * URL to override the RPC when subscribing to /websocket
 	 */

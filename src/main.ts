@@ -16,5 +16,5 @@ export * from './snip-52.js';
 export * from './tendermint-ws.js';
 export * from './tendermint-event-filter.js';
 export * from './util.js';
-export * from './wallet.js';
+export * from './cosmos-signer.js';
 export * from './x25519.js';

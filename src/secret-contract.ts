@@ -3,15 +3,15 @@
 import type {O} from 'ts-toolbelt';
 
 import type {TxResponseTuple} from './app-layer';
+import type {CosmosSigner} from './cosmos-signer';
 import type {ContractInfo, RemoteServiceArg} from './types';
-import type {Wallet} from './wallet';
 import type {Dict, JsonObject, Nilable} from '@blake.regalia/belt';
 import type {SecretAccAddr, ContractInterface} from '@solar-republic/contractor';
-import type {CosmosClient, RequestDescriptor} from '@solar-republic/cosmos-grpc';
+import type {CosmosClientLcd, RequestDescriptor} from '@solar-republic/cosmos-grpc';
 import type {SecretComputeContractInfo} from '@solar-republic/cosmos-grpc/secret/compute/v1beta1/types';
 import type {CwHexLower, CwSecretAccAddr, CwUint32, RemoteServiceDescriptor, SlimCoin, TrustedContextUrl, WeakSecretAccAddr, WeakUintStr} from '@solar-republic/types';
 
-import {__UNDEFINED, base64_to_bytes, base64_to_text, bytes, bytes_to_hex, bytes_to_text, gunzip_bytes, is_string, parse_json, sha256, stringify_json} from '@blake.regalia/belt';
+import {__UNDEFINED, base64_to_bytes, base64_to_text, bytes, bytes_to_hex, bytes_to_text, gunzip_bytes, is_function, is_string, parse_json, sha256, stringify_json} from '@blake.regalia/belt';
 
 import {decodeCosmosBaseAbciTxMsgData} from '@solar-republic/cosmos-grpc/cosmos/base/abci/v1beta1/abci';
 import {encodeGoogleProtobufAny, type EncodedGoogleProtobufAny} from '@solar-republic/cosmos-grpc/google/protobuf/any';
@@ -20,13 +20,13 @@ import {destructSecretComputeQueryCodeHashResponse, destructSecretComputeQueryCo
 import {destructSecretRegistrationKey} from '@solar-republic/cosmos-grpc/secret/registration/v1beta1/msg';
 import {querySecretRegistrationTxKey} from '@solar-republic/cosmos-grpc/secret/registration/v1beta1/query';
 
-import {remote_service} from './_common';
+import {normalize_lcd_client, remote_service} from './_common';
 import {broadcast_result} from './app-layer';
 import {GC_NEUTRINO} from './config.js';
+import {create_and_sign_tx_direct} from './cosmos-signer';
 import {secret_response_decrypt} from './secret-response';
 import {SecretWasm} from './secret-wasm.js';
 import {successful} from './util.js';
-import {create_and_sign_tx_direct} from './wallet';
 
 
 export type KnownContractInfo = O.Required<SecretComputeContractInfo, 'code_id' | 'label'>;
@@ -62,9 +62,9 @@ export type SecretContract<
 	g_interface extends ContractInterface=ContractInterface,
 > = {
 	/**
-	 * URL of the LCD endpoint
+	 * Cosmos Client LCD
 	 */
-	lcd: RemoteServiceDescriptor;
+	lcd: CosmosClientLcd;
 
 	/**
 	 * Contract address
@@ -134,17 +134,19 @@ export type ContractCacheOption = typeof XC_CONTRACT_CACHE_BYPASS | typeof XC_CO
 
 // retrieves network info from cache or from chain
 const retrieve_network_info = async(
-	z_lcd: RemoteServiceArg,
+	z_lcd: CosmosClientLcd | RemoteServiceArg,
 	atu8_seed?: Nilable<Uint8Array>
 ): Promise<SecretNetworkInfo> => {
 	// uniquely identify this request pattern
 	let si_lcd = stringify_json(is_string(z_lcd)
 		? [z_lcd, '', '']
-		: [
-			z_lcd.origin,
-			z_lcd.headers,
-			z_lcd.redirect,
-		].map(s => s || '')
+		: is_string((z_lcd as CosmosClientLcd).id)
+			? [(z_lcd as CosmosClientLcd).id, '', '']
+			: [
+				(z_lcd as RemoteServiceDescriptor).origin,
+				(z_lcd as RemoteServiceDescriptor).headers,
+				(z_lcd as RemoteServiceDescriptor).redirect,
+			].map(s => s || '')
 	);
 
 	// try loading entry from cache
@@ -153,7 +155,6 @@ const retrieve_network_info = async(
 	// network not yet cached
 	if(!a2_cached) {
 		// fetch consensus io pubkey
-
 		let g_res_reg = await successful(querySecretRegistrationTxKey, z_lcd);
 
 		// destructure response
@@ -195,20 +196,23 @@ const retrieve_network_info = async(
 export const SecretContract = async<
 	g_interface extends ContractInterface=ContractInterface,
 >(
-	z_lcd: RemoteServiceArg,
+	z_lcd: CosmosClientLcd | RemoteServiceArg,
 	sa_contract: WeakSecretAccAddr,
 	atu8_seed?: Nilable<Uint8Array>,
 	a_block_sizes?: [nb_block_query?: number, nb_block_exec?: number],
 	z_info: KnownContractInfo|ContractCacheOption=XC_CONTRACT_CACHE_ACCEPT
 ): Promise<SecretContract<g_interface>> => {
+	// normalize client
+	const ylc_client = normalize_lcd_client(z_lcd);
+
 	// retrieve Secret network info
-	const [k_wasm] = await retrieve_network_info(z_lcd, atu8_seed);
+	const [k_wasm] = await retrieve_network_info(ylc_client, atu8_seed);
 
 	// ref contract info
 	let g_info = XC_CONTRACT_CACHE_ACCEPT === z_info? h_contract_cache[sa_contract]: z_info;
 	if(!g_info) {
 		// refload contract info
-		let g_res_info = await successful(querySecretComputeContractInfo, z_lcd, sa_contract);
+		let g_res_info = await successful(querySecretComputeContractInfo, ylc_client, sa_contract);
 
 		// destruct response
 		let [, g_info1] = destructSecretComputeQueryContractInfoResponse(g_res_info);
@@ -224,7 +228,7 @@ export const SecretContract = async<
 	let sb16_code_hash = h_codes_cache[sg_code];
 	if(!sb16_code_hash) {
 		// refload code hash
-		let g_res_hash = await successful(querySecretComputeCodeHashByCodeId, z_lcd, sg_code);
+		let g_res_hash = await successful(querySecretComputeCodeHashByCodeId, ylc_client, sg_code);
 
 		// destruct response
 		sb16_code_hash = h_codes_cache[sg_code] = destructSecretComputeQueryCodeHashResponse(g_res_hash)[0]!;
@@ -234,7 +238,7 @@ export const SecretContract = async<
 	// properties and methods
 	return {
 		// lcd endpoint
-		lcd: remote_service(z_lcd),
+		lcd: ylc_client,
 
 		// contract address
 		addr: sa_contract as SecretAccAddr,
@@ -258,7 +262,7 @@ export const SecretContract = async<
 			const atu8_nonce = g_out.n = atu8_msg.slice(0, 32);
 
 			// submit query
-			let [g_res_query, g_err_query, d_res_query, s_res_query] = await querySecretComputeQuerySecretContract(z_lcd, sa_contract, atu8_msg);
+			let [g_res_query, g_err_query, d_res_query, s_res_query] = await querySecretComputeQuerySecretContract(ylc_client, sa_contract, atu8_msg);
 
 			// success
 			if(g_res_query) {
@@ -341,7 +345,7 @@ export const SecretContract = async<
  * @returns 
  */
 export async function secret_contract_upload_code(
-	k_wallet: Wallet,
+	k_wallet: CosmosSigner,
 	atu8_wasm: Uint8Array,
 	z_limit: bigint | WeakUintStr,
 	[s_source, s_builder]: [
@@ -350,7 +354,7 @@ export async function secret_contract_upload_code(
 	]=[],
 	s_memo?: string,
 	sa_granter?: WeakSecretAccAddr,
-	ylc_client: CosmosClient | RequestDescriptor=k_wallet.lcd
+	ylc_client: CosmosClientLcd | RequestDescriptor=k_wallet.lcd
 ): Promise<[
 	sg_code_id: undefined | WeakUintStr,
 	sb16_hash: CwHexLower,
@@ -483,7 +487,7 @@ export async function secret_contract_upload_code(
  * @returns 
  */
 export const secret_contract_instantiate = async(
-	k_wallet: Wallet,
+	k_wallet: CosmosSigner,
 	sg_code_id: WeakUintStr,
 	h_init_msg: JsonObject,
 	zg_limit: bigint|WeakUintStr,

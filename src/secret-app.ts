@@ -3,7 +3,7 @@ import type {TxMeta, TxResponseTuple} from './app-layer';
 import type {CreateQueryArgsAndAuthParams} from './inferencing';
 import type {SecretContract} from './secret-contract';
 import type {AuthSecret} from './types';
-import type {Wallet} from './wallet';
+import type {CosmosSigner} from './cosmos-signer';
 
 import type {JsonObject} from '@blake.regalia/belt';
 import type {ContractInterface} from '@solar-republic/contractor';
@@ -31,7 +31,7 @@ export const exec_fees = (z_limit: number|bigint|`${bigint}`, x_gas_price: numbe
 export interface SecretApp<
 	g_interface extends ContractInterface=ContractInterface,
 > {
-	readonly wallet: Wallet;
+	readonly wallet: CosmosSigner;
 	readonly contract: SecretContract;
 
 	// /**
@@ -125,7 +125,7 @@ export interface SecretApp<
 export const SecretApp = <
 	g_interface extends ContractInterface,
 >(
-	k_wallet: Wallet<'secret'>,
+	k_wallet: CosmosSigner<'secret'>,
 	k_contract: SecretContract<g_interface>,
 	sa_granter?: WeakSecretAccAddr | ''
 ): SecretApp<g_interface> => k_wallet.fees

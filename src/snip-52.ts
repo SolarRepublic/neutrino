@@ -3,7 +3,7 @@ import type {Pop} from 'ts-toolbelt/out/List/Pop';
 
 import type {SecretContract} from './secret-contract';
 import type {AuthSecret, TxResultWrapper} from './types';
-import type {Wallet} from './wallet';
+import type {CosmosSigner} from './cosmos-signer';
 
 import type {CborValue, Dict, Promisable} from '@blake.regalia/belt';
 import type {Snip52, ContractInterface, Snip52Schema} from '@solar-republic/contractor';
@@ -18,7 +18,7 @@ import {query_secret_contract} from './app-layer.js';
 import {chacha20_poly1305_open} from './chacha20-poly1305.js';
 import {XN_16} from './constants.js';
 import {SX_QUERY_TM_EVENT_TX, TendermintEventFilter} from './tendermint-event-filter.js';
-import {sign_amino} from './wallet.js';
+import {sign_amino} from './cosmos-signer.js';
 
 export type NotificationCallback = (z_data: CborValue) => void;
 
@@ -411,7 +411,7 @@ export const subscribe_snip52_channels = async<
 
 
 export const snip52_seed_update_sign = async(
-	k_wallet: Wallet,
+	k_wallet: CosmosSigner,
 	sa_contract: WeakSecretAccAddr,
 	sb64_previous: CwBase64
 ): Promise<Snip52NotificationSeedUpdateSigned> => {

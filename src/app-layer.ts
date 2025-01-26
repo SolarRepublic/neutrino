@@ -4,12 +4,12 @@
 
 import type {O} from 'ts-toolbelt';
 
+import type {CosmosSigner} from './cosmos-signer';
 import type {CreateQueryArgsAndAuthParams} from './inferencing';
 import type {SecretContract} from './secret-contract';
 import type {EventUnlistener} from './tendermint-event-filter';
 import type {TendermintWs} from './tendermint-ws';
-import type {AuthSecret, LcdRpcWsStruct, JsonRpcResponse} from './types';
-import type {Wallet} from './wallet';
+import type {AuthSecret, CosmosClientLcdRpcWsStruct, JsonRpcResponse} from './types';
 
 import type {JsonObject, Nilable, Promisable, NaiveJsonString, Dict, NaiveHexUpper} from '@blake.regalia/belt';
 
@@ -25,10 +25,10 @@ import {safe_base64_to_bytes} from '@solar-republic/cosmos-grpc';
 import {XC_PROTO_COSMOS_TX_BROADCAST_MODE_SYNC, queryCosmosTxGetTx, submitCosmosTxBroadcastTx} from '@solar-republic/cosmos-grpc/cosmos/tx/v1beta1/service';
 
 import {GC_NEUTRINO} from './config.js';
+import {create_and_sign_tx_direct, sign_amino} from './cosmos-signer.js';
 import {secret_response_decrypt} from './secret-response';
 import {F_TEF_RESTART_ANY_ERRORS, SX_QUERY_TM_EVENT_TX, TendermintEventFilter} from './tendermint-event-filter.js';
 import {index_abci_events} from './util.js';
-import {create_and_sign_tx_direct, sign_amino} from './wallet.js';
 
 /**
  * A synthetic struct for carrying metadata associated with a transaction that may have succeeded or failed.
@@ -218,7 +218,7 @@ export const subscribe_tendermint_events = (
  * Starts monitoring the chain in anticipation of a new transaction with the given hash
  */
 const monitor_tx = async(
-	gc_node: LcdRpcWsStruct,
+	gc_node: CosmosClientLcdRpcWsStruct,
 	sb16_txn: string,
 	z_stream?: TendermintEventFilter | TendermintWs,
 	xt_wait_before_polling=GC_NEUTRINO.WS_TIMEOUT*3,
@@ -314,12 +314,12 @@ const monitor_tx = async(
 			// anything other than tx not found indicates a possible node error
 			if(!(s_msg || '').includes('tx not found')) {
 				// reject Promise
-				f_shutdown(null, Error(`Unexpected query error to <${gc_node.lcd.origin}>: ${stringify_json(g_res)}`)); return;
+				f_shutdown(null, Error(`Unexpected query error to ${gc_node.lcd.id}: ${stringify_json(g_res)}`)); return;
 			}
 		}
 		// invalid response body
 		else {
-			f_shutdown(null, Error(`Server at <${gc_node.lcd.origin}> returned ${d_res.status} code with invalid body: ${sx_res}`)); return;
+			f_shutdown(null, Error(`Server at ${gc_node.lcd.id} returned ${d_res.status} code with invalid body: ${sx_res}`)); return;
 		}
 
 		// repeat
@@ -411,7 +411,7 @@ const monitor_tx = async(
  *  - [4]: `h_events?: Dict<string[]>` - all event attributes indexed by their full key path
  */
 export const expect_tx = async(
-	gc_node: LcdRpcWsStruct,
+	gc_node: CosmosClientLcdRpcWsStruct,
 	sb16_txn: string,
 	z_stream?: TendermintEventFilter | TendermintWs
 ): Promise<TxResponseTuple> => {
@@ -443,7 +443,7 @@ export const expect_tx = async(
  *  - [5]: `atu8_data?: Uint8Array` - on success, the raw tx response data bytes
  */
 export const broadcast_result = async(
-	gc_node: LcdRpcWsStruct,
+	gc_node: CosmosClientLcdRpcWsStruct,
 	atu8_raw: Uint8Array,
 	sb16_txn: string,
 	z_stream?: TendermintEventFilter | TendermintWs,
@@ -634,7 +634,7 @@ export const query_secret_contract: QueryContractInfer = async(
 /**
  * Execute a single Secret Contract method and wait for transaction confirmation.
  * @param k_contract - a {@link SecretContract} instance
- * @param k_wallet - the {@link Wallet} of the sender
+ * @param k_wallet - the {@link CosmosSigner} of the sender
  * @param h_exec - the execution message as a plain object (to be JSON-encoded)
  * @param z_fees - either a gas price or an Array of {@link SlimCoin} describing the amounts and denoms of fees
  * @param z_limit - the u128 gas limit to set for the transaction
@@ -655,7 +655,7 @@ export const exec_secret_contract = async<
 	as_methods extends Extract<keyof h_group, string>=Extract<keyof h_group, string>,
 >(
 	k_contract: SecretContract<g_interface>,
-	k_wallet: Wallet<'secret'>,
+	k_wallet: CosmosSigner<'secret'>,
 	h_exec: ContractInterface extends g_interface? JsonObject: {
 		[si_each in as_methods]: h_group[si_each]['msg'];
 	},
@@ -762,7 +762,7 @@ export const exec_secret_contract = async<
  * @returns 
  */
 export const snip24_amino_sign = async(
-	k_wallet: Wallet,
+	k_wallet: CosmosSigner,
 	si_permit: string,
 	a_tokens: WeakAccountAddr<'secret'>[],
 	a_permissions: string[]
