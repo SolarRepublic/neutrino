@@ -4,13 +4,13 @@ import type {Dict, JsonValue} from '@blake.regalia/belt';
 import type {NetworkJsonResponse} from '@solar-republic/cosmos-grpc';
 import type {TendermintAbciEvent} from '@solar-republic/cosmos-grpc/tendermint/abci/types';
 
-import {bytes, each, die, is_string, is_function, is_array} from '@blake.regalia/belt';
+import {bytes, each, die, is_string, is_function, is_array, stringify_json} from '@blake.regalia/belt';
 import {safe_base64_to_text} from '@solar-republic/cosmos-grpc';
 
 
 export type StringFilter = string | string[] | Iterable<string> | RegExp | null | ((s_test: string) => boolean);
 
-// eslint-disable-next-line @typescript-eslint/naming-convention,@typescript-eslint/no-unused-vars
+// eslint-disable-next-line @typescript-eslint/naming-convention
 export const random_32 = (_?: never): Uint8Array => crypto.getRandomValues(bytes(32));
 
 /**
@@ -87,5 +87,5 @@ export const successful = async <
 	const [g_res, g_err, d_res, s_res] = await f_request(...a_args);
 
 	// response body on success or die with error message
-	return g_res ?? die(d_res.status+': '+s_res, g_err);
+	return g_res ?? die('Request failed to '+a_args[0]?.id+' with ['+a_args.slice(1).map(w => w+'')+'] '+d_res.status+': '+s_res, g_err);
 };
