@@ -7,8 +7,10 @@ export const NB_AES_BLOCK = XN_16;
 // zero block
 const ATU8_ZERO_BLOCK = /*#__PURE__*/bytes(XN_16);
 
+export type AesKeyAlgorithmString = 'AES-CTR' | 'AES-CBC' | 'AES-GCM' | 'AES-KW';
+
 // import aes key
-export const aes_key = (atu8_key: Uint8Array, si_algo: string): Promise<CryptoKey> => crypto.subtle.importKey('raw', atu8_key, si_algo, false, ['encrypt']);
+export const aes_key = (atu8_key: Uint8Array, si_algo: AesKeyAlgorithmString | AesKeyAlgorithm): Promise<CryptoKey> => crypto.subtle.importKey('raw', atu8_key, si_algo, false, ['encrypt']);
 
 // perform AES-CBC
 export const aes_cbc = async(d_key_cbc: CryptoKey, atu8_data: Uint8Array): Promise<Uint8Array> => bytes(await crypto.subtle.encrypt({

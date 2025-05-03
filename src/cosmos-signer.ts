@@ -41,7 +41,10 @@ type Emptyable<s_type extends string> = s_type | '' | undefined;
 export type GasPreferences = [x_gas_price: number, s_denom: string];
 
 
-export interface CosmosSigner<s_hrp extends string=string> extends CosmosClientLcdRpcStruct {
+export interface CosmosSigner<
+	s_hrp extends string=string,
+	w_extra_signing_data extends any=any,
+> extends CosmosClientLcdRpcStruct {
 	/**
 	 * Chain id
 	 */
@@ -58,11 +61,12 @@ export interface CosmosSigner<s_hrp extends string=string> extends CosmosClientL
 	pk33: Uint8Array;
 
 	/**
-	 * Signs a 32-byte message digest
-	 * @param atu8_hash - the message digest to sign
+	 * Signs a 32-byte message
+	 * @param atu8_msg - the message to sign (not the digest)
 	 * @param atu8_k - optional entropy to use (defaults to secure random 32 bytes)
+	 * @param w_extra - optional arbitrary data to pass to implementors
 	 */
-	sign(atu8_hash: Uint8Array, atu8_k?: Uint8Array): Promise<SignatureAndRecovery>;
+	sign(atu8_msg: Uint8Array, atu8_k?: Uint8Array, w_extra?: w_extra_signing_data): Promise<SignatureAndRecovery>;
 
 	/**
 	 * If gas preferences were specified, produces a `[`{@link SlimCoin `SlimCoin`}`]` containing
