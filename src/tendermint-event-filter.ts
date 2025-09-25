@@ -3,7 +3,7 @@ import type {StringFilter} from './util';
 import type {Dict, Promisable} from '@blake.regalia/belt';
 import type {TrustedContextUrl} from '@solar-republic/types';
 
-import {parse_json_safe, entries, remove, try_sync, values, is_function, __UNDEFINED} from '@blake.regalia/belt';
+import {parse_json_safe, entries, remove, try_sync, values, is_function, __UNDEFINED, stringify_json} from '@blake.regalia/belt';
 
 import {TendermintWs} from './tendermint-ws';
 import {string_matches_filter} from './util';
@@ -20,13 +20,14 @@ export type EventListener<
 
 export type EventUnlistener = () => void;
 
-export type JsonRpcErrorHandler = {
-	(d_event: CloseEvent | undefined, e_error?: Error | undefined): Promisable<
-		void | undefined | boolean | 0 | 1 | (
-			(d_ws: WebSocket) => Promisable<void>
-		)
-	>;
-};
+export type JsonRpcErrorHandler = (
+	d_event: CloseEvent | undefined,
+	e_error?: Error,
+) => Promisable<
+	void | undefined | boolean | 0 | 1 | (
+		(d_ws: WebSocket) => Promisable<void>
+	)
+>;
 
 export const SX_QUERY_TM_EVENT_TX = `tm.event='Tx'`;
 
@@ -50,7 +51,7 @@ export type TendermintEventFilter<
 		si_key: string,
 		z_filter: StringFilter,
 		f_listener: EventListener<g_data>,
-		f_restarted?: ((d_ws: WebSocket) => Promisable<void>) | undefined,
+		f_restarted?: ((d_ws: WebSocket) => Promisable<void>),
 	): EventUnlistener;
 };
 
@@ -66,7 +67,7 @@ export const TendermintEventFilter = async<
 >(
 	p_rpc: TrustedContextUrl,
 	sx_query=SX_QUERY_TM_EVENT_TX,
-	f_errors?: JsonRpcErrorHandler | undefined,
+	f_errors?: JsonRpcErrorHandler,
 	z_ws?: TendermintWs | typeof WebSocket
 ): Promise<TendermintEventFilter<g_data>> => {
 	// dict of filters by event key
@@ -128,7 +129,7 @@ export const TendermintEventFilter = async<
 					} = g_error;
 
 					// render error message
-					const s_error = `JSON-RPC error code ${xc_code}; ${s_message} (${w_data})`;
+					const s_error = `JSON-RPC error code ${xc_code}; ${s_message} (${stringify_json(w_data)})`;
 
 					// restart function provided; forward error
 					if(is_function(f_errors)) {

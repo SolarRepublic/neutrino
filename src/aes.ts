@@ -10,16 +10,16 @@ const ATU8_ZERO_BLOCK = /*#__PURE__*/bytes(XN_16);
 export type AesKeyAlgorithmString = 'AES-CTR' | 'AES-CBC' | 'AES-GCM' | 'AES-KW';
 
 // import aes key
-export const aes_key = (atu8_key: Uint8Array, si_algo: AesKeyAlgorithmString | AesKeyAlgorithm): Promise<CryptoKey> => crypto.subtle.importKey('raw', atu8_key, si_algo, false, ['encrypt']);
+export const aes_key = (atu8_key: Uint8Array<ArrayBuffer>, si_algo: AesKeyAlgorithmString | AesKeyAlgorithm): Promise<CryptoKey> => crypto.subtle.importKey('raw', atu8_key, si_algo, false, ['encrypt']);
 
 // perform AES-CBC
-export const aes_cbc = async(d_key_cbc: CryptoKey, atu8_data: Uint8Array): Promise<Uint8Array> => bytes(await crypto.subtle.encrypt({
+export const aes_cbc = async(d_key_cbc: CryptoKey, atu8_data: Uint8Array<ArrayBuffer>): Promise<Uint8Array<ArrayBuffer>> => bytes(await crypto.subtle.encrypt({
 	name: 'AES-CBC',
 	iv: ATU8_ZERO_BLOCK.slice(),
 }, d_key_cbc, atu8_data), 0, NB_AES_BLOCK);
 
 // perform AES-CTR
-export const aes_ctr = async(d_key_ctr: CryptoKey, atu8_iv: Uint8Array, atu8_data: Uint8Array): Promise<Uint8Array> => bytes(await crypto.subtle.encrypt({
+export const aes_ctr = async(d_key_ctr: CryptoKey, atu8_iv: Uint8Array<ArrayBuffer>, atu8_data: Uint8Array<ArrayBuffer>): Promise<Uint8Array<ArrayBuffer>> => bytes(await crypto.subtle.encrypt({
 	name: 'AES-CTR',
 	counter: atu8_iv,
 	length: 128,  // use all available bits in the counter
@@ -50,7 +50,7 @@ const xor_bytes_in_place = (atu8_a: Uint8Array, atu8_b: Uint8Array) => {
 };
 
 // creates CMAC instance
-export const aes_cmac_init = async(d_key_mac: CryptoKey): Promise<(atu8_data: Uint8Array) => Promise<Uint8Array>> => {
+export const aes_cmac_init = async(d_key_mac: CryptoKey): Promise<(atu8_data: Uint8Array) => Promise<Uint8Array<ArrayBuffer>>> => {
 	// k1 subkey generation
 	const atu8_k1 = await aes_cbc(d_key_mac, ATU8_ZERO_BLOCK);
 	double_block(atu8_k1);
@@ -60,7 +60,7 @@ export const aes_cmac_init = async(d_key_mac: CryptoKey): Promise<(atu8_data: Ui
 	double_block(atu8_k2);
 
 	// return CMAC function
-	return async(atu8_data: Uint8Array): Promise<Uint8Array> => {
+	return async(atu8_data: Uint8Array): Promise<Uint8Array<ArrayBuffer>> => {
 		// cache data byte count
 		const nb_data = atu8_data.byteLength;
 
@@ -109,7 +109,7 @@ export const aes_cmac_init = async(d_key_mac: CryptoKey): Promise<(atu8_data: Ui
 };
 
 // performs S2V operation
-export const aes_siv_s2v = async(d_key_rkd: CryptoKey, atu8_plaintext: Uint8Array, a_ad=[ATU8_NIL]): Promise<Uint8Array> => {
+export const aes_siv_s2v = async(d_key_rkd: CryptoKey, atu8_plaintext: Uint8Array, a_ad=[ATU8_NIL]): Promise<Uint8Array<ArrayBuffer>> => {
 	const f_cmac = await aes_cmac_init(d_key_rkd);
 
 	// D = AES-CMAC(K, <zero>)

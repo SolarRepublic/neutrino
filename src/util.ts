@@ -11,7 +11,7 @@ import {safe_base64_to_text} from '@solar-republic/cosmos-grpc';
 export type StringFilter = string | string[] | Iterable<string> | RegExp | null | ((s_test: string) => boolean);
 
 // eslint-disable-next-line @typescript-eslint/naming-convention
-export const random_32 = (_?: never): Uint8Array => crypto.getRandomValues(bytes(32));
+export const random_32 = (_?: never): Uint8Array<ArrayBuffer> => crypto.getRandomValues(bytes(32));
 
 /**
  * Tests the given string value against a filter that may be one of the following:
@@ -33,6 +33,7 @@ export const string_matches_filter = (
 	: z_filter instanceof RegExp
 		? z_filter.test(s_value)
 		: is_function(z_filter)
+			// eslint-disable-next-line @typescript-eslint/no-unnecessary-type-conversion
 			? !!z_filter(s_value)
 			: z_filter?.[Symbol.iterator]
 				? (is_array(z_filter)? z_filter: [...z_filter]).includes(s_value)

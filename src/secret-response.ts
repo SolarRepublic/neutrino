@@ -22,10 +22,10 @@ type EncryptedResponseMessageType =
  */
 export const secret_response_decoders: (
 	k_wasm: SecretWasm,
-	a_nonces: Uint8Array[],
+	a_nonces: Uint8Array<ArrayBuffer>[],
 ) => Parameters<typeof secret_response_parse>[1] = (k_wasm, a_nonces) => {
 	// contract response decryptor
-	const f_decryptor = async(atu8_ciphertext: Uint8Array, i_msg: number) => {
+	const f_decryptor = async(atu8_ciphertext: Uint8Array<ArrayBuffer>, i_msg: number) => {
 		// decrypt ciphertext
 		const atu8_plaintext = await k_wasm.decrypt(atu8_ciphertext, a_nonces[i_msg]);
 
@@ -92,7 +92,7 @@ export const secret_response_parse = async<
 	[s_type in Extract<keyof h_decoders, EncryptedResponseMessageType>]: [
 		w_return: Awaited<ReturnType<h_decoders[s_type]>>,
 		s_type: s_type,
-		atu8_data: Uint8Array,
+		atu8_data: Uint8Array<ArrayBuffer>,
 	]
 }[Extract<keyof h_decoders, EncryptedResponseMessageType>][]> => {
 	// decode tx msg data
@@ -125,7 +125,7 @@ export const secret_response_parse = async<
 export const secret_response_decrypt = async(
 	k_wasm: SecretWasm,
 	[xc_error, sx_res,, g_meta,, atu8_data]: TxResponseTuple,
-	a_nonces: Uint8Array[]
+	a_nonces: Uint8Array<ArrayBuffer>[]
 ): Promise<[
 	a_error?: [
 		s_error?: string,
@@ -137,7 +137,7 @@ export const secret_response_decrypt = async(
 			g_answer?: JsonObject | undefined,
 		],
 		s_type?: EncryptedResponseMessageType,
-		atu8_payload?: Uint8Array,
+		atu8_payload?: Uint8Array<ArrayBuffer>,
 	][],
 ]> => {
 	// prep plaintext

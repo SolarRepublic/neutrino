@@ -4,7 +4,7 @@ import {NB_AES_BLOCK, aes_ctr, aes_key, aes_siv_s2v} from './aes.js';
 
 
 // splits an AES-128 SIV key
-const split_siv_key = async(atu8_key: Uint8Array): Promise<[CryptoKey, CryptoKey]> => {
+const split_siv_key = async(atu8_key: Uint8Array<ArrayBuffer>): Promise<[CryptoKey, CryptoKey]> => {
 	if(32 !== atu8_key.byteLength) die('SIV key not 32 bytes');
 
 	// destructure halves
@@ -32,7 +32,11 @@ const zero_iv = (atu8_iv: Uint8Array) => {
  * @param a_ad - optional associated data (defaults to `[new Uint8Array(0)]` for Secret Network)
  * @returns ciphertext output
  */
-export const aes_128_siv_encrypt = async(atu8_key: Uint8Array, atu8_plaintext: Uint8Array, a_ad=[ATU8_NIL]): Promise<Uint8Array> => {
+export const aes_128_siv_encrypt = async(
+	atu8_key: Uint8Array<ArrayBuffer>,
+	atu8_plaintext: Uint8Array<ArrayBuffer>,
+	a_ad=[ATU8_NIL]
+): Promise<Uint8Array<ArrayBuffer>> => {
 	// construct aes keys
 	const [d_key_cbc, d_key_ctr] = await split_siv_key(atu8_key);
 
@@ -63,10 +67,10 @@ export const aes_128_siv_encrypt = async(atu8_key: Uint8Array, atu8_plaintext: U
  * @returns plaintext output
  */
 export const aes_128_siv_decrypt = async(
-	atu8_key: Uint8Array,
-	atu8_payload: Uint8Array,
+	atu8_key: Uint8Array<ArrayBuffer>,
+	atu8_payload: Uint8Array<ArrayBuffer>,
 	a_ad=[ATU8_NIL]
-): Promise<Uint8Array> => {
+): Promise<Uint8Array<ArrayBuffer>> => {
 	const [d_key_cbc, d_key_ctr] = await split_siv_key(atu8_key);
 
 	if(atu8_payload.byteLength < NB_AES_BLOCK) die(`SIV payload < ${NB_AES_BLOCK} bytes`);

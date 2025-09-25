@@ -19,10 +19,10 @@ import {ecs_mul, ecs_mul_base} from './x25519.js';
 
 
 export interface SecretWasm {
-	txKey(atu8_nonce?: Uint8Array): Promise<Uint8Array>;
-	encodeMsg(sb16_code_hash: NaiveHexMixed, g_msg: JsonValue, nb_msg_block?: number): Promise<Uint8Array>;
-	decrypt(atu8_ciphertext: Uint8Array, atu8_nonce: Uint8Array): Promise<Uint8Array>;
-	decodeMsg(sb64_msg: NaiveBase64): Promise<[string, CwHexLower, Uint8Array]>;
+	txKey(atu8_nonce?: Uint8Array<ArrayBuffer>): Promise<Uint8Array<ArrayBuffer>>;
+	encodeMsg(sb16_code_hash: NaiveHexMixed, g_msg: JsonValue, nb_msg_block?: number): Promise<Uint8Array<ArrayBuffer>>;
+	decrypt(atu8_ciphertext: Uint8Array<ArrayBuffer>, atu8_nonce: Uint8Array<ArrayBuffer>): Promise<Uint8Array<ArrayBuffer>>;
+	decodeMsg(sb64_msg: NaiveBase64): Promise<[string, CwHexLower, Uint8Array<ArrayBuffer>]>;
 }
 
 /**

@@ -36,44 +36,45 @@
     "debug": "node --inspect-brk --loader ts-node/esm"
   },
   "devDependencies": {
+    "@blake.regalia/eslint-config-elite": "^0.5.22",
     "@blake.regalia/tsconfig": "^0.3.7",
-    "@cosmjs/amino": "^0.33.0",
+    "@cosmjs/amino": "^0.34.0",
     "@nfps.dev/rollup-plugin-microweb": "^0.3.5",
-    "@noble/secp256k1": "^2.2.3",
-    "@rollup/plugin-commonjs": "^28.0.2",
+    "@noble/secp256k1": "^2.3.0",
+    "@rollup/plugin-commonjs": "^28.0.6",
     "@rollup/plugin-replace": "^6.0.2",
     "@solar-republic/contractor": "^0.11.0",
-    "@solar-republic/types": "^0.3.9",
-    "@types/chai": "^5.0.1",
-    "@types/node": "^22.10.10",
-    "@types/web": "^0.0.198",
-    "@typescript-eslint/parser": "^8.21.0",
-    "chai": "^5.1.2",
+    "@solar-republic/types": "^0.3.13",
+    "@types/chai": "^5.2.2",
+    "@types/node": "^24.5.2",
+    "@types/web": "^0.0.270",
+    "@typescript-eslint/parser": "^8.44.1",
+    "chai": "^5.2.1",
     "chai-bites": "^0.2.0",
     "curve25519-js": "^0.0.4",
     "esformatter": "^0.11.3",
-    "eslint": "^9.19.0",
+    "eslint": "^9.36.0",
     "isomorphic-ws": "^5.0.0",
-    "js-beautify": "^1.15.1",
-    "rollup": "^4.32.0",
+    "js-beautify": "^1.15.4",
+    "rollup": "^4.52.2",
     "rollup-plugin-ignore": "^1.0.10",
     "ts-node": "^10.9.2",
     "ts-toolbelt": "^9.6.0",
     "tsc-esm-fix": "^3.1.2",
     "tsconfig-paths": "^4.2.0",
     "tslib": "^2.8.1",
-    "typedoc": "^0.27.6",
-    "typescript": "~5.7.3",
-    "ws": "^8.18.0"
+    "typedoc": "^0.28.13",
+    "typescript": "~5.9.2",
+    "ws": "^8.18.3"
   },
   "dependencies": {
-    "@blake.regalia/belt": "^0.54.1",
-    "@solar-republic/cosmos-grpc": "^0.19.1",
-    "@solar-republic/crypto": "^0.4.0",
-    "@solar-republic/wasm-secp256k1": "^0.5.0"
+    "@blake.regalia/belt": "^0.57.8",
+    "@solar-republic/cosmos-grpc": "^0.20.7",
+    "@solar-republic/crypto": "^0.5.4",
+    "@solar-republic/wasm-secp256k1": "^0.6.3"
   },
   "publishConfig": {
     "access": "public"
   },
-  "packageManager": "pnpm@9.0.6+sha1.648f6014eb363abb36618f2ba59282a9eeb3e879"
+  "packageManager": "pnpm@10.17.1"
 }

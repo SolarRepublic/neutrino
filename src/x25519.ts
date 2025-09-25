@@ -2,8 +2,8 @@ import {bytes} from '@blake.regalia/belt';
 
 const float = (nl_size=16) => new Float64Array(nl_size);
 
-// eslint-disable-next-line @typescript-eslint/naming-convention
-let ATU8_BASE: Uint8Array;
+
+let ATU8_BASE: Uint8Array<ArrayBuffer>;
 
 const init_base = () => {
 	ATU8_BASE = bytes(32);
@@ -85,7 +85,7 @@ const square = (atu8_out: Float64Array, atu8_a: Float64Array) => mul(atu8_out, a
  * @param atu8_p 
  * @returns 
  */
-export const ecs_mul = (atu8_n: Uint8Array, atu8_p: Uint8Array): Uint8Array => {
+export const ecs_mul = (atu8_n: Uint8Array, atu8_p: Uint8Array): Uint8Array<ArrayBuffer> => {
 	init_base();
 
 	const atu8_q = bytes(32);
@@ -215,5 +215,5 @@ export const ecs_mul = (atu8_n: Uint8Array, atu8_p: Uint8Array): Uint8Array => {
  * @param atu8_n 
  * @returns 
  */
-export const ecs_mul_base = (atu8_n: Uint8Array): Uint8Array => ecs_mul(atu8_n, ATU8_BASE || init_base());
+export const ecs_mul_base = (atu8_n: Uint8Array): Uint8Array<ArrayBuffer> => ecs_mul(atu8_n, ATU8_BASE || init_base());
 

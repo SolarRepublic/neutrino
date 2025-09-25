@@ -1,9 +1,9 @@
 /* eslint-disable prefer-const */
 import type {Pop} from 'ts-toolbelt/out/List/Pop';
 
+import type {CosmosSigner} from './cosmos-signer';
 import type {SecretContract} from './secret-contract';
 import type {AuthSecret, TxResultWrapper} from './types';
-import type {CosmosSigner} from './cosmos-signer';
 
 import type {CborValue, Dict, Promisable} from '@blake.regalia/belt';
 import type {Snip52, ContractInterface, Snip52Schema} from '@solar-republic/contractor';
@@ -17,8 +17,8 @@ import {bech32_encode} from '@solar-republic/crypto';
 import {query_secret_contract} from './app-layer.js';
 import {chacha20_poly1305_open} from './chacha20-poly1305.js';
 import {XN_16} from './constants.js';
-import {SX_QUERY_TM_EVENT_TX, TendermintEventFilter} from './tendermint-event-filter.js';
 import {sign_amino} from './cosmos-signer.js';
+import {SX_QUERY_TM_EVENT_TX, TendermintEventFilter} from './tendermint-event-filter.js';
 
 export type NotificationCallback = (z_data: CborValue) => void;
 
@@ -35,7 +35,7 @@ type ChannelData = [
 	xg_counter?: bigint,
 ];
 
-const H_BLOOM_HASH_FUNCTIONS: Dict<(atu8_data: Uint8Array) => Promise<Uint8Array>> = assign(create(null), {
+const H_BLOOM_HASH_FUNCTIONS: Dict<(atu8_data: Uint8Array<ArrayBuffer>) => Promise<Uint8Array<ArrayBuffer>>> = assign(create(null), {
 	sha256,
 	sha512,
 });
@@ -66,7 +66,7 @@ const decode_data = (
 			// add to subvalues
 			// eslint-disable-next-line @typescript-eslint/no-unsafe-argument
 			a_subvalues.push(({
-				/* eslint-disable @typescript-eslint/no-loop-func,@typescript-eslint/no-unused-vars,@typescript-eslint/naming-convention */
+				/* eslint-disable @typescript-eslint/no-loop-func,@typescript-eslint/naming-convention */
 				uint: (_: never) => bytes_to_biguint_be(atu8_data.subarray(ib_read, ib_read+=+s_size/8)),
 				address: (_: never) => bech32_encode('secret', atu8_data.subarray(ib_read, ib_read+=20)),
 				bytes: (_: never) => atu8_data.subarray(ib_read, ib_read+=+s_size),

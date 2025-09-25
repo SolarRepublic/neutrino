@@ -8,13 +8,14 @@ import type {ContractInfo, RemoteServiceArg} from './types';
 import type {Dict, JsonObject, Nilable} from '@blake.regalia/belt';
 import type {SecretAccAddr, ContractInterface} from '@solar-republic/contractor';
 import type {CosmosClientLcd, RequestDescriptor} from '@solar-republic/cosmos-grpc';
+import type {EncodedGoogleProtobufAny} from '@solar-republic/cosmos-grpc/google/protobuf/any';
 import type {SecretComputeContractInfo} from '@solar-republic/cosmos-grpc/secret/compute/v1beta1/types';
 import type {CwHexLower, CwSecretAccAddr, CwUint32, RemoteServiceDescriptor, SlimCoin, TrustedContextUrl, WeakSecretAccAddr, WeakUintStr} from '@solar-republic/types';
 
 import {__UNDEFINED, base64_to_bytes, base64_to_text, bytes, bytes_to_hex, bytes_to_text, gunzip_bytes, is_function, is_string, parse_json, sha256, stringify_json} from '@blake.regalia/belt';
 
 import {decodeCosmosBaseAbciTxMsgData} from '@solar-republic/cosmos-grpc/cosmos/base/abci/v1beta1/abci';
-import {encodeGoogleProtobufAny, type EncodedGoogleProtobufAny} from '@solar-republic/cosmos-grpc/google/protobuf/any';
+import {encodeGoogleProtobufAny} from '@solar-republic/cosmos-grpc/google/protobuf/any';
 import {SI_MESSAGE_TYPE_SECRET_COMPUTE_MSG_EXECUTE_CONTRACT, SI_MESSAGE_TYPE_SECRET_COMPUTE_MSG_INSTANTIATE_CONTRACT, SI_MESSAGE_TYPE_SECRET_COMPUTE_MSG_STORE_CODE, decodeSecretComputeMsgInstantiateContractResponse, decodeSecretComputeMsgStoreCodeResponse, encodeSecretComputeMsgExecuteContract, encodeSecretComputeMsgInstantiateContract, encodeSecretComputeMsgStoreCode} from '@solar-republic/cosmos-grpc/secret/compute/v1beta1/msg';
 import {destructSecretComputeQueryCodeHashResponse, destructSecretComputeQueryContractInfoResponse, destructSecretComputeQuerySecretContractResponse, querySecretComputeCodeHashByCodeId, querySecretComputeCodes, querySecretComputeContractInfo, querySecretComputeQuerySecretContract} from '@solar-republic/cosmos-grpc/secret/compute/v1beta1/query';
 import {destructSecretRegistrationKey} from '@solar-republic/cosmos-grpc/secret/registration/v1beta1/msg';
@@ -113,7 +114,7 @@ export type SecretContract<
 	 */
 	exec(h_exec: JsonObject, sa_sender: WeakSecretAccAddr, a_funds?: SlimCoin[]): Promise<[
 		atu8_data: EncodedGoogleProtobufAny,
-		atu8_nonce: Uint8Array,
+		atu8_nonce: Uint8Array<ArrayBuffer>,
 	]>;
 };
 
@@ -346,7 +347,7 @@ export const SecretContract = async<
  */
 export async function secret_contract_upload_code(
 	k_wallet: CosmosSigner,
-	atu8_wasm: Uint8Array,
+	atu8_wasm: Uint8Array<ArrayBuffer>,
 	z_limit: bigint | WeakUintStr,
 	[s_source, s_builder]: [
 		s_source?: TrustedContextUrl,

@@ -6,6 +6,8 @@ import type {S} from 'ts-toolbelt';
 import type {CosmosClientLcdRpcStruct, RemoteServiceArg, SlimAuthInfo} from './types';
 
 import type {AsJson, Nilable} from '@blake.regalia/belt';
+import type {CosmosClientLcd} from '@solar-republic/cosmos-grpc';
+import type {CosmosAuthBaseAccount} from '@solar-republic/cosmos-grpc/cosmos/auth/v1beta1/auth';
 import type {ProtoEnumCosmosTxSigningSignMode} from '@solar-republic/cosmos-grpc/cosmos/tx/signing/v1beta1/signing';
 import type {CwUint128, CwHexUpper, CwAccountAddr, SlimCoin, WeakUint128Str, CwUint64, TypedAminoMsg, TypedStdSignDoc, WeakSecretAccAddr} from '@solar-republic/types';
 
@@ -13,8 +15,10 @@ import type {SignatureAndRecovery, Secp256k1} from '@solar-republic/wasm-secp256
 
 import {text_to_bytes, bytes_to_hex, sha256, canonicalize_json, stringify_json, die, __UNDEFINED, is_number} from '@blake.regalia/belt';
 
-import {any, restruct_coin, type CosmosClientLcd} from '@solar-republic/cosmos-grpc';
-import {destructCosmosAuthBaseAccount, type CosmosAuthBaseAccount} from '@solar-republic/cosmos-grpc/cosmos/auth/v1beta1/auth';
+import {any, restruct_coin} from '@solar-republic/cosmos-grpc';
+import {destructCosmosAuthBaseAccount} from '@solar-republic/cosmos-grpc/cosmos/auth/v1beta1/auth';
+
+
 import {destructCosmosAuthQueryAccountResponse, queryCosmosAuthAccount} from '@solar-republic/cosmos-grpc/cosmos/auth/v1beta1/query';
 import {encodeCosmosCryptoSecp256k1PubKey} from '@solar-republic/cosmos-grpc/cosmos/crypto/secp256k1/keys';
 import {XC_PROTO_COSMOS_TX_SIGNING_SIGN_MODE_DIRECT} from '@solar-republic/cosmos-grpc/cosmos/tx/signing/v1beta1/signing';
@@ -26,7 +30,6 @@ import {initWasmSecp256k1} from '@solar-republic/wasm-secp256k1';
 
 import {normalize_lcd_client, remote_service} from './_common';
 import {ripemd160} from './ripemd160.js';
-import {exec_fees} from './secret-app';
 import {random_32} from './util.js';
 
 let Y_SECP256K1: Secp256k1;
@@ -77,6 +80,19 @@ export interface CosmosSigner<
 	fees?: ((z_limit: Parameters<typeof exec_fees>[0]) => ReturnType<typeof exec_fees>) | undefined;
 }
 
+
+/**
+ * Given a limit, gas price, and denom (defaults to 'uscrt'), produces an array containing a single {@link SlimCoin} tuple
+ * @param z_limit 
+ * @param x_gas_price 
+ * @param s_denom 
+ * @returns 
+ */
+export const exec_fees = (z_limit: number|bigint|`${bigint}`, x_gas_price: number, s_denom='uscrt'): [SlimCoin] => [[
+	''+Math.ceil(Number(z_limit) * x_gas_price), s_denom],
+] as [SlimCoin];
+
+
 /**
  * Convert a 33-byte canonical public key to a bech32-encoded string
  * @param atu8_pk_33 - 33-byte public key buffer
@@ -85,7 +101,7 @@ export interface CosmosSigner<
  */
 export const pubkey_to_bech32 = async<
 	s_hrp extends string,
->(atu8_pk_33: Uint8Array, s_hrp: s_hrp='secret' as s_hrp): Promise<CwAccountAddr<s_hrp>> => {
+>(atu8_pk_33: Uint8Array<ArrayBuffer>, s_hrp: s_hrp='secret' as s_hrp): Promise<CwAccountAddr<s_hrp>> => {
 	// sha-256 hash of pubkey
 	const atu8_sha256 = await sha256(atu8_pk_33);
 
@@ -108,7 +124,7 @@ export const pubkey_to_bech32 = async<
  */
 // eslint-disable-next-line @typescript-eslint/naming-convention
 export const CosmosSigner = async<s_hrp extends string, si_chain extends string=string>(
-	atu8_sk: Uint8Array,
+	atu8_sk: Uint8Array<ArrayBuffer>,
 	si_chain: si_chain,
 	z_lcd: CosmosClientLcd | RemoteServiceArg,
 	z_rpc: RemoteServiceArg,
@@ -135,7 +151,7 @@ export const CosmosSigner = async<s_hrp extends string, si_chain extends string=
 
 		pk33: atu8_pk33,
 
-		sign: (atu8_msg: Uint8Array, atu8_k=random_32()) => sha256(atu8_msg).then(atu8_hash => Y_SECP256K1.sign(atu8_sk, atu8_hash, atu8_k)),
+		sign: (atu8_msg: Uint8Array<ArrayBuffer>, atu8_k=random_32()) => sha256(atu8_msg).then(atu8_hash => Y_SECP256K1.sign(atu8_sk, atu8_hash, atu8_k)),
 
 		fees: a_gas_prefs
 			? z_limit => exec_fees(z_limit, ...a_gas_prefs)
@@ -313,7 +329,8 @@ export const create_tx_body = async(
 	a_auth?: Nilable<SlimAuthInfo> | 0,  // eslint-disable-line @typescript-eslint/naming-convention
 	s_memo?: string,
 	sa_granter?: Emptyable<WeakSecretAccAddr>,
-	sa_payer?: Emptyable<WeakSecretAccAddr>
+	sa_payer?: Emptyable<WeakSecretAccAddr>,
+	sg_timeout_height?: Nilable<CwUint128>
 ): Promise<[
 	atu8_auth: Uint8Array,
 	atu8_body: Uint8Array,
@@ -347,7 +364,7 @@ export const create_tx_body = async(
 	const atu8_auth = encodeCosmosTxAuthInfo([atu8_signer], atu8_fee);
 
 	// encode tx body bytes
-	const atu8_body = encodeCosmosTxTxBody(a_msgs, s_memo);
+	const atu8_body = encodeCosmosTxTxBody(a_msgs, s_memo, sg_timeout_height);
 
 	// return tx data
 	return [
@@ -378,9 +395,10 @@ export const create_and_sign_tx_direct = async(
 	a_auth?: Nilable<SlimAuthInfo> | 0,  // eslint-disable-line @typescript-eslint/naming-convention
 	s_memo?: string,
 	sa_granter?: Emptyable<WeakSecretAccAddr>,
-	sa_payer?: Emptyable<WeakSecretAccAddr>
+	sa_payer?: Emptyable<WeakSecretAccAddr>,
+	sg_timeout_height?: Nilable<CwUint128>
 ): Promise<[
-	atu8_raw: Uint8Array,
+	atu8_raw: Uint8Array<ArrayBuffer>,
 	si_txn: CwHexUpper,
 	atu8_signdoc: Uint8Array,
 	atu8_signature: Uint8Array,
@@ -390,7 +408,7 @@ export const create_and_sign_tx_direct = async(
 		atu8_auth,
 		atu8_body,
 		sg_account,
-	] = await create_tx_body(XC_PROTO_COSMOS_TX_SIGNING_SIGN_MODE_DIRECT, k_wallet, a_msgs, zg_limit, z_fees, a_auth, s_memo, sa_granter, sa_payer);
+	] = await create_tx_body(XC_PROTO_COSMOS_TX_SIGNING_SIGN_MODE_DIRECT, k_wallet, a_msgs, zg_limit, z_fees, a_auth, s_memo, sa_granter, sa_payer, sg_timeout_height);
 
 	// sign direct
 	const [atu8_signature, atu8_signdoc] = await sign_direct(k_wallet, atu8_auth, atu8_body, sg_account);

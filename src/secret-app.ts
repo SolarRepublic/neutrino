@@ -1,9 +1,11 @@
 /* eslint-disable @typescript-eslint/naming-convention */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import type {TxMeta, TxResponseTuple} from './app-layer';
+import type {CosmosSigner} from './cosmos-signer';
 import type {CreateQueryArgsAndAuthParams} from './inferencing';
 import type {SecretContract} from './secret-contract';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import type {AuthSecret} from './types';
-import type {CosmosSigner} from './cosmos-signer';
 
 import type {JsonObject} from '@blake.regalia/belt';
 import type {ContractInterface} from '@solar-republic/contractor';
@@ -12,17 +14,6 @@ import type {SlimCoin, WeakSecretAccAddr} from '@solar-republic/types';
 import {__UNDEFINED, die, values} from '@blake.regalia/belt';
 
 import {exec_secret_contract, query_secret_contract} from './app-layer.js';
-
-/**
- * Given a limit, gas price, and denom (defaults to 'uscrt'), produces an array containing a single {@link SlimCoin} tuple
- * @param z_limit 
- * @param x_gas_price 
- * @param s_denom 
- * @returns 
- */
-export const exec_fees = (z_limit: number|bigint|`${bigint}`, x_gas_price: number, s_denom='uscrt'): [SlimCoin] => [[
-	''+Math.ceil(Number(z_limit) * x_gas_price), s_denom],
-] as [SlimCoin];
 
 /**
  * Simple wrapper for querying and executing a Secret contract. Binds Wallet and SecretContract, as well
