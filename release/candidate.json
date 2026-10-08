@@ -1,6 +1,6 @@
 {
-  "tag": "neutrino-validation-20261008-1979a43",
+  "tag": "neutrino-validation-20261008-1979a43-r2",
   "asset": "candidate.tar.gz",
-  "archiveSha256": "e06dfef1b11901ac15134c3186277e557452802dd87061884f1349e7a5c14b75",
+  "archiveSha256": "5bb10d4e911fa7a73f67bfcdab6d1a75db6debd51f6656a357f7bd363746ee51",
   "manifestSha256": "22183c97eedae822ac63e18a9fca5d0608df1308dd6ff815fda2e590cb27849d"
 }
