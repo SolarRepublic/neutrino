@@ -32,7 +32,7 @@ node --test release/integrity.test.mjs
 
 Preparation requires a new output directory and registry access. It regenerates Cosmos, rebuilds Types, Contractor and Neutrino, stages all five manifests, then tests the graph and freezes `consumer-lock.json`. It requires clean committed source and records Git heads plus input artifact hashes. Before compiling a dependent package it refreshes local pnpm file snapshots and verifies their output hashes match the freshly built siblings. Set `RELEASE_PNPM_STORE` when using a nondefault pnpm store. The preserved merged proto input is hashed explicitly; it is not inferred from Git HEAD or silently replaced with a different schema profile.
 
-The verifier serves only the candidate versions through a read-only loopback registry; public dependencies resolve from npm. The consumer requests **only Neutrino** as its runtime dependency. It checks exact installed manifests, one Belt version, ESM/require(esm), Contractor runtime/CLI generation, Cosmos protobuf regressions, all three compiler consumers with full declaration checking, and the 44 offline tests against the installed tarball files. Test-only dependencies are installed after production checks. Subsequent runs use `npm ci` against the frozen consumer lock, with only the fixture registry origin rewritten for its ephemeral port. The locked toolchain and validation scripts must match the prepared format-2 bundle. Its file inventory is exact: unlisted files, missing inference fixtures, symlinks and nonportable paths fail validation. Test execution uses only its signed test list. HTTPS fetches enforce HTTPS redirects and per-file size limits.
+The verifier serves only the candidate versions through a read-only loopback registry; public dependencies resolve from npm. The consumer requests **only Neutrino** as its runtime dependency. It checks exact installed manifests, one Belt version, ESM/require(esm), Contractor runtime/CLI generation, Cosmos protobuf regressions, all three compiler consumers with full declaration checking, and the 44 offline tests against the installed tarball files. Test-only dependencies are installed after production checks. Subsequent runs use `npm ci` against the frozen consumer lock, with only the fixture registry origin rewritten for its ephemeral port. The locked toolchain and validation scripts must match the prepared format-2 bundle. Its file inventory is exact: unlisted files, missing inference fixtures, symlinks and nonportable paths fail validation. Test execution uses only its manifest-bound test list. HTTPS fetches enforce HTTPS redirects and per-file size limits.
 
 `--browser` additionally checks the installed bundle in Chromium, Firefox and WebKit: AES-SIV's RFC vector and tamper rejection, X25519 and RIPEMD-160 vectors, exact fee arithmetic, and a real loopback WebSocket's event delivery and acknowledgement timeout. It neither contacts a chain nor sends transactions. These are targeted interoperability regressions, not full browser/application coverage or cryptographic qualification.
 
@@ -42,9 +42,9 @@ The npm launcher uses the active Node executable and resolves `npm-cli.js` direc
 
 `.github/workflows/release-candidate.yml` is manually dispatched. Host the **entire prepared directory** at an HTTPS artifact location, then supply its `manifest.json` URL and the SHA-256 printed by preparation. The workflow verifies that manifest hash and every contained file hash before testing. Its six test jobs cover macOS/Linux/Windows × Node 22.12/24; Linux/Node 24 also runs all three browser engines. It needs no sibling checkouts or publishing credentials, and retains no checkout credentials.
 
-A dedicated `codex/release-validation` branch can also run the matrix by pushing `release/candidate.json`. That pointer identifies a draft GitHub release asset and pins both archive and manifest SHA-256 hashes. GitHub hides drafts from read-only tokens, so a separate artifact job has contents-write permission solely to download it. That job runs no package install or candidate code; it verifies the archive and hands it off through a workflow artifact. The six consumer jobs have read-only permission, no persisted checkout credentials and no token environment variable. It does not publish an npm package or merge the branch. Create the archive with `node release/archive.mjs BUNDLE /tmp/candidate.tar.gz`. It uses the exact verified inventory, suppresses macOS AppleDouble/xattr metadata and checks archive entries; links and special entries are rejected before extraction. `.gitattributes` fixes LF endings for hashed validation files on every platform. Actions are pinned to commit SHAs; jobs run harness regression tests and record validator/candidate identities.
+A dedicated `codex/release-validation` branch can also run the matrix by pushing `release/candidate.json`. That pointer identifies a draft GitHub release asset and pins both archive and manifest SHA-256 hashes. GitHub hides drafts from read-only tokens, so a separate artifact job has contents-write permission solely to download it. That job runs no package install or candidate code; it verifies the archive and hands it off through a workflow artifact. The six consumer jobs have read-only permission, no persisted checkout credentials and no GH_TOKEN passed to candidate commands. It does not publish an npm package or merge the branch. Create the archive with `node release/archive.mjs BUNDLE /tmp/candidate.tar.gz`. It uses the exact verified inventory, suppresses macOS AppleDouble/xattr metadata and checks archive entries; links and special entries are rejected before extraction. `.gitattributes` fixes LF endings for hashed validation files on every platform. Actions are pinned to commit SHAs; jobs run harness regression tests and record validator/candidate identities.
 
-The workflow has not yet been dispatched from this local checkout. Uploading the artifact and running it in the repository are separate steps; do not claim those platform gates passed from the local macOS checks. A local candidate directory and its manifest hash identify exactly what was tested even while sibling changes remain uncommitted.
+The hosted matrix passed on 2026-10-08 using the clean-source format-2 candidate identified below. The draft release stores validation inputs; no npm package was published and main was not merged.
 
 References: [Playwright browser installation](https://playwright.dev/docs/browsers), [setup-node matrix usage](https://github.com/actions/setup-node#matrix-testing).
 
@@ -56,13 +56,37 @@ References: [Playwright browser installation](https://playwright.dev/docs/browse
 4. Replace local development links/overrides with approved release versions in the release branches and rebuild/retest. Public stable version/tag choices require release review; the local candidate versions do not reserve registry names.
 
 
-## Local validation record — 2026-10-07
+## Historical local validation record — 2026-10-07 (format 1)
 
 The prepared bundle is `dist/release-candidate` (approximately 5.2 MiB). Its manifest SHA-256 is `0c30c2a6bcc8a166a55628653b243ec435fa70beb1f2d45059018cbdf8ce4924`.
 
 - Frozen production graph, all six compiler/resolution combinations, and 44 installed-package tests pass on macOS arm64, Node 22.12.0 and 26.10.0.
 - Final Node 22.12 verification also passes Contractor Rust CLI generation and Cosmos timestamp/bank/oneof checks, plus Chromium/Firefox/WebKit runtime checks.
 - Cosmos regeneration succeeds and its 52 regressions pass. Candidate dependency and validation-tool audits each report zero known advisories.
-- Six integrity/download/subprocess regression tests pass; the six-job workflow parses successfully but has not been dispatched. Linux/Windows remain untested.
+- The initial workflow was validated locally; hosted Linux/Windows execution followed in the format-2 pass below.
 
-This record identifies the existing immutable candidate snapshot. Later documentation edits do not change that snapshot; prepare a new output directory to include subsequent source or documentation changes.
+This older candidate used dirty source snapshots and is superseded by the clean-source format-2 candidate below. Its results are historical evidence only.
+
+
+## Hosted validation record — 2026-10-08 (format 2)
+
+[Run 37742287060](https://github.com/SolarRepublic/neutrino/actions/runs/37742287060) passed all six consumers and the artifact verification job. Each consumer checks the exact production dependency graph, Contractor runtime/Rust CLI generation, Cosmos timestamp/bank/oneof behavior, TS5.9/6/7 × NodeNext/Bundler with full declaration checking, all 44 installed-package tests, and six harness integrity/download/subprocess regressions.
+
+| Hosted platform | Minimum Node | Node 24 resolved version | Result |
+| --- | --- | --- | --- |
+| macOS arm64 | 22.12.0 | 24.20.0 | Both passed |
+| Linux x64 | 22.12.0 | 24.21.0 | Both passed; Chromium, Firefox and WebKit also passed on Node 24 |
+| Windows x64 | 22.12.0 | 24.21.0 | Both passed |
+
+Artifact identities:
+
+- Local bundle: `dist/release-committed-20261008`.
+- Manifest SHA-256: `22183c97eedae822ac63e18a9fca5d0608df1308dd6ff815fda2e590cb27849d`.
+- Portable archive SHA-256: `5bb10d4e911fa7a73f67bfcdab6d1a75db6debd51f6656a357f7bd363746ee51`.
+- Draft asset holder: `neutrino-validation-20261008-1979a43-r2`, asset `candidate.tar.gz`; pinned by `release/candidate.json`.
+- Hosted workflow checkout: `1a5525e99021c97fddc144cf09bd9abdf3237187`.
+- Clean package source commits: Types `94039216d13c37ecc42ea4f00b4bccff078c6462`, Contractor `de3ba57d4c989d38abdc5f78c5be54aee01b74cf`, Cosmos gRPC `0c98658f3f9106862ebcc307a1d9700b1634ca94`, Neutrino `1979a43deea0e6b0b1fabe3eea84785019e0a7ab`. Crypto retains the integrity-pinned published implementation described above.
+
+The manifest binds validation code, exact fixture inventory and frozen dependency lock, plus Cosmos generator/proto input hashes. Later workflow, transport and documentation commits do not change these package bytes. Local minimum-Node validation also passed all three browser engines; the validation-tool audit reported zero known advisories.
+
+Iterative subagent review led to strict fixture inventory/path verification, validator and generator provenance, clean-source requirements, refreshed local dependency snapshots, bounded HTTPS downloads and separate npm stdout/stderr handling. Hosted execution exposed draft-token access and macOS AppleDouble archive metadata issues; the isolated artifact job and portable archive helper resolved both before the passing run. The browser bundler emits a nonfatal warning about the checkout's unavailable development-only base tsconfig; all browser runtime assertions pass. Broader browser/application coverage, independent protocol qualification and public-registry release validation remain separate gates.

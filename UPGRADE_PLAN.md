@@ -1,6 +1,6 @@
-# Belt and TypeScript migration status — 2026-10-07
+# Belt and TypeScript migration status — 2026-10-08
 
-The recommended Types prerequisite and coordinated local integration are complete. Neutrino now uses Belt **0.58.0**, local **Types**, local **Contractor**, and local **cosmos-grpc**. Neutrino now builds with **native TypeScript 7.0.2**, uses the **TS6.0.3 compiler API** for tooling, and retains **TS5.9.3** as the checked consumer floor. Checkout versions are unchanged. Five versioned candidate tarballs are staged locally; nothing has been published.
+The recommended Types prerequisite and coordinated local integration are complete. Neutrino now uses Belt **0.58.0**, local **Types**, local **Contractor**, and local **cosmos-grpc**. Neutrino now builds with **native TypeScript 7.0.2**, uses the **TS6.0.3 compiler API** for tooling, and retains **TS5.9.3** as the checked consumer floor. Checkout versions are unchanged. Five versioned candidate tarballs have passed the hosted platform matrix and are retained in a draft release asset; no npm package has been published.
 
 ## Completed dependency and schema work
 
@@ -35,7 +35,7 @@ The clean package test packs Types, Contractor, Cosmos gRPC and Neutrino separat
 | Cosmos gRPC regressions | 52 passing tests after the API/generator adjustment |
 | Dependency advisories | Zero known advisories in the final Types, Contractor and Neutrino lockfile scans |
 
-Runtime checks ran on macOS arm64 with Node 22.12.0 and 26.10.0, plus the installed Rust toolchain. The clean package matrix also passes on Node 22.12. Windows/Linux execution, broader application-browser coverage and live chain execution remain release gates. TypeScript interfaces are erased: response object-envelope checks do not validate every contract-specific field. No live or funded transactions were sent.
+Runtime checks ran on macOS arm64 with Node 22.12.0 and 26.10.0, plus the installed Rust toolchain. The clean package matrix also passes on Node 22.12. The subsequent format-2 candidate also passes hosted macOS/Linux/Windows × Node 22.12/24. Broader application-browser coverage and live chain execution remain release gates. TypeScript interfaces are erased: response object-envelope checks do not validate every contract-specific field. No live or funded transactions were sent.
 
 ## Completed: Neutrino compiler adoption
 
@@ -60,7 +60,7 @@ Repeatable gates:
 - `pnpm test:package`: native build followed by coordinated clean tarballs, ESM/require(esm) and TS5.9/6/7 NodeNext/Bundler consumers.
 - `pnpm lint` and `pnpm docs`: tooling on the TS6 API. ESLint passes with 52 existing warnings; TypeDoc generation passes with 30 documentation warnings (stale parameter names, missing/external links and the local remote). Those warnings remain documentation debt.
 
-The runtime floor remains Node **22.12**. ESLint 10 requires **22.13+** on Node 22, or Node **24+**; use a supported development runtime rather than changing the library's runtime floor for dev-only tooling. The native compiler package declares binaries for macOS/Linux/Windows architectures; only macOS arm64 was executed here. The minimum-runtime binary was downloaded from nodejs.org and checked against its published SHA-256 checksum.
+The runtime floor remains Node **22.12**. ESLint 10 requires **22.13+** on Node 22, or Node **24+**; use a supported development runtime rather than changing the library's runtime floor for dev-only tooling. The native compiler package declares binaries for macOS/Linux/Windows architectures; the hosted candidate consumers execute it on macOS arm64, Linux x64 and Windows x64. The minimum-runtime binary was downloaded from nodejs.org and checked against its published SHA-256 checksum.
 
 ## Completed: candidate graph and platform workflow
 
@@ -70,11 +70,11 @@ The runtime floor remains Node **22.12**. ESLint 10 requires **22.13+** on Node 
 
 The same installed candidate passes targeted runtime checks in Chromium, Firefox and WebKit. The candidate dependency graph and isolated validation tools each report zero known advisories. Contractor Rust CLI generation and Cosmos timestamp/bank/oneof regressions also pass in the production consumer. Integrity tests reject changed bundle bytes and paths outside the bundle.
 
-`.github/workflows/release-candidate.yml` defines macOS/Linux/Windows × Node 22.12/24, with the three browser engines on Linux/24. It accepts an HTTPS manifest URL and an independently supplied SHA-256, verifies all artifact bytes, and needs no moving sibling checkouts. The workflow has not been pushed or dispatched; Linux/Windows remain unverified. See [release/README.md](release/README.md) for commands, candidate version rationale and release steps.
+`.github/workflows/release-candidate.yml` defines macOS/Linux/Windows × Node 22.12/24, with the three browser engines on Linux/24. It accepts an HTTPS manifest URL and an independently supplied SHA-256, verifies all artifact bytes, and needs no moving sibling checkouts. The workflow passed all six consumers on the validation branch on 2026-10-08, including three browser engines on Linux/Node 24. See [release/README.md](release/README.md) for commands, candidate version rationale and release steps.
 
-## Next: review and run the candidate workflow
+## Next: protocol qualification and release preparation
 
-Review the staged manifests and sibling source snapshots, record immutable source revisions, then make the candidate bundle available to the workflow and run it. No artifact was uploaded and no package was published by this pass. Broader protocol/live-testnet qualification and the remaining product work below are still separate gates.
+The candidate was rebuilt from clean committed source, reviewed iteratively by a subagent, uploaded as a checksum-pinned draft asset and validated in [hosted run 37742287060](https://github.com/SolarRepublic/neutrino/actions/runs/37742287060). See the format-2 record in [release/README.md](release/README.md) for exact source, validator and artifact identities. No npm package was published or branch merged. Independent Secret/Go fixtures and live-testnet qualification remain the highest release priority; then apply/version the coordinated upstream manifests and validate public-registry consumers before promotion.
 
 [TypeScript 6 release notes](https://www.typescriptlang.org/docs/handbook/release-notes/typescript-6-0.html) explain the configuration transition. Compiler versions, tool peer ranges and native binary targets were checked against installed metadata. Source configurations explicitly select Node/Web ambient types and avoid baseUrl.
 
@@ -91,9 +91,9 @@ Review the staged manifests and sibling source snapshots, record immutable sourc
 - Add contract/consensus-key cache invalidation, refresh and request coalescing.
 - Expand mixed-message response/nonce fixtures and full contract-response validation; query tuple optionality and missing envelope handling are already repaired.
 - Add durable SNIP-52 reconnect cursors/backfill and seed-rotation handling. Current duplicate retention is bounded to 1,024 transaction identities; it cannot recover events missed offline. Bound queued event work and define slow-listener behavior before treating this as a durable stream.
-- Expand external Secret/Go transaction fixtures, minimum-Node/browser CI, and independent crypto qualification. Differential tests are useful regression evidence, not a formal cryptographic audit.
+- Expand external Secret/Go transaction fixtures, broader application-browser coverage and independent crypto qualification. Minimum-Node and targeted browser candidate CI now pass. Differential tests are useful regression evidence, not a formal cryptographic audit.
 
 
 ## Review hardening — 2026-10-08
 
-Subagent review identified and prompted fixes for unsigned fixture execution, portable fixture hashing, missing validator/generator provenance, combined npm stderr/JSON output, and stale pnpm file copies. Format-2 bundles require clean committed source, regenerate Cosmos from hashed default proto inputs, refresh and compare local build dependencies, and bind the exact validation scripts and fixture inventory. Downloads enforce HTTPS through redirects and bounded sizes. The workflow pins Actions revisions, runs integrity regressions and records validator/candidate identities. A dedicated validation branch can fetch a checksum-pinned draft release bundle without publishing packages or updating main. Hosted results are recorded separately after execution.
+Subagent review identified and prompted fixes for execution of fixtures outside the hash-verified manifest, portable fixture hashing, missing validator/generator provenance, combined npm stderr/JSON output, and stale pnpm file copies. Format-2 bundles require clean committed source, regenerate Cosmos from hashed default proto inputs, refresh and compare local build dependencies, and bind the exact validation scripts and fixture inventory. Downloads enforce HTTPS through redirects and bounded sizes. The workflow pins Actions revisions, runs integrity regressions and records validator/candidate identities. A dedicated validation branch can fetch a checksum-pinned draft release bundle without publishing packages or updating main. The subsequent hosted matrix passed; the release guide records exact identities, platform versions and the resolved draft-token/archive transport failures.
