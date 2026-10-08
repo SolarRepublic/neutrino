@@ -2,7 +2,7 @@ name: Validate release candidate
 on:
   push:
     branches: [codex/release-validation]
-    paths: [release/candidate.json]
+    paths: [release/candidate.json, .github/workflows/release-candidate.yml]
   workflow_dispatch:
     inputs:
       manifest_url:
@@ -16,7 +16,41 @@ on:
 permissions:
   contents: read
 jobs:
+  artifact:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # GitHub hides drafts from read-only tokens. This job never executes candidate code.
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      - name: Fetch draft candidate with verified checksums
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node release/fetch-draft.mjs candidate
+      - name: Fetch candidate with verified checksums
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          CANDIDATE_MANIFEST_URL: ${{ inputs.manifest_url }}
+          CANDIDATE_MANIFEST_SHA256: ${{ inputs.manifest_sha256 }}
+        run: node release/fetch-bundle.mjs candidate
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: verified-candidate
+          path: candidate/
+          if-no-files-found: error
+          retention-days: 7
   consumer:
+    needs: artifact
+    permissions:
+      contents: read
     strategy:
       fail-fast: false
       matrix:
@@ -36,17 +70,10 @@ jobs:
         run: npm ci --prefix release/tools --ignore-scripts --no-audit --no-fund
       - name: Check release harness regressions
         run: node --test release/integrity.test.mjs
-      - name: Fetch draft candidate with verified checksums
-        if: github.event_name == 'push'
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: node release/fetch-draft.mjs candidate
-      - name: Fetch candidate with verified checksums
-        if: github.event_name == 'workflow_dispatch'
-        env:
-          CANDIDATE_MANIFEST_URL: ${{ inputs.manifest_url }}
-          CANDIDATE_MANIFEST_SHA256: ${{ inputs.manifest_sha256 }}
-        run: node release/fetch-bundle.mjs candidate
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: verified-candidate
+          path: candidate
       - name: Install browser engines
         if: matrix.os == 'ubuntu-latest' && matrix.node == '24'
         run: node release/tools/node_modules/playwright/cli.js install --with-deps chromium firefox webkit
