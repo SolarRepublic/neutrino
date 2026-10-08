@@ -5,9 +5,9 @@ const {expect} = chai;
 import chai_bites from 'chai-bites';
 chai.use(chai_bites);
 
-import {describe} from './helper';
+import {describe} from './helper.js';
 
-import {ripemd160} from '../src/ripemd160';
+import {ripemd160} from '../src/ripemd160.js';
 
 const A_VECTORS = [
 	{

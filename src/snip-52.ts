@@ -1,23 +1,25 @@
+import {bytes_to_base64} from './encoding.js';
 /* eslint-disable prefer-const */
 import type {Pop} from 'ts-toolbelt/out/List/Pop';
 
-import type {CosmosSigner} from './cosmos-signer';
-import type {SecretContract} from './secret-contract';
-import type {AuthSecret, TxResultWrapper} from './types';
+import type {CosmosSigner} from './cosmos-signer.js';
+import type {SecretContract} from './secret-contract.js';
+import type {AuthSecret, TxResultWrapper} from './types.js';
 
 import type {CborValue, Dict, Promisable} from '@blake.regalia/belt';
 import type {Snip52, ContractInterface, Snip52Schema} from '@solar-republic/contractor';
 import type {TendermintAbciTxResult} from '@solar-republic/cosmos-grpc/tendermint/abci/types';
 import type {CwBase64, CwSecretAccAddr, Snip52NotificationSeedUpdateMsg, Snip52NotificationSeedUpdateParams, Snip52NotificationSeedUpdateSigned, TrustedContextUrl, WeakSecretAccAddr} from '@solar-republic/types';
 
-import {hmac, base64_to_bytes, text_to_bytes, bytes_to_base64, sha256, biguint_to_bytes_be, bytes_to_biguint_be, cbor_decode_trivial, die, is_string, entries, bytes, hex_to_bytes, try_sync, create, assign, sha512, hkdf, SI_HASH_ALGORITHM_SHA512} from '@blake.regalia/belt';
+import {hmac, base64_to_bytes, text_to_bytes, sha256, biguint_to_bytes_be, bytes_to_biguint_be, die, is_string, entries, bytes, hex_to_bytes, create, assign, sha512, hkdf, SI_HASH_ALGORITHM_SHA512} from '@blake.regalia/belt';
 
-import {bech32_encode} from '@solar-republic/crypto';
+
 
 import {query_secret_contract} from './app-layer.js';
 import {chacha20_poly1305_open} from './chacha20-poly1305.js';
 import {XN_16} from './constants.js';
 import {sign_amino} from './cosmos-signer.js';
+import {decode_snip52_cbor, decode_snip52_data as decode_data, snip52_bloom_params, NB_SNIP52_MAX_PAYLOAD} from './snip-52-codec.js';
 import {SX_QUERY_TM_EVENT_TX, TendermintEventFilter} from './tendermint-event-filter.js';
 
 export type NotificationCallback = (z_data: CborValue) => void;
@@ -31,7 +33,7 @@ type ChannelData = [
 	atu8_seed: Uint8Array,
 	atu8_hash: Uint8Array,
 	f_get_id: (s_salt: string) => Promise<CwBase64>,
-	f_notify: (w_data: any) => void,
+	f_notify: (w_data: any, g_tx: TendermintAbciTxResult, h_events: Dict<string[]>) => unknown,
 	xg_counter?: bigint,
 ];
 
@@ -40,62 +42,6 @@ const H_BLOOM_HASH_FUNCTIONS: Dict<(atu8_data: Uint8Array<ArrayBuffer>) => Promi
 	sha512,
 });
 
-const decode_data = (
-	atu8_data: Uint8Array,
-	g_schema: Snip52Schema.DataDescriptor
-): [Snip52Schema.AnyValueSequenced, number] => {
-	// parse datatype
-	const [, s_datatype, s_size, s_dim1, s_dim2] = /^(\w+?)(\d*)(\[\d+\])?(\[\d+\])?$/.exec(g_schema.type)!;
-
-	// init read offset
-	let ib_read = 0;
-
-	// prep top values list
-	let a_values: Snip52Schema.AnyValueSequenced[][] = [];
-
-	// each top dimension
-	for(let i_dim2=0; i_dim2<(s_dim2? +s_dim2: 1); i_dim2++) {
-		// prep subvalues list
-		const a_subvalues: Snip52Schema.AnyValueSequenced[] = [];
-
-		// add to main values
-		a_values.push(a_subvalues);
-
-		// each subdimension
-		for(let i_dim1=0; i_dim1<(s_dim1? +s_dim1: 1); i_dim1++) {
-			// add to subvalues
-			// eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-			a_subvalues.push(({
-				/* eslint-disable @typescript-eslint/no-loop-func,@typescript-eslint/naming-convention */
-				uint: (_: never) => bytes_to_biguint_be(atu8_data.subarray(ib_read, ib_read+=+s_size/8)),
-				address: (_: never) => bech32_encode('secret', atu8_data.subarray(ib_read, ib_read+=20)),
-				bytes: (_: never) => atu8_data.subarray(ib_read, ib_read+=+s_size),
-				struct: (_: never) => (g_schema as {members: Snip52Schema.DataDescriptor[]}).members.map((g_member) => {
-					// decode subdata
-					const [z_subdata, ib_subread] = decode_data(atu8_data.subarray(ib_read), g_member);
-
-					// increase amount read
-					ib_read += ib_subread;
-
-					// return subdata
-					return z_subdata;
-				}),
-				/* eslint-disable */
-			} as unknown as Dict<() => any>)[s_datatype]());
-		}
-	}
-
-	// unwrap values depending on dimensionality
-	return [
-		(s_dim1
-			? s_dim2
-				? a_values
-				: a_values[0]
-			: a_values[0][0]) as unknown as Snip52Schema.AnyValueSequenced,
-		ib_read,
-	];
-};
-
 /**
  * Generates the bloom mode callback
  */
@@ -103,7 +49,7 @@ type Snip52BloomCallback<g_data, w_return> = (
 	z_data: g_data,
 	atu8_data: Uint8Array,
 	g_tx: TendermintAbciTxResult,
-	h_events: Dict<string[]>,
+	h_events: Dict<string[]>
 ) => w_return;
 
 /**
@@ -132,7 +78,7 @@ export const subscribe_snip52_channels = async<
 			>(
 				w_data: w_data,
 				g_tx: TendermintAbciTxResult,
-				h_events: Dict<string[]>,
+				h_events: Dict<string[]>
 			) => Promisable<void>)
 			: h_channels[si_channel] extends {schema: Snip52Schema.Element}
 				// bloom callback
@@ -147,15 +93,12 @@ export const subscribe_snip52_channels = async<
 					z_data: Snip52Schema.ParseDescriptorSequenced<g_descriptor>,
 					atu8_data: Uint8Array,
 					g_tx: TendermintAbciTxResult,
-					h_events: Dict<string[]>,
+					h_events: Dict<string[]>
 				) => Promisable<void>);
 	}
 ) => {
-	// init Tendermint event filter
-	const k_filter = is_string(z_remote)? await TendermintEventFilter(z_remote, SX_QUERY_TM_EVENT_TX): z_remote;
-
 	// dict of next notification IDs for channels operating in counter mode
-	const h_resolved = {} as Record<CwBase64, ChannelData>;
+	const h_resolved = Object.create(null) as Record<CwBase64, ChannelData>;
 
 	// prep list of channels to check operating in txhash mode
 	const a_dynamic = [] as ChannelData[];
@@ -165,23 +108,25 @@ export const subscribe_snip52_channels = async<
 		si_txn: string,
 		atu8_value: Uint8Array,
 		g_data: TxResultWrapper,
-		h_events: Dict<string[]>,
-	) => Promise<void>> = {};
+		h_events: Dict<string[]>
+	) => Promise<void>> = Object.create(null) as Dict<never>;
 
 	// fetch channel info for all requested channels at once
-	let [g_result, xc_code, s_error] = await query_secret_contract(k_contract as SecretContract<Snip52>, 'channel_info', {
+	let [g_result,, s_error] = await query_secret_contract(k_contract as SecretContract<Snip52>, 'channel_info', {
 		channels: Object.keys(h_channels),
 	}, z_auth);
 
 	// query failed
-	if(!g_result) throw die(`While requesting channels from ${k_contract.addr}: ${s_error}`);
+	if(!g_result) die(`While requesting channels from ${k_contract.addr}: ${s_error}`);
 
 	// parse seed
 	let atu8_seed = base64_to_bytes(g_result.seed+'');
+	if(atu8_seed.length !== 32) throw Error('Invalid SNIP-52 seed');
 
 	// each channel
 	for(const g_channel of g_result.channels) {
 		const si_channel = g_channel.channel as Extract<keyof typeof h_channels, string>;
+		if(!Object.hasOwn(h_channels, si_channel) || typeof h_channels[si_channel] !== 'function') throw Error('Unexpected SNIP-52 channel');
 
 		// prep channel hash
 		let atu8_hash = (await sha256(text_to_bytes(si_channel))).subarray(0, 12);
@@ -198,12 +143,13 @@ export const subscribe_snip52_channels = async<
 			atu8_seed,
 			atu8_hash,
 			f_next_id,
-			h_channels[si_channel] as (w_data: any) => void,
+			h_channels[si_channel] as ChannelData[4],
 		];
 
 		// counter mode
 		if('counter' === g_channel.mode) {
 			// step counter back by one for initial call to next_id
+			if(!/^\d+$/.test(g_channel.counter) || BigInt(g_channel.counter) > 0xffffffffffffffffn) throw Error('Invalid SNIP-52 counter');
 			let xg_counter = BigInt(g_channel.counter) -1n;
 
 			// derive next notification id
@@ -233,7 +179,7 @@ export const subscribe_snip52_channels = async<
 			const xg_param_k = BigInt(n_param_k);
 
 			// compute number of bits needed for m param
-			const xg_bits = BigInt(Math.log2(n_param_m));
+			const [n_hash_width, xg_bits] = snip52_bloom_params(n_param_m, n_param_k, s_param_h);
 
 			// prep mask for bottom bits
 			const xg_mask_lo = (1n << xg_bits) - 1n;
@@ -243,6 +189,7 @@ export const subscribe_snip52_channels = async<
 
 			// create bloom filter checker
 			h_blooms[si_channel] = async(si_txn, atu8_value, {TxResult:g_tx}, h_events) => {
+				if(atu8_value.length < n_param_m / 8 || atu8_value.length > NB_SNIP52_MAX_PAYLOAD) throw Error('Invalid SNIP-52 bloom payload length');
 				// create filter as bigint
 				const xg_filter = bytes_to_biguint_be(atu8_value.subarray(0, (n_param_m / 8) | 0));
 
@@ -257,8 +204,8 @@ export const subscribe_snip52_channels = async<
 					// each hash
 					for(let xg_hash=0n; xg_hash<xg_param_k; xg_hash++) {
 						// 1 << bitsToUintBe(sliceBits(bloomHash, i*9, (i+1)*9))
-						const xg_toggle = 1n << ((xg_superhash >> (256n - xg_bits - (xg_hash * xg_bits))) & xg_mask_lo)
-	
+						const xg_toggle = 1n << ((xg_superhash >> (BigInt(n_hash_width) - xg_bits - (xg_hash * xg_bits))) & xg_mask_lo);
+
 						// one of the hashes doesn't match; not meant for this recipient
 						if(!(xg_filter & xg_toggle)) break FILTER_CHECK;
 					}
@@ -276,6 +223,8 @@ export const subscribe_snip52_channels = async<
 					// packets[M]
 					const m_packets = /^packet\[(\d+)\]$/.exec(s_datatype);
 					if(m_packets) {
+						const n_packets = Number(m_packets[1]);
+						if(!Number.isSafeInteger(nb_packet) || nb_packet < 1 || nb_packet > 255 * 64 || !Number.isSafeInteger(n_packets) || n_packets < 1 || (nb_packet + 8) * n_packets !== atu8_data.length) throw Error('Invalid SNIP-52 packet length');
 						// prep expected packet id
 						const xg_packet_id = bytes_to_biguint_be(atu8_notification_id.subarray(0, 8));
 
@@ -313,7 +262,7 @@ export const subscribe_snip52_channels = async<
 					}
 
 					// received notification
-					try_sync(() => (h_channels[si_channel] as Snip52BloomCallback<typeof z_data, Promisable<void>>)(z_data, atu8_data, g_tx, h_events));
+					await f_notify_safe(() => (h_channels[si_channel] as Snip52BloomCallback<typeof z_data, Promisable<void>>)(z_data, atu8_data, g_tx, h_events));
 				}
 			};
 		}
@@ -323,13 +272,18 @@ export const subscribe_snip52_channels = async<
 		}
 	}
 
+	// User callback failures must not prevent authenticated counter advancement.
+	const f_notify_safe = async(f_notify: () => unknown) => {
+		try { await f_notify(); }
+		catch{ /* Listener owns its application error reporting. */ }
+	};
+
 	const f_apply = async(
 		si_notification: string,
-		[, atu8_seed, atu8_hash,, fk_notification]: ChannelData,
+		[, atu8_key, atu8_hash,, fk_notification]: ChannelData,
 		f_salt: () => Uint8Array,
 		{TxResult:g_tx}: TxResultWrapper,
-		h_events: Dict<string[]>,
-		fk_handled?: () => Promisable<void>
+		h_events: Dict<string[]>
 	) => {
 		// notification received
 		let a_received = h_events['wasm.snip52:'+si_notification];
@@ -346,67 +300,86 @@ export const subscribe_snip52_channels = async<
 			// each notification
 			for(const sb64_received of a_received) {
 				// decode payload
+				if(sb64_received.length > NB_SNIP52_MAX_PAYLOAD * 4 / 3 + 4) throw Error('SNIP-52 payload exceeds limit');
 				let atu8_payload = base64_to_bytes(sb64_received);
+				if(atu8_payload.length < XN_16) throw Error('Truncated SNIP-52 notification');
 
 				// decrypt notification data, splitting payload between tag and ciphertext
-				let atu8_message = chacha20_poly1305_open(atu8_seed, atu8_nonce, atu8_payload.subarray(-XN_16), atu8_payload.subarray(0, -XN_16), atu8_aad);
+				let atu8_message = chacha20_poly1305_open(atu8_key, atu8_nonce, atu8_payload.subarray(-XN_16), atu8_payload.subarray(0, -XN_16), atu8_aad);
 
 				// call listener with decrypted data
-				try_sync(() => fk_notification(cbor_decode_trivial(atu8_message)[0]));
-
-				// callback for each handled notification
-				await fk_handled?.();
+				const w_message = decode_snip52_cbor(atu8_message);
+				await f_notify_safe(() => fk_notification(w_message, g_tx, h_events));
 			}
 		}
 	};
 
-	// on contract execution; return unlisten callback
-	return k_filter.when('wasm.contract_address', k_contract.addr, async({value:g_data}, h_events) => {
-		// check each next expected notification ID
-		for(let [si_notification, a_data] of entries(h_resolved)) {
-			// destructure tuple
-			let [,,, f_get_id,, xg_counter] = a_data;
-
-			// bind salt generator to scoped counter variable
-			let f_salt = () => xor_bytes(a_data[2], biguint_to_bytes_be(xg_counter!, 12));
-
-			// apply notification
-			await f_apply(si_notification, a_data, f_salt, g_data, h_events, async() => {
-				// remove notification
-				delete h_resolved[si_notification as CwBase64];
-
-				// update counter and save to next expected notification ID
-				h_resolved[await f_get_id((a_data[5]=++xg_counter!)+'')] = a_data;
-			});
-		}
+	const k_filter = is_string(z_remote)? await TendermintEventFilter(z_remote, SX_QUERY_TM_EVENT_TX): z_remote;
+	let b_disposed = false;
+	let dp_queue = Promise.resolve();
+	// Bound duplicate retention; this is not a durable reconnect cursor.
+	const as_seen = new Set<string>();
+	const f_unlisten = k_filter.when('wasm.contract_address', k_contract.addr, ({value:g_data}, h_events) => {
+		const dp_event = dp_queue.then(async() => {
+			if(b_disposed) return;
+			const si_hash = h_events['tx.hash']?.[0];
+			if(!si_hash || !/^[\da-f]{64}$/i.test(si_hash)) throw Error('Invalid SNIP-52 transaction hash');
+			const si_event = g_data.TxResult.height + ':' + si_hash;
+			if(as_seen.has(si_event)) return;
+		// Drain successive counter IDs within one transaction before processing the next.
+			for(let [si_notification, a_data] of entries(h_resolved)) {
+				while(h_events['wasm.snip52:'+si_notification]) {
+					const xg_counter = a_data[5]!;
+					await f_apply(si_notification, a_data, () => biguint_to_bytes_be(xg_counter, 12), g_data, h_events);
+					delete h_resolved[si_notification];
+					if(0xffffffffffffffffn === xg_counter) break;
+					a_data[5] = xg_counter + 1n;
+					si_notification = await a_data[3](a_data[5]+'');
+					h_resolved[si_notification] = a_data;
+				}
+			}
 
 		// ref transaction hash
-		const si_txn = h_events['tx.hash'][0];
+			const si_txn = h_events['tx.hash'][0];
 
 		// compute salt
-		const atu8_salt = hex_to_bytes(si_txn).subarray(0, 12);
+			const atu8_salt = hex_to_bytes(si_txn).subarray(0, 12);
 
 		// check each channel operating in txhash mode
-		for(const a_data of a_dynamic) {
+			for(const a_data of a_dynamic) {
 			// compute notification ID
-			const si_notification = await a_data[3](si_txn);
+				const si_notification = await a_data[3](si_txn);
 
 			// apply notification
-			await f_apply(si_notification, a_data, () => atu8_salt, g_data, h_events);
-		}
+				await f_apply(si_notification, a_data, () => atu8_salt, g_data, h_events);
+			}
 
 		// check each channel operating in bloom mode
-		for(const [si_channel, f_attempt] of entries(h_blooms)) {
+			for(const [si_channel, f_attempt] of entries(h_blooms)) {
 			// lookup payloads
-			for(const sb64_payload of h_events[`wasm.snip52:#${si_channel}`] || []) {
-				// decode
-				const atu8_value = base64_to_bytes(sb64_payload);
+				for(const sb64_payload of h_events[`wasm.snip52:#${si_channel}`] || []) {
+				// Bound allocation before base64 decoding.
+					if(sb64_payload.length > NB_SNIP52_MAX_PAYLOAD * 4 / 3 + 4) throw Error('SNIP-52 payload exceeds limit');
+					const atu8_value = base64_to_bytes(sb64_payload);
 
 				// check filter and decode data if applicable
-				void f_attempt(si_txn, atu8_value, g_data, h_events);
+					await f_attempt(si_txn, atu8_value, g_data, h_events);
+				}
 			}
-		}
+
+			as_seen.add(si_event);
+			if(as_seen.size > 1024) as_seen.delete(as_seen.values().next().value!);
+		});
+		// A malformed event must not poison processing of subsequent notifications.
+		dp_queue = dp_event.catch(() => { /* Keep later events processable. */ });
+		return dp_event;
 	});
+	return () => {
+		if(b_disposed) return;
+		b_disposed = true;
+		f_unlisten();
+		if(is_string(z_remote)) k_filter.dispose?.();
+	};
 };
 
 

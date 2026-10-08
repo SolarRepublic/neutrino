@@ -1,5 +1,5 @@
-import type {TxResponseTuple} from './app-layer';
-import type {SecretWasm} from './secret-wasm';
+import type {TxResponseTuple} from './app-layer.js';
+import type {SecretWasm} from './secret-wasm.js';
 import type {JsonObject, Promisable} from '@blake.regalia/belt';
 
 import {bytes_to_text, base64_to_bytes, parse_json_safe, __UNDEFINED} from '@blake.regalia/belt';
@@ -95,11 +95,13 @@ export const secret_response_parse = async<
 		atu8_data: Uint8Array<ArrayBuffer>,
 	]
 }[Extract<keyof h_decoders, EncryptedResponseMessageType>][]> => {
+	if(!atu8_data?.length) return [];
+
 	// decode tx msg data
-	const [a_data, a_msg_responses] = decodeCosmosBaseAbciTxMsgData(atu8_data!);
+	const [a_data, a_msg_responses] = decodeCosmosBaseAbciTxMsgData(atu8_data);
 
 	// decode responses
-	return await Promise.all((a_msg_responses || a_data)!.map(async([s_type, atu8_payload], i_msg) => [
+	return await Promise.all((a_msg_responses?.length? a_msg_responses: a_data || []).map(async([s_type, atu8_payload], i_msg) => [
 		await h_decoders[s_type as EncryptedResponseMessageType]?.(atu8_payload!, i_msg),
 		s_type as Extract<keyof h_decoders, EncryptedResponseMessageType>,
 		atu8_payload!,
@@ -140,9 +142,6 @@ export const secret_response_decrypt = async(
 		atu8_payload?: Uint8Array<ArrayBuffer>,
 	][],
 ]> => {
-	// prep plaintext
-	let s_plaintext!: string;
-
 	// invalid json
 	if(xc_error < 0) return [[sx_res, xc_error]];
 
@@ -172,5 +171,5 @@ export const secret_response_decrypt = async(
 	}
 
 	// entuple error
-	return [[s_plaintext ?? s_error]];
+	return [[s_error]];
 };

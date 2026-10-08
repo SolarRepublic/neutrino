@@ -1,5 +1,5 @@
 /* eslint-disable prefer-const */
-import {bytes, bytes_to_base64, dataview, die} from '@blake.regalia/belt';
+import {bytes, dataview, die} from '@blake.regalia/belt';
 
 import {chacha20} from './chacha20.js';
 import {poly1305} from './poly1305.js';
@@ -90,18 +90,15 @@ export const chacha20_poly1305_open = (
 	atu8_ciphertext: Uint8Array,
 	atu8_aad?: Uint8Array
 ): Uint8Array => {
-	// decrypt
-	let [
-		atu8_poly1305_key,
-		atu8_plaintext,
-	] = transcrypt(atu8_key, atu8_nonce, atu8_ciphertext);
+	if(atu8_tag.length !== 16) die('Invalid Poly1305 tag length');
 
-	// generate expected tag
-	let atu8_tag_expected = poly1305_auth(atu8_poly1305_key, atu8_ciphertext, atu8_aad);
+	// Authenticate before decrypting. Avoid secret-dependent early comparison exits.
+	const atu8_poly1305_key = chacha20(atu8_key, atu8_nonce, bytes(32), 0);
+	const atu8_expected = poly1305_auth(atu8_poly1305_key, atu8_ciphertext, atu8_aad);
+	let xb_diff = 0;
+	for(let i=0; i<16; i++) xb_diff |= atu8_expected[i] ^ atu8_tag[i];
+	atu8_poly1305_key.fill(0);
+	if(xb_diff) die('Tag mismatch; tampered or incomplete data');
 
-	// mismatch
-	if(bytes_to_base64(atu8_tag_expected) !== bytes_to_base64(atu8_tag)) die('Tag mismatch; tampered or incomplete data');
-
-	// return plaintext
-	return atu8_plaintext;
+	return chacha20(atu8_key, atu8_nonce, atu8_ciphertext, 1);
 };

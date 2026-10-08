@@ -1,12 +1,12 @@
-import type {JsonRpcResponse, TendermintEvent, TxResultWrapper} from './types';
-import type {StringFilter} from './util';
+import type {JsonRpcResponse, TendermintEvent, TxResultWrapper} from './types.js';
+import type {StringFilter} from './util.js';
 import type {Dict, Promisable} from '@blake.regalia/belt';
 import type {TrustedContextUrl} from '@solar-republic/types';
 
-import {parse_json_safe, entries, remove, try_sync, values, is_function, __UNDEFINED, stringify_json} from '@blake.regalia/belt';
+import {__UNDEFINED, parse_json_safe, entries, remove, values, is_function} from '@blake.regalia/belt';
 
-import {TendermintWs} from './tendermint-ws';
-import {string_matches_filter} from './util';
+import {TendermintWs} from './tendermint-ws.js';
+import {string_matches_filter} from './util.js';
 
 
 export type TendermintEventDataTx = {
@@ -22,7 +22,7 @@ export type EventUnlistener = () => void;
 
 export type JsonRpcErrorHandler = (
 	d_event: CloseEvent | undefined,
-	e_error?: Error,
+	e_error?: Error
 ) => Promisable<
 	void | undefined | boolean | 0 | 1 | (
 		(d_ws: WebSocket) => Promisable<void>
@@ -38,6 +38,8 @@ export type TendermintEventFilter<
 	 * Returns the current {@link WebSocket}.
 	 */
 	ws(): WebSocket;
+	/** Detach listeners and close the socket only if this filter created it. */
+	dispose?(): void;
 
 	/**
 	 * Adds a listener to be called when the specified event key is seen and has at least one value matching
@@ -51,7 +53,7 @@ export type TendermintEventFilter<
 		si_key: string,
 		z_filter: StringFilter,
 		f_listener: EventListener<g_data>,
-		f_restarted?: ((d_ws: WebSocket) => Promisable<void>),
+		f_restarted?: (d_ws: WebSocket) => Promisable<void>,
 	): EventUnlistener;
 };
 
@@ -59,7 +61,7 @@ export type TendermintEventFilter<
  * Opens a new JSON-RPC WebSocket subscribing the the Tendermint Event stream and returns an instance allowing
  * callers to add listeners by filtering for specific events.
  * 
- * To terminate the connecting, callers should close the WebSocket via `.ws.close()`.
+ * To terminate the connecting, callers should call `.dispose()`. Shared sockets remain open.
  */
 // eslint-disable-next-line @typescript-eslint/naming-convention
 export const TendermintEventFilter = async<
@@ -68,125 +70,98 @@ export const TendermintEventFilter = async<
 	p_rpc: TrustedContextUrl,
 	sx_query=SX_QUERY_TM_EVENT_TX,
 	f_errors?: JsonRpcErrorHandler,
-	z_ws?: TendermintWs | typeof WebSocket
+	z_ws?: TendermintWs | typeof WebSocket,
+	d_signal?: AbortSignal
 ): Promise<TendermintEventFilter<g_data>> => {
-	// dict of filters by event key
 	const h_filters: Dict<Readonly<[
 		z_filter: StringFilter,
 		f_listener: EventListener<g_data>,
 		f_restarted: ((d_ws: WebSocket) => Promisable<void>) | undefined,
-	]>[]> = {};
+	]>[]> = Object.create(null) as Dict<never>;
+	let b_disposed = false;
+	const f_report = async(e_error: unknown) => {
+		try { await f_errors?.(__UNDEFINED, e_error instanceof Error? e_error: Error('Event listener failed')); }
+		catch{ /* Error reporting must not create unhandled rejections. */ }
+	};
 
-	// subscribe to Tx events
-	const k_ws = is_function((z_ws as {ws: unknown})?.ws)
-		? z_ws as TendermintWs
-		: await TendermintWs(p_rpc, sx_query, (d_event) => {
-			// parse message JSON
+	const f_restarted_all = async(d_ws: WebSocket) => {
+		for(const a_parties of values(h_filters)) {
+			for(const a_party of [...a_parties]) {
+				try { await a_party[2]?.(d_ws); }
+				catch(e_error) { await f_report(e_error); }
+			}
+		}
+	};
+
+	const f_dispatch = async(d_event: MessageEvent<string>) => {
+		if(b_disposed) return;
+		try {
 			const g_message = parse_json_safe<JsonRpcResponse<TendermintEvent<g_data['value']>>>(d_event.data);
-
-			// ref result
 			const g_result = g_message?.result;
-
-			// JSON-RPC success
-			if(g_result) {
-				// prep values
-				let a_values: string[];
-
-				// each filter
-				for(const [si_key, a_parties] of entries(h_filters)) {
-					// values exist
-					// eslint-disable-next-line no-cond-assign
-					if(a_values=g_result.events[si_key]) {
-						// each interested party
-						FINDING_PARTIES:
-						for(const [z_filter, f_listener] of a_parties) {
-							// each value
-							for(const s_value of a_values) {
-								// matches filter
-								if(string_matches_filter(s_value, z_filter)) {
-									// call listener
-									// eslint-disable-next-line @typescript-eslint/no-floating-promises
-									try_sync(() => f_listener(g_result.data as g_data, g_result.events));
-
-									// continue with next party
-									continue FINDING_PARTIES;
-								}
-							}
-						}
-					}
-				}
-			}
-			// // TODO: handle certain errors?
-			// JSON-RPC error
-			else {
-				const g_error = g_message?.error;
-				if(g_error) {
-					// destructure error
-					const {
-						code: xc_code,
-						message: s_message,
-						data: w_data,
-					} = g_error;
-
-					// render error message
-					const s_error = `JSON-RPC error code ${xc_code}; ${s_message} (${stringify_json(w_data)})`;
-
-					// restart function provided; forward error
-					if(is_function(f_errors)) {
-						void f_errors(__UNDEFINED, Error(s_error));
-					}
-					// log uncaught error
-					else {
-						console.warn(`Unhandled ${s_error}`);
-					}
-
-					// // restart function provided?
-					// const z_returned = is_function(z_restart)
-					// 	// eslint-disable-next-line @typescript-eslint/restrict-template-expressions
-					// 	? await z_restart(__UNDEFINED, Error(`JSON-RPC code ${xc_code}; ${s_message} (${w_data})`))
-					// 	: z_restart;
-
-					// // apply callback if returned
-					// if(is_function(z_returned)) void z_returned(d_ws);
-				}
-				// for example:
-				// {"jsonrpc":"2.0","id":0,"error":{"code":-32000,"message":"Server error","data":"subscription was cancelled (reason: CometBFT exited)"}}
-			}
-		}, f_errors? d_event => async(d_ws) => {
-			// each filter
-			for(const a_parties of values(h_filters)) {
-				// each party
-				for(const a_party of a_parties) {
-					// notify restart handler if defined
-					void try_sync(() => a_party[2]?.(d_ws));
-				}
+			if(!g_result?.data || !g_result.events || typeof g_result.events !== 'object') {
+				throw Error(g_message?.error? `JSON-RPC error code ${g_message.error.code}`: 'Malformed Tendermint event');
 			}
 
-			// forward restart signal to restart handler
-			const z_returned = is_function(f_errors)? await f_errors(d_event): f_errors;
+			for(const [si_key, a_parties] of entries(h_filters)) {
+				const a_values = g_result.events[si_key];
+				if(!Array.isArray(a_values) || !a_values.every(s => 'string' === typeof s)) continue;
+				// Snapshot: self-removal must not skip the next listener.
+				for(const [z_filter, f_listener] of [...a_parties]) {
+					if(b_disposed) return;
+					try {
+						if(a_values.some(s => string_matches_filter(s, z_filter))) await f_listener(g_result.data as g_data, g_result.events);
+					}
+					catch(e_error) { await f_report(e_error); }
+				}
+			}
+		}
+		catch(e_error) { await f_report(e_error); }
+	};
 
-			// apply callback if returned
-			if(is_function(z_returned)) void z_returned(d_ws);
-		}: 0, z_ws as typeof WebSocket | undefined);
+	let dp_queue = Promise.resolve();
+	const f_receive = (d_event: MessageEvent<string>) => {
+		dp_queue = dp_queue.then(() => f_dispatch(d_event));
+		return dp_queue;
+	};
 
-	// properties and methods
+	const b_shared = is_function((z_ws as {ws:unknown})?.ws);
+	const k_ws = b_shared? z_ws as TendermintWs: await TendermintWs(p_rpc, sx_query, f_receive, async(d_event) => {
+		// Decide BEFORE reconnecting; false means stop.
+		const z_decision = await f_errors?.(d_event);
+		if(!z_decision) return false;
+		return async(d_ws) => {
+			await f_restarted_all(d_ws);
+			if(is_function(z_decision)) await z_decision(d_ws);
+		};
+	}, z_ws as typeof WebSocket | undefined, d_signal);
+	let f_detach = () => { /* No shared listener to detach yet. */ };
+
+	if(b_shared) {
+		if(k_ws.listen) {f_detach = k_ws.listen(f_receive, f_restarted_all);}
+		else {
+			// Legacy handles can attach to the current socket; only managed handles
+			// with listen() can follow subsequent socket replacements.
+			const d_ws = k_ws.ws();
+			d_ws.addEventListener('message', f_receive);
+			f_detach = () => d_ws.removeEventListener('message', f_receive);
+		}
+	}
+
 	return {
-		// the WebSocket
 		ws: () => k_ws.ws(),
-
-		// adds event listeners
+		dispose() {
+			if(b_disposed) return;
+			b_disposed = true;
+			f_detach();
+			for(const si_key of Object.keys(h_filters)) delete h_filters[si_key];
+			if(!b_shared) k_ws.dispose?.();
+		},
 		when(si_key, z_value, f_listener, f_restarted): EventUnlistener {
-			// construct party tuple
+			if(b_disposed) throw Error('Event filter is disposed');
 			const a_party = [z_value, f_listener, f_restarted] as const;
-
-			// upsert filter key
 			const a_filters = h_filters[si_key] ??= [];
-
-			// add party to filter
 			a_filters.push(a_party);
-
-			// return unlistener
-			return () => remove(a_filters, a_party);
+			return () => { remove(a_filters, a_party); };
 		},
 	};
 };

@@ -3,8 +3,8 @@ import * as chai from 'chai';
 const {expect} = chai;
 import chai_bites from 'chai-bites';
 
-import {describe} from './helper';
-import {poly1305} from '../src/poly1305';
+import {describe} from './helper.js';
+import {poly1305} from '../src/poly1305.js';
 
 chai.use(chai_bites);
 

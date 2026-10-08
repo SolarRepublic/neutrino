@@ -1,4 +1,4 @@
-import type {TxMeta} from './app-layer';
+import type {TxMeta} from './app-layer.js';
 import type {AsJson, Dict, JsonObject, JsonValue, Nilable} from '@blake.regalia/belt';
 import type {SecretAccAddr} from '@solar-republic/contractor';
 import type {CosmosClientLcd} from '@solar-republic/cosmos-grpc';
@@ -67,7 +67,7 @@ export type CosmosClientLcdRpcWsStruct = CosmosClientLcdRpcStruct & {
  * JSON-RPC response
  */
 export type JsonRpcResponse<
-	w_result extends JsonObject,
+	w_result extends object,
 > = {
 	jsonrpc: '2.0';
 	id: string | number;
@@ -81,7 +81,7 @@ export type JsonRpcResponse<
 
 
 export type TendermintEvent<
-	w_value extends JsonObject=JsonObject,
+	w_value extends JsonObject<undefined>=JsonObject<undefined>,
 > = {
 	query: string;
 	data: {

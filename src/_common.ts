@@ -1,4 +1,4 @@
-import type {RemoteServiceArg} from './types';
+import type {RemoteServiceArg} from './types.js';
 import type {RemoteServiceDescriptor} from '@solar-republic/types';
 
 import {is_function, is_string} from '@blake.regalia/belt';

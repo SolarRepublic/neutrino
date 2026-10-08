@@ -1,4 +1,4 @@
-import {ATU8_NIL, base64_to_text, bytes, bytes_to_base64, bytes_to_text, die} from '@blake.regalia/belt';
+import {ATU8_NIL, bytes, die} from '@blake.regalia/belt';
 
 import {NB_AES_BLOCK, aes_ctr, aes_key, aes_siv_s2v} from './aes.js';
 
@@ -102,9 +102,8 @@ export const aes_128_siv_decrypt = async(
 
 	// not equal
 	if(xb_cmp) {
-		die(`SIV tag/CMAC mismatch; decoded:\n${
-			base64_to_text(/^([+a-z\d/]*)/i.exec(bytes_to_text(atu8_plaintext))![1])
-		}\n\nentire plaintext:\n${bytes_to_base64(atu8_plaintext)}`);
+		atu8_plaintext.fill(0);
+		die('SIV authentication failed');
 	}
 
 	// plaintext

@@ -3,7 +3,6 @@
 
 	"compilerOptions": {
 		"noEmit": true,
-		"baseUrl": ".",
 		"noImplicitReturns": false,
 		"moduleResolution": "Bundler",
 		"module": "ES2022",

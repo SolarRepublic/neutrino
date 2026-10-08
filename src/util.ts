@@ -4,7 +4,7 @@ import type {Dict, JsonValue} from '@blake.regalia/belt';
 import type {NetworkJsonResponse} from '@solar-republic/cosmos-grpc';
 import type {TendermintAbciEvent} from '@solar-republic/cosmos-grpc/tendermint/abci/types';
 
-import {bytes, each, die, is_string, is_function, is_array, stringify_json} from '@blake.regalia/belt';
+import {bytes, each, die, is_string, is_function, is_array} from '@blake.regalia/belt';
 import {safe_base64_to_text} from '@solar-republic/cosmos-grpc';
 
 
@@ -31,7 +31,7 @@ export const string_matches_filter = (
 ): boolean => null === z_filter || (is_string(z_filter)
 	? s_value === z_filter
 	: z_filter instanceof RegExp
-		? z_filter.test(s_value)
+		? new RegExp(z_filter.source, z_filter.flags).test(s_value)
 		: is_function(z_filter)
 			// eslint-disable-next-line @typescript-eslint/no-unnecessary-type-conversion
 			? !!z_filter(s_value)
@@ -78,7 +78,7 @@ export const index_abci_events = (
  * @returns 
  */
 export const successful = async <
-	w_out extends JsonValue | undefined,
+	w_out extends JsonValue<undefined> | undefined,
 	a_args extends any[],
 >(
 	f_request: (...a_args: a_args) => Promise<NetworkJsonResponse<w_out>>,

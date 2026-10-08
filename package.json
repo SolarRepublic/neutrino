@@ -11,70 +11,78 @@
     "url": "https://blake-regalia.com/"
   },
   "type": "module",
-  "main": "dist/cjs/main.js",
+  "main": "dist/mjs/main.js",
   "module": "dist/mjs/main.js",
   "types": "dist/mjs/main.d.ts",
   "exports": {
     ".": {
-      "require": "./dist/cjs/main.js",
-      "import": "./dist/mjs/main.js"
+      "types": "./dist/mjs/main.d.ts",
+      "import": "./dist/mjs/main.js",
+      "require": "./dist/mjs/main.js"
     },
     "./package.json": "./package.json"
   },
   "files": [
-    "dist/cjs",
     "dist/mjs"
   ],
   "scripts": {
-    "clean": "rm -rf dist/*",
-    "build:mjs": "tsc -p tsconfig.mjs.json && tsc-esm-fix --target='dist/mjs'",
-    "build:cjs": "tsc -p tsconfig.cjs.json && tsc-esm-fix --target='dist/cjs'",
-    "build": "pnpm run build:mjs && pnpm run build:cjs",
-    "preview": "js-beautify dist/main.mjs > dist/main-pretty.mjs",
-    "test": "node --loader ts-node/esm",
-    "test:all": "pnpm run test test/**.ts",
-    "debug": "node --inspect-brk --loader ts-node/esm"
+    "clean": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\"",
+    "build:mjs": "node node_modules/@typescript/native/bin/tsc -p tsconfig.mjs.json",
+    "build": "node node_modules/@typescript/native/bin/tsc -p tsconfig.mjs.json",
+    "test": "node --import tsx",
+    "test:all": "node test/run.mjs",
+    "debug": "node --inspect-brk --import tsx",
+    "typecheck": "node node_modules/@typescript/native/bin/tsc -p tsconfig.json --noEmit",
+    "lint": "eslint src",
+    "test:package": "node node_modules/@typescript/native/bin/tsc -p tsconfig.mjs.json && node test/package.mjs",
+    "typecheck:compat": "node node_modules/typescript/bin/tsc6 -p tsconfig.json --noEmit",
+    "typecheck:floor": "node node_modules/typescript59/bin/tsc -p tsconfig.json --noEmit",
+    "test:toolchain": "node test/toolchain.mjs",
+    "docs": "typedoc --tsconfig tsconfig.mjs.json src/main.ts --out dist/docs",
+    "test:compiled": "node test/run.mjs --compiled",
+    "release:prepare": "node release/prepare.mjs",
+    "test:release": "node release/verify.mjs"
   },
   "devDependencies": {
-    "@blake.regalia/eslint-config-elite": "^0.5.22",
-    "@blake.regalia/tsconfig": "^0.3.7",
-    "@cosmjs/amino": "^0.34.0",
-    "@nfps.dev/rollup-plugin-microweb": "^0.3.5",
-    "@noble/secp256k1": "^2.3.0",
-    "@rollup/plugin-commonjs": "^28.0.6",
-    "@rollup/plugin-replace": "^6.0.2",
-    "@solar-republic/contractor": "^0.11.0",
-    "@solar-republic/types": "^0.3.13",
-    "@types/chai": "^5.2.2",
-    "@types/node": "^24.5.2",
-    "@types/web": "^0.0.270",
-    "@typescript-eslint/parser": "^8.44.1",
-    "chai": "^5.2.1",
-    "chai-bites": "^0.2.0",
+    "@blake.regalia/eslint-config-elite": "^0.7.0",
+    "@blake.regalia/tsconfig": "^0.4.0",
+    "@types/chai": "^5.2.3",
+    "@types/node": "^24.19.1",
+    "@types/web": "^0.0.358",
+    "@typescript-eslint/parser": "^8.71.1",
+    "chai": "^6.3.0",
+    "chai-bites": "^0.3.1",
     "curve25519-js": "^0.0.4",
-    "esformatter": "^0.11.3",
-    "eslint": "^9.36.0",
-    "isomorphic-ws": "^5.0.0",
-    "js-beautify": "^1.15.4",
-    "rollup": "^4.52.2",
-    "rollup-plugin-ignore": "^1.0.10",
-    "ts-node": "^10.9.2",
-    "ts-toolbelt": "^9.6.0",
-    "tsc-esm-fix": "^3.1.2",
-    "tsconfig-paths": "^4.2.0",
+    "eslint": "^10.12.0",
     "tslib": "^2.8.1",
-    "typedoc": "^0.28.13",
-    "typescript": "~5.9.2",
-    "ws": "^8.18.3"
+    "tsx": "^4.23.15",
+    "typedoc": "^0.28.20",
+    "typescript": "npm:@typescript/typescript6@6.0.2",
+    "@typescript/native": "npm:typescript@7.0.2",
+    "typescript59": "npm:typescript@5.9.3"
   },
   "dependencies": {
-    "@blake.regalia/belt": "^0.57.8",
-    "@solar-republic/cosmos-grpc": "^0.20.7",
-    "@solar-republic/crypto": "^0.5.4",
-    "@solar-republic/wasm-secp256k1": "^0.6.3"
+    "@blake.regalia/belt": "^0.58.0",
+    "@solar-republic/contractor": "file:../contractor",
+    "@solar-republic/cosmos-grpc": "file:../cosmos-grpc",
+    "@solar-republic/crypto": "^0.6.2",
+    "@solar-republic/types": "file:../types",
+    "@solar-republic/wasm-secp256k1": "^0.6.3",
+    "ts-toolbelt": "^9.6.0"
   },
   "publishConfig": {
     "access": "public"
   },
-  "packageManager": "pnpm@10.17.1"
+  "packageManager": "pnpm@10.34.6",
+  "sideEffects": false,
+  "engines": {
+    "node": ">=22.12"
+  },
+  "pnpm": {
+    "overrides": {
+      "@solar-republic/cosmos-grpc>@solar-republic/types": "file:../types",
+      "@solar-republic/cosmos-grpc>@blake.regalia/belt": "^0.58.0",
+      "@solar-republic/crypto>@blake.regalia/belt": "^0.58.0"
+    }
+  }
 }

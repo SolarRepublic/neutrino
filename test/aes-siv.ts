@@ -4,9 +4,9 @@ import * as chai from 'chai';
 const {expect} = chai;
 import chai_bites from 'chai-bites';
 
-import {describe} from './helper';
+import {describe} from './helper.js';
 
-import {aes_128_siv_encrypt, aes_128_siv_decrypt} from '../src/aes-128-siv';
+import {aes_128_siv_encrypt, aes_128_siv_decrypt} from '../src/aes-128-siv.js';
 
 chai.use(chai_bites);
 

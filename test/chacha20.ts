@@ -6,8 +6,8 @@ const {expect} = chai;
 import chai_bites from 'chai-bites';
 chai.use(chai_bites);
 
-import {describe} from './helper';
-import {chacha20_poly1305_open, chacha20_poly1305_seal} from '../src/chacha20-poly1305';
+import {describe} from './helper.js';
+import {chacha20_poly1305_open, chacha20_poly1305_seal} from '../src/chacha20-poly1305.js';
 
 [
 	{

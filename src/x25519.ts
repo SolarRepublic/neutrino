@@ -86,6 +86,7 @@ const square = (atu8_out: Float64Array, atu8_a: Float64Array) => mul(atu8_out, a
  * @returns 
  */
 export const ecs_mul = (atu8_n: Uint8Array, atu8_p: Uint8Array): Uint8Array<ArrayBuffer> => {
+	if(atu8_n.length !== 32 || atu8_p.length !== 32) throw Error('X25519 scalar and point must be 32 bytes');
 	init_base();
 
 	const atu8_q = bytes(32);
@@ -161,7 +162,7 @@ export const ecs_mul = (atu8_n: Uint8Array, atu8_p: Uint8Array): Uint8Array<Arra
 		sel25519(atf64_c, atf64_d, xn_r);
 	}
 
-	[atf64_a, atf64_c, atf64_b, atf64_d].map((atf64, i_block) => atf64_x.set(atf64, ++i_block * 16));
+	[atf64_a, atf64_c, atf64_b, atf64_d].map((atf64, i_block) => atf64_x.set(atf64, (i_block + 1) * 16));
 
 	const atf64_x32 = atf64_x.subarray(32);
 	const atf64_x16 = atf64_x.subarray(16);

@@ -10,8 +10,7 @@ const SX_ANSI_RESET = '\x1b[0m';
 // polyfill crypto global for node.js env
 globalThis.crypto ||= (await import('crypto')).webcrypto as Crypto;
 
-// polyfill WebSocket
-globalThis.WebSocket ||= (await import('isomorphic-ws')).default;
+// The supported Node >=22.12 runtime provides WebSocket.
 
 export function pass(s_test: string): void {
 	// eslint-disable-next-line no-console
@@ -24,10 +23,12 @@ function error(s_test: string, ...a_args: Array<string | object>) {
 }
 
 export function fail(s_test: string, ...a_args: Array<string | object>): void {
+	process.exitCode = 1;
 	error(`❌ ${s_test}`, ...a_args);
 }
 
 export function caught(s_test: string, ...a_args: Array<string | object>): void {
+	process.exitCode = 1;
 	error(`💀 ${s_test}`, ...a_args);
 }
 

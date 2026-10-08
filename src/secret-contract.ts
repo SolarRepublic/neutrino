@@ -1,18 +1,20 @@
-/* eslint-disable no-console, prefer-const */
+import {bytes_to_hex} from './encoding.js';
+import {contract_response} from './json.js';
+/* eslint-disable prefer-const */
 
 import type {O} from 'ts-toolbelt';
 
-import type {TxResponseTuple} from './app-layer';
-import type {CosmosSigner} from './cosmos-signer';
-import type {ContractInfo, RemoteServiceArg} from './types';
+import type {TxResponseTuple} from './app-layer.js';
+import type {CosmosSigner} from './cosmos-signer.js';
+import type {ContractInfo, RemoteServiceArg} from './types.js';
 import type {Dict, JsonObject, Nilable} from '@blake.regalia/belt';
-import type {SecretAccAddr, ContractInterface} from '@solar-republic/contractor';
+import type {SecretAccAddr, SchemaObject, ContractInterface} from '@solar-republic/contractor';
 import type {CosmosClientLcd, RequestDescriptor} from '@solar-republic/cosmos-grpc';
 import type {EncodedGoogleProtobufAny} from '@solar-republic/cosmos-grpc/google/protobuf/any';
 import type {SecretComputeContractInfo} from '@solar-republic/cosmos-grpc/secret/compute/v1beta1/types';
 import type {CwHexLower, CwSecretAccAddr, CwUint32, RemoteServiceDescriptor, SlimCoin, TrustedContextUrl, WeakSecretAccAddr, WeakUintStr} from '@solar-republic/types';
 
-import {__UNDEFINED, base64_to_bytes, base64_to_text, bytes, bytes_to_hex, bytes_to_text, gunzip_bytes, is_function, is_string, parse_json, sha256, stringify_json} from '@blake.regalia/belt';
+import {__UNDEFINED, base64_to_bytes, base64_to_text, bytes, bytes_to_text, gunzip_bytes, is_function, is_string, parse_json, sha256, stringify_json} from '@blake.regalia/belt';
 
 import {decodeCosmosBaseAbciTxMsgData} from '@solar-republic/cosmos-grpc/cosmos/base/abci/v1beta1/abci';
 import {encodeGoogleProtobufAny} from '@solar-republic/cosmos-grpc/google/protobuf/any';
@@ -21,11 +23,12 @@ import {destructSecretComputeQueryCodeHashResponse, destructSecretComputeQueryCo
 import {destructSecretRegistrationKey} from '@solar-republic/cosmos-grpc/secret/registration/v1beta1/msg';
 import {querySecretRegistrationTxKey} from '@solar-republic/cosmos-grpc/secret/registration/v1beta1/query';
 
-import {normalize_lcd_client, remote_service} from './_common';
-import {broadcast_result} from './app-layer';
+import {normalize_lcd_client, remote_service} from './_common.js';
+import {broadcast_result} from './app-layer.js';
 import {GC_NEUTRINO} from './config.js';
-import {create_and_sign_tx_direct} from './cosmos-signer';
-import {secret_response_decrypt} from './secret-response';
+import {create_and_sign_tx_direct} from './cosmos-signer.js';
+import {emit_diagnostic} from './diagnostics.js';
+import {secret_response_decrypt} from './secret-response.js';
 import {SecretWasm} from './secret-wasm.js';
 import {successful} from './util.js';
 
@@ -37,15 +40,22 @@ export type SecretNetworkInfo = [
 	atu8_conspk: Uint8Array,
 ];
 
-// cache of Secret WASM code info
-const h_codes_cache: Record<ContractInfo['code_id'], CwHexLower> = {};
+// Keep endpoint metadata isolated even when custom clients omit or reuse `id`.
+const h_client_caches = new WeakMap<CosmosClientLcd, {
+	codes: Record<string, CwHexLower>;
+	contracts: Record<string, KnownContractInfo>;
+	network?: SecretNetworkInfo;
+}>();
 
-// cache of Secret contract info
-const h_contract_cache: Record<WeakSecretAccAddr, KnownContractInfo> = {};
+const client_cache = (k_client: CosmosClientLcd) => {
+	let g_cache = h_client_caches.get(k_client);
+	if(!g_cache) {
+		g_cache = {codes:Object.create(null), contracts:Object.create(null)};
+		h_client_caches.set(k_client, g_cache);
+	}
 
-// cache of persistent fields associated with network
-const h_networks = {} as Dict<SecretNetworkInfo>;
-
+	return g_cache;
+};
 
 /**
  * Stores intermediate values during the process of querying a Secret contract
@@ -58,10 +68,13 @@ export interface SecretContractQueryIntermediates {
 }
 
 
+declare const SI_CONTRACT_INTERFACE: unique symbol;
+
 export type SecretContract<
-	// eslint-disable-next-line @typescript-eslint/no-unused-vars
 	g_interface extends ContractInterface=ContractInterface,
 > = {
+	/** Type-only association retained through query/execute wrapper inference. */
+	readonly [SI_CONTRACT_INTERFACE]?: g_interface;
 	/**
 	 * Cosmos Client LCD
 	 */
@@ -98,11 +111,11 @@ export type SecretContract<
 	 *  - [3]: `d_res: Response` - HTTP response object
 	 *  - [4]: `h_answer?: JsonObject` - contract response as JSON object on success
 	 */
-	query(h_query: JsonObject, g_out?: SecretContractQueryIntermediates): Promise<[
+	query(h_query: SchemaObject, g_out?: SecretContractQueryIntermediates): Promise<[
 		xc_code: number,
 		s_error: string,
 		d_res: Response,
-		g_result: JsonObject,
+		g_result?: JsonObject,
 	]>;
 
 	/**
@@ -112,7 +125,7 @@ export type SecretContract<
 	 * @param a_funds 
 	 * @returns 
 	 */
-	exec(h_exec: JsonObject, sa_sender: WeakSecretAccAddr, a_funds?: SlimCoin[]): Promise<[
+	exec(h_exec: SchemaObject, sa_sender: WeakSecretAccAddr, a_funds?: SlimCoin[]): Promise<[
 		atu8_data: EncodedGoogleProtobufAny,
 		atu8_nonce: Uint8Array<ArrayBuffer>,
 	]>;
@@ -138,31 +151,20 @@ const retrieve_network_info = async(
 	z_lcd: CosmosClientLcd | RemoteServiceArg,
 	atu8_seed?: Nilable<Uint8Array>
 ): Promise<SecretNetworkInfo> => {
-	// uniquely identify this request pattern
-	let si_lcd = stringify_json(is_string(z_lcd)
-		? [z_lcd, '', '']
-		: is_string((z_lcd as CosmosClientLcd).id)
-			? [(z_lcd as CosmosClientLcd).id, '', '']
-			: [
-				(z_lcd as RemoteServiceDescriptor).origin,
-				(z_lcd as RemoteServiceDescriptor).headers,
-				(z_lcd as RemoteServiceDescriptor).redirect,
-			].map(s => s || '')
-	);
-
-	// try loading entry from cache
-	let a2_cached = h_networks[si_lcd];
+	const k_client = normalize_lcd_client(z_lcd);
+	const g_cache = client_cache(k_client);
+	let a2_cached = g_cache.network;
 
 	// network not yet cached
 	if(!a2_cached) {
 		// fetch consensus io pubkey
-		let g_res_reg = await successful(querySecretRegistrationTxKey, z_lcd);
+		let g_res_reg = await successful(querySecretRegistrationTxKey, k_client);
 
 		// destructure response
 		let [atu8_consensus_pk] = destructSecretRegistrationKey(g_res_reg);
 
 		// instantiate default secret wasm using random seed and save to cache
-		h_networks[si_lcd] = a2_cached = [
+		g_cache.network = a2_cached = [
 			SecretWasm(atu8_consensus_pk!),
 			atu8_consensus_pk!,
 		];
@@ -210,7 +212,7 @@ export const SecretContract = async<
 	const [k_wasm] = await retrieve_network_info(ylc_client, atu8_seed);
 
 	// ref contract info
-	let g_info = XC_CONTRACT_CACHE_ACCEPT === z_info? h_contract_cache[sa_contract]: z_info;
+	let g_info = XC_CONTRACT_CACHE_ACCEPT === z_info? client_cache(ylc_client).contracts[sa_contract]: z_info;
 	if(!g_info) {
 		// refload contract info
 		let g_res_info = await successful(querySecretComputeContractInfo, ylc_client, sa_contract);
@@ -219,20 +221,20 @@ export const SecretContract = async<
 		let [, g_info1] = destructSecretComputeQueryContractInfoResponse(g_res_info);
 
 		// update
-		g_info = h_contract_cache[sa_contract] = g_info1 as KnownContractInfo;
+		g_info = client_cache(ylc_client).contracts[sa_contract] = g_info1 as KnownContractInfo;
 	}
 
 	// ref code id
 	const sg_code = g_info.code_id!;
 
 	// ref code hash
-	let sb16_code_hash = h_codes_cache[sg_code];
+	let sb16_code_hash = client_cache(ylc_client).codes[sg_code];
 	if(!sb16_code_hash) {
 		// refload code hash
 		let g_res_hash = await successful(querySecretComputeCodeHashByCodeId, ylc_client, sg_code);
 
 		// destruct response
-		sb16_code_hash = h_codes_cache[sg_code] = destructSecretComputeQueryCodeHashResponse(g_res_hash)[0]!;
+		sb16_code_hash = client_cache(ylc_client).codes[sg_code] = destructSecretComputeQueryCodeHashResponse(g_res_hash)[0]!;
 	}
 
 
@@ -254,7 +256,6 @@ export const SecretContract = async<
 		wasm: k_wasm,
 
 		// query contract
-		// @ts-expect-error typed in interface
 		async query(h_query, g_out={}) {
 			// encrypt and encode query msg
 			const atu8_msg = await k_wasm.encodeMsg(sb16_code_hash, h_query, a_block_sizes?.[0] ?? GC_NEUTRINO.PAD_QUERY);
@@ -278,7 +279,7 @@ export const SecretContract = async<
 				const sx_result = base64_to_text(sb64_response);
 
 				// return response and json
-				return [0, __UNDEFINED, d_res_query, parse_json(sx_result)];
+				return [0, '', d_res_query, contract_response(parse_json(sx_result))];
 			}
 			// contract error
 			else if(g_err_query) {
@@ -360,7 +361,7 @@ export async function secret_contract_upload_code(
 	sg_code_id: undefined | WeakUintStr,
 	sb16_hash: CwHexLower,
 	a6_broadcast?: TxResponseTuple,
-	]> {
+]> {
 	// decompressed bytecode
 	let atu8_bytecode = atu8_wasm;
 
@@ -380,13 +381,11 @@ export async function secret_contract_upload_code(
 	const g_existing = g_codes?.code_infos?.find(g => g.code_hash === sb16_hash);
 	if(g_existing) {
 		// debug
-		if(import.meta.env?.DEV) {
-			console.debug(`🔦 Found matching code ID ${g_existing.code_id} already uploaded to network`);
-		}
+		emit_diagnostic({operation:'upload', stage:'reuse'});
 
 		// entuple result
 		return [
-			g_existing.code_id as WeakUintStr,
+			g_existing.code_id,
 			sb16_hash,
 		];
 	}
@@ -414,14 +413,7 @@ export async function secret_contract_upload_code(
 	);
 
 	// debug info
-	if(import.meta.env?.DEV) {
-		console.groupCollapsed(`📦 Uploading ${Math.round(atu8_wasm.length / 1024)}kib contract bytecode...`);
-		console.debug([
-			`Uploading contract code of ${atu8_wasm.length} bytes from ${k_wallet.addr}`,
-			`  limit: ${z_limit} ┃ hash: ${si_txn}`+(sa_granter? ` ┃ granter: ${sa_granter}`: '')+(s_memo? ` ┃ memo: ${s_memo}`: ''),
-		].join('\n'));
-		console.groupEnd();
-	}
+	emit_diagnostic({operation:'upload', stage:'start'});
 
 	// broadcast to chain and detuple result
 	const a6_broadcast = await broadcast_result(k_wallet, atu8_tx_raw, si_txn);
@@ -432,12 +424,7 @@ export async function secret_contract_upload_code(
 	// non-zero response code
 	if(xc_code) {
 		// debug
-		if(import.meta.env?.DEV) {
-			console.groupCollapsed(`❌ Upload failed [code: ${xc_code}]`);
-			console.debug('meta: ', g_meta);
-			console.debug('res: ', sx_res);
-			console.groupEnd();
-		}
+		emit_diagnostic({operation:'upload', stage:'complete', code:xc_code});
 
 		// set error text
 		a6_broadcast[1] = g_meta?.log ?? sx_res;
@@ -453,23 +440,7 @@ export async function secret_contract_upload_code(
 	const [sg_code_id] = decodeSecretComputeMsgStoreCodeResponse(atu8_response!);
 
 	// debug info
-	if(import.meta.env?.DEV) {
-		console.groupCollapsed(`✅ Upload succeeded`);
-
-		if(g_meta) {
-			const {
-				gas_used: sg_used,
-				gas_wanted: sg_wanted,
-			} = g_meta;
-
-			console.debug(`gas used/wanted: ${sg_used}/${sg_wanted}  (${+sg_wanted - +sg_used}) wasted)`);
-		}
-
-		console.debug('code ID: ', sg_code_id);
-		console.debug('meta: ', g_meta);
-		console.debug('txhash: ', si_txn);
-		console.groupEnd();
-	}
+	emit_diagnostic({operation:'upload', stage:'complete', code:0});
 
 	// entuple result
 	return [
@@ -524,13 +495,13 @@ export const secret_contract_instantiate = async(
 	const [k_wasm] = await retrieve_network_info(k_wallet.lcd, atu8_seed);
 
 	// ref code hash
-	let sb16_code_hash = h_codes_cache[sg_code_id];
+	let sb16_code_hash = client_cache(k_wallet.lcd).codes[sg_code_id];
 	if(!sb16_code_hash) {
 		// refload code hash
 		let g_res_hash = await successful(querySecretComputeCodeHashByCodeId, k_wallet.lcd, sg_code_id);
 
 		// destruct response
-		sb16_code_hash = h_codes_cache[sg_code_id] = destructSecretComputeQueryCodeHashResponse(g_res_hash)[0]!;
+		sb16_code_hash = client_cache(k_wallet.lcd).codes[sg_code_id] = destructSecretComputeQueryCodeHashResponse(g_res_hash)[0]!;
 	}
 
 	// encrypt init message
@@ -566,14 +537,7 @@ export const secret_contract_instantiate = async(
 	);
 
 	// debug info
-	if(import.meta.env?.DEV) {
-		console.groupCollapsed(`🛞 Instantiating code ID ${sg_code_id}...`);
-		console.debug([
-			`Instantiating code ID ${sg_code_id} with ${stringify_json(h_init_msg)}`,
-			`  limit: ${zg_limit} ┃ hash: ${si_txn}`+(sa_granter? ` ┃ granter: ${sa_granter}`: '')+(s_memo? ` ┃ memo: ${s_memo}`: ''),
-		].join('\n'));
-		console.groupEnd();
-	}
+	emit_diagnostic({operation:'instantiate', stage:'start'});
 
 	// broadcast to chain
 	const a6_broadcast = await broadcast_result(k_wallet, atu8_tx_raw, si_txn);
@@ -590,12 +554,7 @@ export const secret_contract_instantiate = async(
 	// non-zero response code
 	if(xc_error) {
 		// debug
-		if(import.meta.env?.DEV) {
-			console.groupCollapsed(`❌ Instantiation failed [code: ${xc_error}]`);
-			console.debug('meta: ', g_meta);
-			console.debug('res: ', sx_res);
-			console.groupEnd();
-		}
+		emit_diagnostic({operation:'instantiate', stage:'complete', code:xc_error});
 
 		// set error text
 		a6_broadcast[1] = a_error?.[0] ?? g_meta?.log ?? sx_res;
@@ -611,22 +570,7 @@ export const secret_contract_instantiate = async(
 	const [sa_contract] = decodeSecretComputeMsgInstantiateContractResponse(atu8_response!);
 
 	// debug info
-	if(import.meta.env?.DEV) {
-		console.groupCollapsed(`✅ Instantiation succeeded`);
-
-		if(g_meta) {
-			const {
-				gas_used: sg_used,
-				gas_wanted: sg_wanted,
-			} = g_meta;
-
-			console.debug(`gas used/wanted: ${sg_used}/${sg_wanted}  (${+sg_wanted - +sg_used}) wasted)`);
-		}
-
-		console.debug('meta: ', g_meta);
-		console.debug('txhash: ', si_txn);
-		console.groupEnd();
-	}
+	emit_diagnostic({operation:'instantiate', stage:'complete', code:0});
 
 	// return entupled result
 	return [

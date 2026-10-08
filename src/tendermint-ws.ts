@@ -1,11 +1,11 @@
-/* eslint-disable prefer-const */
-import type {JsonRpcResponse} from './types';
+
+import type {JsonRpcResponse} from './types.js';
 import type {NaiveJsonString, Promisable} from '@blake.regalia/belt';
 import type {TrustedContextUrl} from '@solar-republic/types';
 
-import {assign, is_error, is_function, parse_json_safe, stringify_json, try_async} from '@blake.regalia/belt';
+import {__UNDEFINED, is_function, parse_json_safe, stringify_json} from '@blake.regalia/belt';
 
-import {GC_NEUTRINO} from './config';
+import {GC_NEUTRINO} from './config.js';
 
 
 export type TendermintWsRestartParam = boolean | 0 | 1 | ((d_event: CloseEvent | undefined) => Promisable<
@@ -19,6 +19,10 @@ export type TendermintWs = {
 	 * Returns the current {@link WebSocket}.
 	 */
 	ws(): WebSocket;
+	/** Stop reconnecting and close owned resources. */
+	dispose?(): void;
+	/** Subscribe across socket replacements without replacing another consumer. */
+	listen?(f_message: (d_event: MessageEvent<NaiveJsonString>) => unknown, f_restarted?: (d_ws: WebSocket) => unknown): () => void;
 };
 
 
@@ -37,96 +41,49 @@ export const subscribe_tendermint_events = (
 	sx_query: string,
 	fk_message: (d_event: MessageEvent<NaiveJsonString>) => any,
 	dc_ws=WebSocket,
-	xt_timeout=GC_NEUTRINO.WS_TIMEOUT
+	xt_timeout=GC_NEUTRINO.WS_TIMEOUT,
+	d_signal?: AbortSignal
 ): Promise<WebSocket> => new Promise((fk_resolve, fe_reject) => {
-	// if WebSocket doens't open within allotted timeframe, probe and die
-	let i_open = setTimeout(async() => {
-		// // send probe request with automatic timeout
-		// const d_res = await fetch(p_rpc.replace(/^ws/, 'http')+'/websocket', {
-		// 	headers: {
-		// 		'Connection': 'Upgrade',
-		// 		'Upgrade': 'websocket',
-		// 		'Sec-WebSocket-Version': '13',
-		// 		'Sec-WebSocket-Key': 'dGhlIHNhbXBsZSBub25jZQ==',  // for some reason, implementations only support using the sample key from the spec 🤯
-		// 	},
-		// 	signal: AbortSignal.timeout(xt_timeout),
-		// });
+	const d_ws = new dc_ws(p_rpc.replace(/^http/, 'ws').replace(/\/+$/, '')+'/websocket');
+	let b_settled = false;
+	const f_fail = (e_error: Error) => {
+		if(b_settled) return;
+		b_settled = true;
+		d_signal?.removeEventListener('abort', f_abort);
+		clearTimeout(z_open_timer);
+		d_ws.onmessage = d_ws.onopen = d_ws.onclose = null;
+		fe_reject(e_error);
+		d_ws.close();
+	};
 
-		// // did not get expected HTTP response status code, or unknown reason for timeout
-		// fe_reject(Error(101 === d_res.status
-		// 	? `Bad response status ${d_res.status} while probing WebSocket endpoint ${p_rpc}: ${(await d_res.text()).trim()}\nheaders: ${JSON.stringify(d_res.headers, null, '  ')}`
-		// 	: `Timed out while waiting for otherwise healthy WebSocket to open at ${p_rpc}`));
-
-		// send probe request with automatic timeout
-		const [d_res, e_fetch] = await try_async(() => fetch(p_rpc.replace(/^ws/, 'http')+'/status', {
-			signal: AbortSignal.timeout(xt_timeout),
-		}));
-
-		// fetch error
-		if(is_error(e_fetch)) {
-			// abort/timeout
-			if(['AbortError', 'TimeoutError'].includes(e_fetch.name)) {
-				fe_reject(Error(`Timed out while attempting to reach ${p_rpc}`));
-			}
-			else {
-				fe_reject(e_fetch);
-			}
+	const f_abort = () => f_fail(Error('WebSocket subscription aborted'));
+	// Covers both connecting and waiting for the subscription acknowledgement.
+	const z_open_timer = setTimeout(() => f_fail(Error(`Timed out subscribing to ${p_rpc}`)), xt_timeout);
+	d_ws.onopen = () => {
+		try {
+			d_ws.send(stringify_json({jsonrpc:'2.0', id:'0', method:'subscribe', params:{query:sx_query}}));
 		}
-		// request returned
-		else if(d_res) {
-			// did not get expected HTTP response status code, or unknown reason for timeout
-			fe_reject(Error((d_res.ok
-				? `Unable to diagnose misbehaving WebSocket endpoint at ${p_rpc} in current environment`
-				: `Bad response status ${d_res.status} while probing WebSocket endpoint ${p_rpc}: ${(await d_res.text()).trim()}`
-			)+`\nheaders: ${JSON.stringify(d_res.headers, null, '  ')}`));
+		catch(e_error) { f_fail(e_error as Error); }
+	};
+
+	d_ws.onmessage = (g_msg) => {
+		const g_data = parse_json_safe<JsonRpcResponse<Record<string, never>>>(g_msg.data as NaiveJsonString);
+		if(String(g_data?.id) !== '0' || g_data?.error || !g_data?.result || Array.isArray(g_data.result) || typeof g_data.result !== 'object' || Object.keys(g_data.result).length !== 0) {
+			f_fail(Error('Invalid WebSocket subscription acknowledgement')); return;
 		}
-	}, xt_timeout);
 
-	// create WebSocket
-	return assign(
-		// normalize protocol from http(s) => ws and append /websocket to path
-		new dc_ws(p_rpc.replace(/^http/, 'ws')+'/websocket'), {
-			// first message should be subscription confirmation
-			onmessage(g_msg) {
-				// parse message
-				const g_data = parse_json_safe<JsonRpcResponse<Record<string, never>>>(g_msg.data as NaiveJsonString);
+		b_settled = true;
+		d_signal?.removeEventListener('abort', f_abort);
+		clearTimeout(z_open_timer);
+		d_ws.onmessage = fk_message;
+		d_ws.onclose = null;
+		fk_resolve(d_ws);
+	};
 
-				// expect confirmation
-				if('0' !== g_data?.id || '{}' !== stringify_json(g_data?.result)) {
-					// reject
-					fe_reject(g_data);  // eslint-disable-line @typescript-eslint/prefer-promise-reject-errors
-
-					// close socket
-					this.close(); return;
-				}
-
-				// each subsequent message
-				this.onmessage = fk_message;
-
-				// resolve now that subscription has been confirmed
-				fk_resolve(this);
-			},
-
-			// open event
-			onopen() {
-				// cancel open timeout
-				clearTimeout(i_open);
-
-				// subscribe to event
-				this.send(stringify_json({
-					id: '0',
-					method: 'subscribe',
-					params: {
-						query: sx_query,
-					},
-				}));
-			},
-
-			// error event
-			onerror(d_event: ErrorEvent) {
-				fe_reject(Error(d_event.message));
-			},
-		} as Pick<WebSocket, 'onmessage' | 'onopen'>);
+	d_ws.onerror = () => f_fail(Error(`WebSocket error at ${p_rpc}`));
+	d_ws.onclose = () => f_fail(Error(`WebSocket closed before subscription at ${p_rpc}`));
+	d_signal?.addEventListener('abort', f_abort, {once:true});
+	if(d_signal?.aborted) f_abort();
 });
 
 
@@ -136,36 +93,60 @@ export const TendermintWs = async(
 	sx_query: string,
 	fk_message: (d_event: MessageEvent<NaiveJsonString>) => any,
 	z_restart?: TendermintWsRestartParam,
-	dc_ws?: typeof WebSocket
+	dc_ws?: typeof WebSocket,
+	d_signal?: AbortSignal
 ): Promise<TendermintWs> => {
 	let d_ws!: WebSocket;
+	let b_disposed = false;
+	const d_abort = new AbortController();
+	const d_lifetime = d_signal? AbortSignal.any([d_signal, d_abort.signal]): d_abort.signal;
+	const as_listeners = new Set<readonly [(d_event: MessageEvent<NaiveJsonString>) => unknown, (((d_ws: WebSocket) => unknown) | undefined)?]>();
+	// WebSocket event handlers do not observe returned promises.
+	const f_observe = (f_call: () => unknown) => { void Promise.resolve().then(f_call).catch(() => { /* Native event dispatch cannot observe rejections. */ }); };
 
-	// cache whether the restart arg is a function
-	let b_restart_fn = is_function(z_restart);
+	const f_dispatch = (d_event: MessageEvent<NaiveJsonString>) => {
+		f_observe(() => fk_message(d_event));
+		for(const [f_message] of as_listeners) f_observe(() => f_message(d_event));
+	};
 
-	// connector
-	let f_reconnect = async() => assign(d_ws=await subscribe_tendermint_events(p_rpc, sx_query, fk_message, dc_ws), {
-		// close event
-		async onclose(d_event) {
-			// notify caller
-			const z_restart_ans = b_restart_fn? await (z_restart as Exclude<TendermintWsRestartParam, boolean | number>)(d_event): z_restart;
+	const f_connect = async(): Promise<void> => {
+		const d_next = await subscribe_tendermint_events(p_rpc, sx_query, f_dispatch, dc_ws, GC_NEUTRINO.WS_TIMEOUT, d_lifetime);
+		if(b_disposed) { d_next.close(); return; }
 
-			// truthy value means user wants to restart WebSocket
-			if(z_restart_ans) {
-				// start reconnecting
-				await f_reconnect();
-
-				// user wants to receive new WebSocket once its open
-				if(is_function(z_restart_ans)) void (z_restart_ans as (d_ws: WebSocket) => Promisable<void>)(d_ws);
+		d_ws = d_next;
+		d_ws.onclose = d_event => f_observe(async() => {
+			if(b_disposed) return;
+			const z_decision = is_function(z_restart)? await z_restart(d_event): z_restart;
+			if(!z_decision || b_disposed) return;
+			try { await f_connect(); }
+			catch{
+				// One reconnect attempt per close; notify failure without an unbounded retry loop.
+				if(!b_disposed && is_function(z_restart)) await z_restart(__UNDEFINED);
+				return;
 			}
-		},
-	} satisfies Partial<WebSocket>);
 
-	// initiate first connection
-	await f_reconnect();
+			if(b_disposed) return;
+			const d_current = d_ws;
+			for(const [, f_restarted] of as_listeners) f_observe(() => f_restarted?.(d_current));
+			if(is_function(z_decision)) await z_decision(d_ws);
+		});
+	};
 
-	// return struct that allows caller to retrieve current WebSocket
+	await f_connect();
 	return {
 		ws: () => d_ws,
+		listen(f_message, f_restarted) {
+			if(b_disposed) throw Error('WebSocket is disposed');
+			const a_listener = [f_message, f_restarted] as const;
+			as_listeners.add(a_listener);
+			return () => { as_listeners.delete(a_listener); };
+		},
+		dispose() {
+			b_disposed = true;
+			d_abort.abort();
+			as_listeners.clear();
+			d_ws.onclose = d_ws.onmessage = null;
+			d_ws.close();
+		},
 	};
 };

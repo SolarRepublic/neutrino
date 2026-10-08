@@ -1,4 +1,4 @@
-import {bytes, dataview} from '@blake.regalia/belt';
+import {bytes, dataview, die} from '@blake.regalia/belt';
 
 import {rotl} from './bitwise.js';
 import {XN_16} from './constants.js';
@@ -20,6 +20,10 @@ const quarterround = (atu32_d: Uint32Array, i_a: number, i_b: number, i_c: numbe
  * @param xn_counter - optional counter to start with
  */
 export const chacha20 = (atu8_key: Uint8Array, atu8_nonce: Uint8Array, atu8_data: Uint8Array, xn_counter=0): Uint8Array => {
+	if(atu8_key.length !== 32 || atu8_nonce.length !== 12) die('ChaCha20 requires a 32-byte key and 12-byte nonce');
+	if(!Number.isInteger(xn_counter) || xn_counter < 0 || xn_counter > 0xffffffff
+		|| Math.ceil(atu8_data.length / 64) > 0x100000000 - xn_counter) die('Invalid ChaCha20 counter or counter overflow');
+
 	// iterator
 	let i_each: number;
 
@@ -31,8 +35,8 @@ export const chacha20 = (atu8_key: Uint8Array, atu8_nonce: Uint8Array, atu8_data
 	const dv_keystream = dataview(atu8_keystream.buffer);
 
 	// read key and nonce as sequences of uint32 words in little-endian
-	const dv_key = dataview(atu8_key.buffer);
-	const dv_nonce = dataview(atu8_nonce.buffer);
+	const dv_key = new DataView(atu8_key.buffer, atu8_key.byteOffset, atu8_key.byteLength);
+	const dv_nonce = new DataView(atu8_nonce.buffer, atu8_nonce.byteOffset, atu8_nonce.byteLength);
 	const a_words_key: number[] = [];
 	const a_words_nonce: number[] = [];
 	for(i_each=0; i_each<8; i_each++) {

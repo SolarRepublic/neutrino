@@ -26,3 +26,6 @@
 # ignore package-manager locks
 **/*.lock
 **/package-lock.json
+
+# Pin the isolated release-check toolchain across CI platforms
+!/release/tools/package-lock.json

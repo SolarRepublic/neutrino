@@ -3,7 +3,9 @@
 
 	"compilerOptions": {
 		"rootDir": ".",
-		"baseUrl": ".",
+		"skipLibCheck": false,
+		"incremental": false,
+		"types": ["node", "web"],
 		"outDir": "dist/nil",
 
 		"declaration": true,
@@ -15,7 +17,6 @@
 	"include": [
 		"src/**/*.d.ts",
 		"src/**/*.ts",
-		"test/**/*.ts",
-		"rollup.config.ts"
+		"test/**/*.ts"
 	]
 }

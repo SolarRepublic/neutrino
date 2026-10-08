@@ -1,25 +1,25 @@
-/* eslint-disable prefer-const */
+import {bytes_to_hex} from './encoding.js';
+import {to_wire_json} from './json.js';
+
 
 
 import type {S} from 'ts-toolbelt';
 
-import type {CosmosClientLcdRpcStruct, RemoteServiceArg, SlimAuthInfo} from './types';
+import type {CosmosClientLcdRpcStruct, RemoteServiceArg, SlimAuthInfo} from './types.js';
 
 import type {AsJson, Nilable} from '@blake.regalia/belt';
 import type {CosmosClientLcd} from '@solar-republic/cosmos-grpc';
-import type {CosmosAuthBaseAccount} from '@solar-republic/cosmos-grpc/cosmos/auth/v1beta1/auth';
 import type {ProtoEnumCosmosTxSigningSignMode} from '@solar-republic/cosmos-grpc/cosmos/tx/signing/v1beta1/signing';
-import type {CwUint128, CwHexUpper, CwAccountAddr, SlimCoin, WeakUint128Str, CwUint64, TypedAminoMsg, TypedStdSignDoc, WeakSecretAccAddr} from '@solar-republic/types';
+import type {CwUint128, CwHexUpper, CwAccountAddr, SlimCoin, WeakUint128Str, TypedAminoMsg, TypedStdSignDoc, WeakSecretAccAddr} from '@solar-republic/types';
 
 import type {SignatureAndRecovery, Secp256k1} from '@solar-republic/wasm-secp256k1';
 
-import {text_to_bytes, bytes_to_hex, sha256, canonicalize_json, stringify_json, die, __UNDEFINED, is_number} from '@blake.regalia/belt';
+import {text_to_bytes, sha256, stringify_json, die, __UNDEFINED, is_number} from '@blake.regalia/belt';
 
 import {any, restruct_coin} from '@solar-republic/cosmos-grpc';
-import {destructCosmosAuthBaseAccount} from '@solar-republic/cosmos-grpc/cosmos/auth/v1beta1/auth';
 
 
-import {destructCosmosAuthQueryAccountResponse, queryCosmosAuthAccount} from '@solar-republic/cosmos-grpc/cosmos/auth/v1beta1/query';
+import {queryCosmosAuthAccount} from '@solar-republic/cosmos-grpc/cosmos/auth/v1beta1/query';
 import {encodeCosmosCryptoSecp256k1PubKey} from '@solar-republic/cosmos-grpc/cosmos/crypto/secp256k1/keys';
 import {XC_PROTO_COSMOS_TX_SIGNING_SIGN_MODE_DIRECT} from '@solar-republic/cosmos-grpc/cosmos/tx/signing/v1beta1/signing';
 
@@ -28,14 +28,13 @@ import {bech32_encode} from '@solar-republic/crypto';
 
 import {initWasmSecp256k1} from '@solar-republic/wasm-secp256k1';
 
-import {normalize_lcd_client, remote_service} from './_common';
+import {normalize_lcd_client, remote_service} from './_common.js';
 import {ripemd160} from './ripemd160.js';
 import {random_32} from './util.js';
 
-let Y_SECP256K1: Secp256k1;
+let DP_SECP256K1: Promise<Secp256k1> | undefined;
 
 
-type Zeroable<n_type extends number> = n_type | 0 | undefined;
 type Emptyable<s_type extends string> = s_type | '' | undefined;
 
 /**
@@ -76,8 +75,11 @@ export interface CosmosSigner<
 	 * the gas fees needed to execute a transaction with the given gas limit
 	 * @param z_limit - the gas limit argument passed to {@link exec_fees}
 	 */
-	// eslint-disable-next-line @typescript-eslint/member-ordering
+
 	fees?: ((z_limit: Parameters<typeof exec_fees>[0]) => ReturnType<typeof exec_fees>) | undefined;
+
+	/** Wipe owned key material and reject future signing, if supported. */
+	dispose?(): void;
 }
 
 
@@ -88,9 +90,18 @@ export interface CosmosSigner<
  * @param s_denom 
  * @returns 
  */
-export const exec_fees = (z_limit: number|bigint|`${bigint}`, x_gas_price: number, s_denom='uscrt'): [SlimCoin] => [[
-	''+Math.ceil(Number(z_limit) * x_gas_price), s_denom],
-] as [SlimCoin];
+export const exec_fees = (z_limit: number|bigint|`${bigint}`, x_gas_price: number, s_denom='uscrt'): [SlimCoin] => {
+	if('number' === typeof z_limit && !Number.isSafeInteger(z_limit)) die('Gas limit must be a safe integer');
+	const xg_limit = BigInt(z_limit);
+	if(xg_limit < 0n || !Number.isFinite(x_gas_price) || x_gas_price < 0) die('Invalid gas limit or price');
+	// Interpret the price's decimal representation exactly, including exponent notation.
+	const [s_coefficient, s_exponent='0'] = String(x_gas_price).split('e');
+	const [s_whole, s_fraction=''] = s_coefficient.split('.');
+	const n_scale = s_fraction.length - Number(s_exponent);
+	const xg_numerator = xg_limit * BigInt(s_whole+s_fraction) * (10n ** BigInt(Math.max(0, -n_scale)));
+	const xg_denominator = 10n ** BigInt(Math.max(0, n_scale));
+	return [[String((xg_numerator + xg_denominator - 1n) / xg_denominator), s_denom]] as [SlimCoin];
+};
 
 
 /**
@@ -130,15 +141,25 @@ export const CosmosSigner = async<s_hrp extends string, si_chain extends string=
 	z_rpc: RemoteServiceArg,
 	a_gas_prefs?: GasPreferences,
 	s_hrp: s_hrp=si_chain.replace(/-.*/, '') as s_hrp
-): Promise<CosmosSigner<string extends s_hrp? S.Split<si_chain, '-'>[0]: s_hrp>> => {
-	// init secp256k1 WASM
-	Y_SECP256K1 ??= await initWasmSecp256k1();
-
-	// obtain public key
-	const atu8_pk33 = Y_SECP256K1.sk_to_pk(atu8_sk);
-
-	// convert to bech32
-	const sa_account = await pubkey_to_bech32(atu8_pk33, s_hrp);
+): Promise<CosmosSigner<string extends s_hrp? S.Split<si_chain, '-'>[0]: s_hrp> & {dispose(): void}> => {
+	if(atu8_sk.length !== 32) throw Error('Private key must be 32 bytes');
+	const xg_scalar = BigInt('0x'+bytes_to_hex(atu8_sk));
+	if(!xg_scalar || xg_scalar >= 0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141n) throw Error('Invalid secp256k1 private key');
+	// Take ownership before the first await so callers may safely wipe their input.
+	const atu8_owned = atu8_sk.slice();
+	let b_disposed = false;
+	let y_secp: Secp256k1;
+	let atu8_pk33: Uint8Array<ArrayBuffer>;
+	let sa_account: CwAccountAddr<s_hrp>;
+	try {
+		y_secp = await (DP_SECP256K1 ??= initWasmSecp256k1().catch((e_error: unknown) => {
+			DP_SECP256K1 = __UNDEFINED;
+			throw e_error;
+		}));
+		atu8_pk33 = y_secp.sk_to_pk(atu8_owned);
+		sa_account = await pubkey_to_bech32(atu8_pk33, s_hrp);
+	}
+	catch(e_error) { atu8_owned.fill(0); throw e_error; }
 
 	return {
 		lcd: normalize_lcd_client(z_lcd),
@@ -149,9 +170,21 @@ export const CosmosSigner = async<s_hrp extends string, si_chain extends string=
 
 		addr: sa_account,
 
-		pk33: atu8_pk33,
+		get pk33() { return atu8_pk33.slice(); },
 
-		sign: (atu8_msg: Uint8Array<ArrayBuffer>, atu8_k=random_32()) => sha256(atu8_msg).then(atu8_hash => Y_SECP256K1.sign(atu8_sk, atu8_hash, atu8_k)),
+		dispose() { b_disposed = true; atu8_owned.fill(0); },
+
+		async sign(atu8_msg: Uint8Array<ArrayBuffer>, atu8_k=random_32()) {
+			if(b_disposed) throw Error('Signer is disposed');
+			if(atu8_k.length !== 32) throw Error('Signing entropy must be 32 bytes');
+			const atu8_entropy = atu8_k.slice();
+			try {
+				const atu8_hash = await sha256(atu8_msg);
+				if(b_disposed) throw Error('Signer is disposed');
+				return y_secp.sign(atu8_owned, atu8_hash, atu8_entropy);
+			}
+			finally { atu8_entropy.fill(0); }
+		},
 
 		fees: a_gas_prefs
 			? z_limit => exec_fees(z_limit, ...a_gas_prefs)
@@ -165,37 +198,27 @@ export const CosmosSigner = async<s_hrp extends string, si_chain extends string=
  */
 // eslint-disable-next-line @typescript-eslint/naming-convention
 export const auth = async(g_wallet: Pick<CosmosSigner, 'lcd' | 'addr'>, a_auth?: Nilable<SlimAuthInfo> | 0): Promise<SlimAuthInfo> => {
-	let sg_account: CwUint64 | undefined;
-	let sg_sequence: CwUint64 | undefined;
+	const f_validate = (a_values: SlimAuthInfo): SlimAuthInfo => {
+		if(a_values.length !== 2 || !a_values.every(s_value => 'string' === typeof s_value && /^\d+$/.test(s_value) && BigInt(s_value) <= 0xffffffffffffffffn)) throw Error('Missing or invalid account number/sequence');
+		return a_values;
+	};
 
-	// resolve auth data
-	if(!a_auth) {
-		// submit gRPC-gateway query and destructure the response, extracting the response JSON
-		let [g_res, g_err, d_res, s_res] = await queryCosmosAuthAccount(g_wallet.lcd, g_wallet.addr);
-
-		// success
-		if(g_res) {
-			// destructure the response JSON to get the account struct
-			let [g_account] = destructCosmosAuthQueryAccountResponse(g_res);
-
-			// destructure the account struct to get its account and sequence numbers
-			[,, sg_account, sg_sequence] = destructCosmosAuthBaseAccount(g_account as CosmosAuthBaseAccount);
-		}
-		// error
-		else if(g_err) {
-			// anything other than account not found
-			if(5 !== g_err.code) {
-				die(g_err.message);
-			}
-		}
-		// no data
-		else {
-			die(s_res, d_res);
-		}
+	if(a_auth) return f_validate(a_auth);
+	const [g_res, g_err, d_res] = await queryCosmosAuthAccount(g_wallet.lcd, g_wallet.addr);
+	if(!g_res) throw Error(5 === g_err?.code? 'Account not found': `Account query failed (${d_res.status})`);
+	let g_account = g_res.account as unknown as Record<string, unknown> | undefined;
+	if(!g_account) throw Error('Missing account data');
+	const s_type = g_account['@type'];
+	if('/cosmos.auth.v1beta1.ModuleAccount' === s_type || '/ethermint.types.v1.EthAccount' === s_type || '/injective.types.v1beta1.EthAccount' === s_type) {
+		g_account = g_account['base_account'] as Record<string, unknown> | undefined;
 	}
+	else if('string' === typeof s_type && /^\/cosmos\.vesting\.v1beta1\.(ContinuousVestingAccount|DelayedVestingAccount|PeriodicVestingAccount|PermanentLockedAccount)$/.test(s_type)) {
+		g_account = (g_account['base_vesting_account'] as Record<string, unknown> | undefined)?.['base_account'] as Record<string, unknown> | undefined;
+	}
+	else if(s_type !== '/cosmos.auth.v1beta1.BaseAccount') {throw Error('Unsupported account type');}
 
-	// return auth data as a tuple (possibly [undefined x 2])
-	return a_auth || [sg_account, sg_sequence];
+	if(g_account?.['address'] !== g_wallet.addr) throw Error('Invalid account address');
+	return f_validate([g_account['account_number'], g_account['sequence']] as SlimAuthInfo);
 };
 
 
@@ -233,20 +256,22 @@ export const sign_amino = async<
 	// resolve auth data
 	const [sg_account, sg_sequence] = await auth(k_wallet, a_auth);
 
+	if('string' !== typeof sg_account || 'string' !== typeof sg_sequence) throw Error('Amino signing requires account number and sequence');
+
 	// produce sign doc
-	const g_signdoc: g_signed = canonicalize_json({
+	const g_signdoc: g_signed = to_wire_json({
 		chain_id: k_wallet.ref,
 		account_number: sg_account,
 		sequence: sg_sequence,
 		msgs: a_msgs,
 		fee: {
-			amount: a_fees.map(restruct_coin),
+			amount: a_fees.map(a_coin => restruct_coin(a_coin)!),
 			gas: sg_limit,
 			granter: sa_granter,
 			payer: sa_payer,
 		},
 		memo: s_memo || '',
-	}) as g_signed;
+	}, true) as unknown as g_signed;
 
 	// prepare message
 	const atu8_signdoc = text_to_bytes(
@@ -356,7 +381,7 @@ export const create_tx_body = async(
 
 	// encode fee
 	const atu8_fee = encodeCosmosTxFee(
-		k_wallet.fees?.(zg_limit) ?? (is_number(z_fees)? exec_fees(zg_limit, z_fees): z_fees || die('Must specify fee')),
+		is_number(z_fees)? exec_fees(zg_limit, z_fees): z_fees ?? k_wallet.fees?.(zg_limit) ?? die('Must specify fee'),
 		zg_limit+'' as WeakUint128Str, sa_payer, sa_granter
 	);
 

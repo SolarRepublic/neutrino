@@ -1,9 +1,0 @@
-{
-	"extends": "./tsconfig.mjs.json",
-
-	"compilerOptions": {
-		"rootDir": "./src",
-		"outDir": "dist/cjs",
-		"declarationDir": "dist/cjs",
-	},
-}

@@ -1,3 +1,5 @@
+import type {JsonInputValue} from '@solar-republic/types';
+import {to_wire_json} from './json.js';
 /* eslint-disable @typescript-eslint/naming-convention */
 import type {JsonValue, NaiveBase64, NaiveHexMixed, Nilable} from '@blake.regalia/belt';
 import type {CwHexLower} from '@solar-republic/types';
@@ -20,7 +22,7 @@ import {ecs_mul, ecs_mul_base} from './x25519.js';
 
 export interface SecretWasm {
 	txKey(atu8_nonce?: Uint8Array<ArrayBuffer>): Promise<Uint8Array<ArrayBuffer>>;
-	encodeMsg(sb16_code_hash: NaiveHexMixed, g_msg: JsonValue, nb_msg_block?: number): Promise<Uint8Array<ArrayBuffer>>;
+	encodeMsg(sb16_code_hash: NaiveHexMixed, g_msg: JsonInputValue, nb_msg_block?: number): Promise<Uint8Array<ArrayBuffer>>;
 	decrypt(atu8_ciphertext: Uint8Array<ArrayBuffer>, atu8_nonce: Uint8Array<ArrayBuffer>): Promise<Uint8Array<ArrayBuffer>>;
 	decodeMsg(sb64_msg: NaiveBase64): Promise<[string, CwHexLower, Uint8Array<ArrayBuffer>]>;
 }
@@ -53,8 +55,12 @@ export const SecretWasm = (atu8_consensus_pk: Uint8Array, atu8_seed?: Nilable<Ui
 	// produce tx ikm
 	const _atu8_tx_ikm = ecs_mul(atu8_sk, atu8_consensus_pk);
 
+	if(!_atu8_tx_ikm.some(xb => xb !== 0)) die('Invalid consensus public key');
+	atu8_sk.fill(0);
+
 	return {
 		async txKey(atu8_nonce=random_32()) {
+			if(atu8_nonce.length !== 32) die('Invalid nonce length');
 			const atu8_input = concat2(_atu8_tx_ikm, atu8_nonce);
 
 			const dk_input = await crypto.subtle.importKey('raw', atu8_input, 'HKDF', false, ['deriveBits']);
@@ -71,7 +77,7 @@ export const SecretWasm = (atu8_consensus_pk: Uint8Array, atu8_seed?: Nilable<Ui
 
 		async encodeMsg(sb16_code_hash, g_msg, nb_msg_block) {
 			// construct payload
-			const atu8_payload = text_to_bytes(sb16_code_hash.toUpperCase()+stringify_json(g_msg));
+			const atu8_payload = text_to_bytes(sb16_code_hash.toUpperCase()+stringify_json(to_wire_json(g_msg)));
 
 			// pad to make multiple of block size
 			const nb_payload = atu8_payload.byteLength;

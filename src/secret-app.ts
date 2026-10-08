@@ -1,17 +1,18 @@
+import {unwrap_contract_response} from './json.js';
 /* eslint-disable @typescript-eslint/naming-convention */
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-import type {TxMeta, TxResponseTuple} from './app-layer';
-import type {CosmosSigner} from './cosmos-signer';
-import type {CreateQueryArgsAndAuthParams} from './inferencing';
-import type {SecretContract} from './secret-contract';
+import type {TxMeta, TxResponseTuple} from './app-layer.js';
+import type {CosmosSigner} from './cosmos-signer.js';
+import type {CreateQueryArgsAndAuthParams} from './inferencing.js';
+import type {SecretContract} from './secret-contract.js';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-import type {AuthSecret} from './types';
+import type {AuthSecret} from './types.js';
 
 import type {JsonObject} from '@blake.regalia/belt';
 import type {ContractInterface} from '@solar-republic/contractor';
 import type {SlimCoin, WeakSecretAccAddr} from '@solar-republic/types';
 
-import {__UNDEFINED, die, values} from '@blake.regalia/belt';
+import {__UNDEFINED, die} from '@blake.regalia/belt';
 
 import {exec_secret_contract, query_secret_contract} from './app-layer.js';
 
@@ -23,7 +24,7 @@ export interface SecretApp<
 	g_interface extends ContractInterface=ContractInterface,
 > {
 	readonly wallet: CosmosSigner;
-	readonly contract: SecretContract;
+	readonly contract: SecretContract<g_interface>;
 
 	// /**
 	//  * A getter/setter function for gas price
@@ -166,7 +167,7 @@ export const SecretApp = <
 			// entuple results
 			return [
 				!xc_error && g_res
-					? values(g_res)[0] as JsonObject
+					? unwrap_contract_response(g_res, si_method)
 					: __UNDEFINED,
 				a2_result,
 				a6_response,

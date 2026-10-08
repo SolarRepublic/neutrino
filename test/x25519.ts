@@ -11,11 +11,11 @@ import {
 	sharedKey,
 } from 'curve25519-js';
 
-import {describe} from './helper';
+import {describe} from './helper.js';
 
 import {
 	ecs_mul,
-} from '../src/x25519';
+} from '../src/x25519.js';
 
 
 chai.use(chai_bites);

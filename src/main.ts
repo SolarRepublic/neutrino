@@ -1,4 +1,4 @@
-export type * from './types';
+export type * from './types.js';
 
 export * from './aes-128-siv.js';
 export * from './aes.js';
@@ -18,3 +18,5 @@ export * from './tendermint-event-filter.js';
 export * from './util.js';
 export * from './cosmos-signer.js';
 export * from './x25519.js';
+
+export {set_neutrino_diagnostics, type NeutrinoDiagnostic} from './diagnostics.js';

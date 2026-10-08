@@ -39,7 +39,6 @@ const double_block = (atu8_block: Uint8Array) => {
 	}
 
 	atu8_block[NB_AES_BLOCK - 1] ^= select(xb_carry, 0x87, 0);
-	xb_carry = 0;
 };
 
 // XOR two byte streams, replacing 'a' in-place and up to len(b)

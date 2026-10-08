@@ -1,32 +1,35 @@
+import {bytes_to_base64} from './encoding.js';
+import {contract_response, unwrap_contract_response} from './json.js';
 /* eslint-disable prefer-const */
-/* eslint-disable no-console */
+
 /* eslint-disable @typescript-eslint/naming-convention */
 
 import type {O} from 'ts-toolbelt';
 
-import type {CosmosSigner} from './cosmos-signer';
-import type {CreateQueryArgsAndAuthParams} from './inferencing';
-import type {SecretContract} from './secret-contract';
-import type {EventUnlistener} from './tendermint-event-filter';
-import type {TendermintWs} from './tendermint-ws';
-import type {AuthSecret, CosmosClientLcdRpcWsStruct} from './types';
+import type {CosmosSigner} from './cosmos-signer.js';
+import type {CreateQueryArgsAndAuthParams} from './inferencing.js';
+import type {SecretContract} from './secret-contract.js';
+import type {EventUnlistener} from './tendermint-event-filter.js';
+import type {TendermintWs} from './tendermint-ws.js';
+import type {AuthSecret, CosmosClientLcdRpcWsStruct} from './types.js';
 
 import type {JsonObject, Nilable, Promisable, Dict} from '@blake.regalia/belt';
 
-import type {ContractInterface} from '@solar-republic/contractor';
+import type {ContractInterface, SchemaObject} from '@solar-republic/contractor';
 
 import type {CosmosBaseAbciTxResponse} from '@solar-republic/cosmos-grpc/cosmos/base/abci/v1beta1/abci';
 import type {CosmosTxGetTxResponse} from '@solar-republic/cosmos-grpc/cosmos/tx/v1beta1/service';
 import type {TendermintAbciExecTxResult} from '@solar-republic/cosmos-grpc/tendermint/abci/types';
-import type {SlimCoin, WeakAccountAddr, CwAccountAddr, WeakUint128Str, WeakUintStr, WeakSecretAccAddr, Snip24QueryPermitSigned, Snip24QueryPermitParams, Snip24QueryPermitMsg, CwHexUpper} from '@solar-republic/types';
+import type {SlimCoin, WeakAccountAddr, WeakUint128Str, WeakUintStr, WeakSecretAccAddr, Snip24QueryPermitSigned, Snip24QueryPermitParams, Snip24QueryPermitMsg, CwHexUpper} from '@solar-republic/types';
 
-import {__UNDEFINED, bytes_to_base64, timeout, parse_json_safe, timeout_exec, die, assign, hex_to_bytes, stringify_json, try_async, is_error, defer} from '@blake.regalia/belt';
+import {__UNDEFINED, timeout, parse_json_safe, die, assign, hex_to_bytes, stringify_json, try_async, is_error, defer} from '@blake.regalia/belt';
 import {safe_base64_to_bytes} from '@solar-republic/cosmos-grpc';
 import {XC_PROTO_COSMOS_TX_BROADCAST_MODE_SYNC, queryCosmosTxGetTx, submitCosmosTxBroadcastTx} from '@solar-republic/cosmos-grpc/cosmos/tx/v1beta1/service';
 
 import {GC_NEUTRINO} from './config.js';
 import {create_and_sign_tx_direct, sign_amino} from './cosmos-signer.js';
-import {secret_response_decrypt} from './secret-response';
+import {emit_diagnostic} from './diagnostics.js';
+import {secret_response_decrypt} from './secret-response.js';
 import {F_TEF_RESTART_ANY_ERRORS, SX_QUERY_TM_EVENT_TX, TendermintEventFilter} from './tendermint-event-filter.js';
 import {index_abci_events} from './util.js';
 
@@ -107,6 +110,63 @@ export const retry = async<w_out>(
 };
 
 
+export type TxWaitOptions = {
+	/** Total time including socket setup and broadcast, defaults to 120 seconds. */
+	timeoutMs?: number;
+	signal?: AbortSignal;
+};
+
+/** A local wait ended without establishing whether the transaction was included. */
+export class TxWaitError extends Error {
+	readonly inclusion = 'unknown';
+	constructor(readonly txhash: string, readonly reason: 'timeout' | 'aborted') {
+		super(`Transaction wait ${reason}; inclusion is unknown`);
+		this.name = 'TxWaitError';
+	}
+}
+
+const with_tx_wait = async(
+	gc_node: CosmosClientLcdRpcWsStruct,
+	sb16_txn: string,
+	g_options: TxWaitOptions,
+	f_task: (gc_scoped: CosmosClientLcdRpcWsStruct, d_signal: AbortSignal) => Promise<TxResponseTuple>
+): Promise<TxResponseTuple> => {
+	const xt_total = g_options.timeoutMs ?? 120_000;
+	if(!Number.isSafeInteger(xt_total) || xt_total <= 0 || xt_total > 0x7fffffff) throw Error('Invalid transaction deadline');
+	const d_abort = new AbortController();
+	let fe_stop!: (e_error: Error) => void;
+	const dp_stop = new Promise<never>((_resolve, reject) => { fe_stop = reject; });
+	const stop = (s_reason: 'timeout' | 'aborted') => {
+		const e_error = new TxWaitError(sb16_txn, s_reason);
+		fe_stop(e_error);
+		d_abort.abort(e_error);
+	};
+
+	const on_abort = () => stop('aborted');
+	const i_deadline = setTimeout(() => stop('timeout'), xt_total);
+	g_options.signal?.addEventListener('abort', on_abort, {once:true});
+	const gc_scoped = {
+		...gc_node,
+		lcd: {
+			...gc_node.lcd,
+			lcd: (s_path: string, g_init?: RequestInit) => gc_node.lcd.lcd(s_path, {
+				...g_init,
+				signal: g_init?.signal? AbortSignal.any([g_init.signal, d_abort.signal]): d_abort.signal,
+			}),
+		},
+	};
+	try {
+		if(g_options.signal?.aborted) { on_abort(); return await dp_stop; }
+
+		return await Promise.race([dp_stop, f_task(gc_scoped, d_abort.signal)]);
+	}
+	finally {
+		clearTimeout(i_deadline);
+		g_options.signal?.removeEventListener('abort', on_abort);
+		d_abort.abort();
+	}
+};
+
 /**
  * Starts monitoring the chain in anticipation of a new transaction with the given hash
  */
@@ -115,7 +175,8 @@ const monitor_tx = async(
 	sb16_txn: string,
 	z_stream?: TendermintEventFilter | TendermintWs,
 	xt_wait_before_polling=GC_NEUTRINO.WS_TIMEOUT*3,
-	xt_polling_interval=GC_NEUTRINO.POLLING_INTERVAL
+	xt_polling_interval=GC_NEUTRINO.POLLING_INTERVAL,
+	d_signal?: AbortSignal
 ): Promise<[
 	fk_unlisten: EventUnlistener,
 	dp_monitor: Promise<TxResponseTuple>,
@@ -124,9 +185,11 @@ const monitor_tx = async(
 		(w_return: Nilable<void>, e_reject: Error): void;
 	},
 	f_set_res: (sx_override: string) => void,
-	]> => {
+]> => {
 	// create deferred promise
 	const [dp_monitor, fke_monitor] = defer<TxResponseTuple>();
+	// A monitor may fail while the caller is still awaiting broadcast.
+	void dp_monitor.catch(() => __UNDEFINED);
 
 	// event filter unlistener
 	let f_unlisten: EventUnlistener | undefined;
@@ -137,28 +200,29 @@ const monitor_tx = async(
 	// fallback timeout
 	let i_fallback: number | NodeJS.Timeout | undefined;
 
+	let b_torn_down = false;
+	const on_abort = () => f_shutdown(null, d_signal!.reason as Error);
 	// teardown
 	let f_teardown = () => {
+		if(b_torn_down) return;
+		b_torn_down = true;
+		d_signal?.removeEventListener('abort', on_abort);
+		clearTimeout(i_fallback);
+		i_fallback = __UNDEFINED;
+		xt_polling = __UNDEFINED;
 		// unlisten events filter
 		f_unlisten?.();
 
-		// created socket ad-hoc
-		if(!z_stream) {
-			// socket exists
-			const d_ws = k_tef?.ws();
-			if(d_ws) {
-				// prevent closure handling
-				d_ws.onclose = null;
-
-				// close ad-hoc socket
-				d_ws.close();
-			}
-		}
+		// Dispose a wrapper created here, even when its underlying socket is shared.
+		if(!(z_stream as TendermintEventFilter | undefined)?.when) k_tef?.dispose?.();
 	};
 
 	// shutdown
 	// eslint-disable-next-line no-sequences
 	let f_shutdown = (w_resolve: Nilable<TxResponseTuple>, e_reject?: Nilable<Error>) => (f_teardown(), fke_monitor(w_resolve as void, e_reject!));
+
+	let c_failures = 0;
+	const run_fallback = () => { void attempt_fallback_lcd_query().catch((e_error: unknown) => f_shutdown(null, e_error instanceof Error? e_error: Error('Transaction query failed'))); };
 
 	// polling fallback using LCD query
 	let attempt_fallback_lcd_query = async() => {
@@ -168,8 +232,13 @@ const monitor_tx = async(
 		// timeout was cancelled while querying; silently exit
 		if(!i_fallback) return;
 
-		// network error; reject outer promise
-		if(e_thrown) { f_shutdown(null, e_thrown as Error); return; }
+		// Retry transient reads only; never re-sign or re-broadcast a transaction.
+		if(e_thrown || 429 === a_resolved?.[2].status || (a_resolved?.[2].status ?? 0) >= 500) {
+			i_fallback = setTimeout(run_fallback, Math.min(30_000, xt_polling_interval * (2 ** Math.min(++c_failures, 5))));
+			return;
+		}
+
+		c_failures = 0;
 
 		// destructure resolved value
 		const [g_res, g_err, d_res, s_res] = a_resolved!;
@@ -188,7 +257,7 @@ const monitor_tx = async(
 					log: g_tx_res.raw_log,
 					txhash: g_tx_res.txhash,
 				}, g_tx_res),
-				index_abci_events(g_tx_res.events),
+				index_abci_events(g_tx_res.events || []),
 				g_tx_res.data? hex_to_bytes(g_tx_res.data): __UNDEFINED,
 			]: [
 				-1,
@@ -205,9 +274,9 @@ const monitor_tx = async(
 			} = g_err;
 
 			// anything other than tx not found indicates a possible node error
-			if(!(s_msg || '').includes('tx not found')) {
+			if(xc_code !== 5 && !(s_msg || '').includes('tx not found')) {
 				// reject Promise
-				f_shutdown(null, Error(`Unexpected query error to ${gc_node.lcd.id}: ${stringify_json(g_res)}`)); return;
+				f_shutdown(null, Error(`Unexpected query error to ${gc_node.lcd.id}: ${stringify_json(g_err)}`)); return;
 			}
 		}
 		// invalid response body
@@ -216,8 +285,11 @@ const monitor_tx = async(
 		}
 
 		// repeat
-		if(xt_polling) i_fallback = setTimeout(attempt_fallback_lcd_query, xt_polling);
+		if(xt_polling) i_fallback = setTimeout(run_fallback, xt_polling);
 	};
+
+	if(d_signal?.aborted) throw d_signal.reason;
+	d_signal?.addEventListener('abort', on_abort, {once:true});
 
 	// prep event filter
 	let k_tef = z_stream as TendermintEventFilter;
@@ -225,14 +297,15 @@ const monitor_tx = async(
 	// normalize stream arg into event filter
 	if(!(z_stream as TendermintEventFilter | undefined)?.when) {
 		// attempt to create filter
-		const [k_tef_local] = await timeout_exec(
-			GC_NEUTRINO.WS_TIMEOUT,
-			() => TendermintEventFilter(gc_node.ws || gc_node.rpc.origin, SX_QUERY_TM_EVENT_TX, F_TEF_RESTART_ANY_ERRORS, z_stream as TendermintWs | undefined)
+		const [k_tef_local] = await try_async(
+			() => TendermintEventFilter(gc_node.ws || gc_node.rpc.origin, SX_QUERY_TM_EVENT_TX, F_TEF_RESTART_ANY_ERRORS, z_stream as TendermintWs | undefined, d_signal)
 		);
+
+		if(b_torn_down) { k_tef_local?.dispose?.(); throw d_signal?.reason; }
 
 		// timed out waiting to connect; start polling
 		if(!k_tef_local) {
-			i_fallback = setTimeout(attempt_fallback_lcd_query, xt_polling=xt_polling_interval);
+			i_fallback = setTimeout(run_fallback, xt_polling=xt_polling_interval);
 		}
 		// succeeded; set filter
 		else {
@@ -246,7 +319,7 @@ const monitor_tx = async(
 		xt_polling = xt_polling_interval;
 
 		// start attempting fallback queries
-		i_fallback = setTimeout(attempt_fallback_lcd_query, xt_wait_before_polling);
+		i_fallback = setTimeout(run_fallback, xt_wait_before_polling);
 	}
 
 	// prep broadcast response (result of CheckTx)
@@ -306,14 +379,12 @@ const monitor_tx = async(
 export const expect_tx = async(
 	gc_node: CosmosClientLcdRpcWsStruct,
 	sb16_txn: string,
-	z_stream?: TendermintEventFilter | TendermintWs
-): Promise<TxResponseTuple> => {
-	// start monitoring tx
-	const [, dp_monitor] = await monitor_tx(gc_node, sb16_txn, z_stream);
-
-	// return monitor promise
+	z_stream?: TendermintEventFilter | TendermintWs,
+	g_options: TxWaitOptions={}
+): Promise<TxResponseTuple> => with_tx_wait(gc_node, sb16_txn, g_options, async(gc_scoped, d_signal) => {
+	const [, dp_monitor] = await monitor_tx(gc_scoped, sb16_txn, z_stream, __UNDEFINED, __UNDEFINED, d_signal);
 	return dp_monitor;
-};
+});
 
 
 /**
@@ -341,13 +412,26 @@ export const broadcast_result = async(
 	sb16_txn: string,
 	z_stream?: TendermintEventFilter | TendermintWs,
 	xt_wait_before_polling?: number,
-	xt_polling_interval?: number
-): Promise<TxResponseTuple> => {
+	xt_polling_interval?: number,
+	g_options: TxWaitOptions={}
+): Promise<TxResponseTuple> => with_tx_wait(gc_node, sb16_txn, g_options, async(gc_scoped, d_signal) => {
 	// start monitoring tx
-	const [f_unlisten, dp_monitor, fke_monitor, f_set_res] = await monitor_tx(gc_node, sb16_txn, z_stream, xt_wait_before_polling, xt_polling_interval);
+	const [f_unlisten, dp_monitor, fke_monitor, f_set_res] = await monitor_tx(gc_scoped, sb16_txn, z_stream, xt_wait_before_polling, xt_polling_interval, d_signal);
 
 	// attempt to submit tx
-	const [g_res, g_err, d_res, sx_res_broadcast] = await submitCosmosTxBroadcastTx(gc_node.lcd, atu8_raw, XC_PROTO_COSMOS_TX_BROADCAST_MODE_SYNC);
+	const g_first = await Promise.race([
+		dp_monitor.then(a_result => ({monitor:a_result})),
+		try_async(() => submitCosmosTxBroadcastTx(gc_scoped.lcd, atu8_raw, XC_PROTO_COSMOS_TX_BROADCAST_MODE_SYNC)).then(a_result => ({broadcast:a_result})),
+	]);
+	if('monitor' in g_first) return g_first.monitor;
+	const [a_broadcast, e_broadcast] = g_first.broadcast;
+	if(!a_broadcast) {
+		f_unlisten();
+		fke_monitor(__UNDEFINED, e_broadcast as Error);
+		return dp_monitor;
+	}
+
+	const [g_res,, d_res, sx_res_broadcast] = a_broadcast;
 
 	// set value
 	f_set_res(sx_res_broadcast);
@@ -373,7 +457,7 @@ export const broadcast_result = async(
 
 	// return monitor promise
 	return dp_monitor;
-};
+});
 
 
 /**
@@ -395,7 +479,12 @@ export const query_secret_contract_raw = async<
 >(
 	k_contract: SecretContract<g_interface>,
 	h_query: g_variant['msg']
-): Promise<[xc_code: number, s_error: string, d_res: Response, h_answer?: g_variant['answer']]> => k_contract.query(h_query);
+): Promise<[xc_code: number, s_error: string, d_res: Response, h_answer?: g_variant['answer']]> => {
+	const [xc_code, s_error, d_res, h_answer] = await k_contract.query(h_query);
+	if(xc_code) return [xc_code, s_error, d_res];
+	// ContractInterface types are erased; validate the envelope at this trust boundary.
+	return [0, s_error, d_res, contract_response(h_answer)];
+};
 
 
 /**
@@ -416,42 +505,14 @@ export const query_secret_contract_raw = async<
  */
 export const format_secret_query = (
 	si_method: string,
-	h_query: object,
+	h_query: SchemaObject,
 	z_auth?: Nilable<AuthSecret>
-): JsonObject => (z_auth
-	// string or array
-	? (z_auth as string | any[]).at
-		// array?
-		? (z_auth as any[]).map
-			// ViewerInfo
-			? {
-				[si_method]: {
-					...h_query,
-					viewer: {
-						viewing_key: (z_auth as string[])[0],
-						address: (z_auth as string[])[1],
-					},
-				},
-			}
-			// Viewing Key
-			: {
-				[si_method]: {
-					...h_query,
-					key: z_auth,
-				},
-			}
-		// Query Permit
-		: {
-			with_permit: {
-				query: {
-					[si_method]: h_query,
-				},
-				permit: z_auth,
-			},
-		}
-	: {
-		[si_method]: h_query,
-	}) as JsonObject;
+): SchemaObject => {
+	if('string' === typeof z_auth && z_auth) return {[si_method]: {...h_query, key:z_auth}};
+	if(Array.isArray(z_auth)) return {[si_method]: {...h_query, viewer:{viewing_key:z_auth[0], ...(z_auth[1]? {address:z_auth[1]}: {})}}};
+	if(z_auth) return {with_permit:{query:{[si_method]:h_query}, permit:z_auth}};
+	return {[si_method]:h_query};
+};
 
 
 export type QueryContractInfer = <
@@ -493,31 +554,21 @@ export const query_secret_contract: QueryContractInfer = async(
 	k_contract: SecretContract,
 	si_method: string,
 	...[h_args, z_auth]
-): Promise<[w_result: JsonObject | undefined, xc_code_p: number, s_error: string, d_res: Response, h_answer?: JsonObject]> => {
+): Promise<[w_result: JsonObject | undefined, xc_code_p: number, s_error: string, d_res: Response, h_answer?: SchemaObject]> => {
 	// debug
-	if(import.meta.env?.DEV) {
-		console.groupCollapsed(`❓ ${si_method}`);
-		console.debug(`Querying contract ${k_contract.addr} (${k_contract.info.label})`);
-		console.debug(format_secret_query(si_method, h_args || {}, z_auth));
-		console.groupEnd();
-	}
+	emit_diagnostic({operation:'query', stage:'start'});
 
 	// query the contract
-	const a4_response = await query_secret_contract_raw(k_contract, format_secret_query(si_method, h_args || {}, z_auth));
+	const a4_response = await query_secret_contract_raw(k_contract, format_secret_query(si_method, contract_response(h_args || {}, 'query arguments'), z_auth));
 
 	// debug
-	if(import.meta.env?.DEV) {
-		console.groupCollapsed(`🛰️ ${si_method}`);
-		console.debug(`Query response [code: ${a4_response[0]}] from ${k_contract.addr} (${k_contract.info.label}):`);
-		console.debug(a4_response[3]);
-		console.groupEnd();
-	}
+	emit_diagnostic({operation:'query', stage:'complete', code:a4_response[0]});
 
 	// put unwrapped result in front
 	return [
 		a4_response[0]
 			? __UNDEFINED
-			: (a4_response[3]!)[si_method] as JsonObject,
+			: unwrap_contract_response(a4_response[3], si_method),
 		...a4_response,
 	];
 };
@@ -559,7 +610,7 @@ export const exec_secret_contract = async<
 	s_memo?: string
 ): Promise<[
 	a_result: undefined | [
-		g_res: (ContractInterface extends g_interface? JsonObject: h_group[as_methods]['answer']),
+		g_res: (ContractInterface extends g_interface? JsonObject: h_group[as_methods]['answer']) | undefined,
 		s_res: string,
 	],
 	a6_broadcast: TxResponseTuple,
@@ -579,21 +630,13 @@ export const exec_secret_contract = async<
 	);
 
 	// debug info
-	if(import.meta.env?.DEV) {
-		console.groupCollapsed(`🗳️ ${Object.keys(h_exec)[0]}`);
-		console.debug([
-			`Executing contract ${k_contract.addr} (${k_contract.info.label}) from ${k_wallet.addr}`,
-			`  limit: ${z_limit} ┃ hash: ${si_txn}`+(sa_granter? ` ┃ granter: ${sa_granter}`: '')+(s_memo? ` ┃ memo: ${s_memo}`: ''),
-		].join('\n'));
-		console.debug(h_exec);
-		console.groupEnd();
-	}
+	emit_diagnostic({operation:'execute', stage:'start'});
 
 	// broadcast to chain
 	const a6_broadcast = await broadcast_result(k_wallet, atu8_tx_raw, si_txn);
 
 	// detuple broadcast result
-	const [xc_error, sx_res,, g_meta, h_events] = a6_broadcast;
+	const [xc_error, sx_res] = a6_broadcast;
 
 	// invalid json
 	if(xc_error < 0) return [__UNDEFINED, a6_broadcast];
@@ -604,13 +647,7 @@ export const exec_secret_contract = async<
 	// error
 	if(xc_error) {
 		// debug info
-		if(import.meta.env?.DEV) {
-			console.groupCollapsed(`❌ ${Object.keys(h_exec)[0]} [code: ${xc_error}]`);
-			console.debug('meta: ', g_meta);
-			console.debug('txhash: ', h_events?.['tx.hash'][0]);
-			console.debug('data: ', a_error![0]);
-			console.groupEnd();
-		}
+		emit_diagnostic({operation:'execute', stage:'complete', code:xc_error});
 
 		// set error text
 		a6_broadcast[1] = a_error?.[0] ?? sx_res;
@@ -620,29 +657,16 @@ export const exec_secret_contract = async<
 	}
 
 	// detuple results from single message response success
-	const [s_plaintext, g_answer] = a_results![0][0];
+	const a_result = a_results?.[0]?.[0];
+	if(!a_result) throw Error('Missing contract execution response');
+	const [s_plaintext, g_answer] = a_result;
+	if(__UNDEFINED !== g_answer) contract_response(g_answer);
 
 	// debug info
-	if(import.meta.env?.DEV) {
-		console.groupCollapsed(`✅ ${Object.keys(h_exec)[0]}`);
-
-		if(g_meta) {
-			const {
-				gas_used: sg_used,
-				gas_wanted: sg_wanted,
-			} = g_meta;
-
-			console.debug(`gas used/wanted: ${sg_used}/${sg_wanted}  (${+sg_wanted - +sg_used}) wasted)`);
-		}
-
-		console.debug('meta: ', g_meta);
-		console.debug('txhash: ', h_events?.['tx.hash'][0]);
-		console.debug('data: ', g_answer || s_plaintext);
-		console.groupEnd();
-	}
+	emit_diagnostic({operation:'execute', stage:'complete', code:0});
 
 	// entuple results
-	return [[g_answer!, s_plaintext], a6_broadcast];
+	return [[g_answer, s_plaintext], a6_broadcast];
 };
 
 
@@ -663,7 +687,7 @@ export const snip24_amino_sign = async(
 	// prep params
 	const g_params: Snip24QueryPermitParams = {
 		permit_name: si_permit,
-		allowed_tokens: a_tokens as CwAccountAddr<'secret'>[],
+		allowed_tokens: a_tokens,
 		permissions: a_permissions,
 	};
 

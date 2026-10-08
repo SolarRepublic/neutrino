@@ -1,7 +1,8 @@
 import type {O, U} from 'ts-toolbelt';
 
-import type {AuthSecret, AuthSecret_ViewerInfo} from './types';
-import type {Dict, JsonObject, Nilable} from '@blake.regalia/belt';
+import type {AuthSecret, AuthSecret_ViewerInfo} from './types.js';
+import type {Dict, Nilable} from '@blake.regalia/belt';
+import type {SchemaObject} from '@solar-republic/contractor';
 import type {Datatypes, ReduceSafe, Snip24QueryPermitSigned} from '@solar-republic/types';
 
 
@@ -9,7 +10,7 @@ import type {Datatypes, ReduceSafe, Snip24QueryPermitSigned} from '@solar-republ
 type EmptyObject = Record<string, never>;
 
 // alias for variants paramter
-type WeakVariants = Dict<{msg: JsonObject}>;
+type WeakVariants = Dict<{msg: SchemaObject}>;
 
 // alias for the expected viewer info struct
 type WeakViewerInfo = {
@@ -26,7 +27,7 @@ type ExtractProperty<
 > = as_objects extends Record<si_key, infer w_value>? w_value: undefined;
 
 // make the values of args readonly
-type MakeValuesReadonly<h_args extends Nilable<JsonObject>> = h_args extends JsonObject
+type MakeValuesReadonly<h_args extends Nilable<SchemaObject>> = h_args extends SchemaObject
 	? {
 		[si_key in keyof h_args]: Readonly<h_args[si_key]>;
 	}
@@ -35,7 +36,7 @@ type MakeValuesReadonly<h_args extends Nilable<JsonObject>> = h_args extends Jso
 		: h_args;
 
 // determines the best type to use for the 'h_args' parameter
-type ResolveArgs<h_args extends Nilable<JsonObject>> = JsonObject extends h_args
+type ResolveArgs<h_args extends Nilable<SchemaObject>> = SchemaObject extends h_args
 	// args can be made optional
 	? h_args extends EmptyObject
 		// args are strongly empty
@@ -59,7 +60,7 @@ export type MergeTuple<a_tuple extends [any?, any?]> = {
 // deduces whether the msg uses ViewerInfo auth, Basic auth, or neither
 // strips the relevant auth fields from args and returns auth type
 type InferQueryArgsAndAuthWithoutPermit<
-	h_args extends JsonObject,
+	h_args extends SchemaObject,
 > = h_args extends WeakViewerInfo
 	// ViewerInfo auth
 	? [ReduceSafe<1, Omit<h_args, 'viewer'>>, AuthSecret_ViewerInfo]
@@ -74,11 +75,11 @@ type InferQueryArgsAndAuthWithoutPermit<
 // merges args type and auth type with "permitless" auth methods if present
 type InferQueryArgsAndAuth<
 	h_variants extends WeakVariants,
-	h_args extends JsonObject,
+	h_args extends SchemaObject,
 	si_method extends string='',
 	b_generic extends 0|1=0,
 > = InferQueryArgsAndAuthWithoutPermit<h_args> extends [infer h_args0, infer z_auth0]
-	? h_args0 extends JsonObject
+	? h_args0 extends SchemaObject
 		// args is now cast
 		? ExtractProperty<h_variants, 'with_permit'> extends {
 			msg: {
@@ -87,11 +88,11 @@ type InferQueryArgsAndAuth<
 			};
 		}
 			// interface contains a 'with_permit' query
-			? h_query extends JsonObject
+			? h_query extends SchemaObject
 				// query is now cast
 				? ExtractProperty<h_query, si_method> extends infer h_args_alt
 					// extracted args in permit variant
-					? h_args_alt extends JsonObject
+					? h_args_alt extends SchemaObject
 						// args from 'with_permit' variant of same query
 						? [
 							h_args: O.Merge<h_args0, h_args_alt>,
@@ -109,14 +110,14 @@ type InferQueryArgsAndAuth<
 				? [h_args: h_args0, z_auth: z_auth0]
 				// unauthenticated query
 				: [h_args: h_args0]
-		// h_args0 is not JsonObject
+		// h_args0 is not SchemaObject
 		: [never, never]
 	// tuple destructuring failed
 	: {
 		// strong interface; unathenticated query
 		0: [h_args: h_args, z_auth?: Nilable<never>];
 		// weak interface; use fuzzy
-		1: [h_args: Nilable<JsonObject>, z_auth?: Nilable<AuthSecret>];
+		1: [h_args: Nilable<SchemaObject>, z_auth?: Nilable<AuthSecret>];
 	}[b_generic];
 
 /**
@@ -127,13 +128,13 @@ export type CreateQueryArgsAndAuthParams<
 	si_method extends string='',
 	b_generic extends 0|1=0,
 > = MergeTuple<InferQueryArgsAndAuth<h_variants, h_variants[si_method]['msg'], si_method, b_generic> extends [h_args: infer h_args, z_auth?: infer z_auth]
-	? h_args extends Nilable<JsonObject>
+	? h_args extends Nilable<SchemaObject>
 		// args is now cast
 		? z_auth extends Nilable<AuthSecret>
 			// auth is now cast
 			? z_auth extends null | undefined
 				// auth is optional
-				? JsonObject extends h_args
+				? SchemaObject extends h_args
 					// args can be made optional too
 					? [h_args?: ResolveArgs<h_args>, z_auth?: z_auth]
 					// args are mandatory; auth is still optional
