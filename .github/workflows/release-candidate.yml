@@ -1,5 +1,8 @@
 name: Validate release candidate
 on:
+  push:
+    branches: [codex/release-validation]
+    paths: [release/candidate.json]
   workflow_dispatch:
     inputs:
       manifest_url:
@@ -22,16 +25,24 @@ jobs:
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version: ${{ matrix.node }}
           package-manager-cache: false
       - name: Install locked validation tools
         run: npm ci --prefix release/tools --ignore-scripts --no-audit --no-fund
+      - name: Check release harness regressions
+        run: node --test release/integrity.test.mjs
+      - name: Fetch draft candidate with verified checksums
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node release/fetch-draft.mjs candidate
       - name: Fetch candidate with verified checksums
+        if: github.event_name == 'workflow_dispatch'
         env:
           CANDIDATE_MANIFEST_URL: ${{ inputs.manifest_url }}
           CANDIDATE_MANIFEST_SHA256: ${{ inputs.manifest_sha256 }}
@@ -45,3 +56,9 @@ jobs:
       - name: Validate production graph, declarations and runtime
         if: matrix.os != 'ubuntu-latest' || matrix.node != '24'
         run: node release/verify.mjs candidate
+      - name: Record validation identity
+        if: always()
+        shell: bash
+        run: |
+          printf 'Validator commit: `%s`\n\n' "$GITHUB_SHA" >> "$GITHUB_STEP_SUMMARY"
+          node -e "const fs=require('fs'),c=require('crypto');if(fs.existsSync('candidate/manifest.json')) fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY,'Candidate SHA-256: '+c.createHash('sha256').update(fs.readFileSync('candidate/manifest.json')).digest('hex')+'\n')"

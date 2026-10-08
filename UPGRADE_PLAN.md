@@ -92,3 +92,8 @@ Review the staged manifests and sibling source snapshots, record immutable sourc
 - Expand mixed-message response/nonce fixtures and full contract-response validation; query tuple optionality and missing envelope handling are already repaired.
 - Add durable SNIP-52 reconnect cursors/backfill and seed-rotation handling. Current duplicate retention is bounded to 1,024 transaction identities; it cannot recover events missed offline. Bound queued event work and define slow-listener behavior before treating this as a durable stream.
 - Expand external Secret/Go transaction fixtures, minimum-Node/browser CI, and independent crypto qualification. Differential tests are useful regression evidence, not a formal cryptographic audit.
+
+
+## Review hardening — 2026-10-08
+
+Subagent review identified and prompted fixes for unsigned fixture execution, portable fixture hashing, missing validator/generator provenance, combined npm stderr/JSON output, and stale pnpm file copies. Format-2 bundles require clean committed source, regenerate Cosmos from hashed default proto inputs, refresh and compare local build dependencies, and bind the exact validation scripts and fixture inventory. Downloads enforce HTTPS through redirects and bounded sizes. The workflow pins Actions revisions, runs integrity regressions and records validator/candidate identities. A dedicated validation branch can fetch a checksum-pinned draft release bundle without publishing packages or updating main. Hosted results are recorded separately after execution.

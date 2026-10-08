@@ -4,6 +4,7 @@ import {copyFileSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync,
 import {tmpdir} from 'node:os';
 import {dirname, join, resolve} from 'node:path';
 import {createHash} from 'node:crypto';
+import {fileList, validatorHashes} from './integrity.mjs';
 import {digest, npm, readJson, root, run, writeJson} from './common.mjs';
 
 const output = resolve(process.argv[2] || join(root, 'dist/release-candidate'));
@@ -11,10 +12,33 @@ const output = resolve(process.argv[2] || join(root, 'dist/release-candidate'));
 mkdirSync(output);
 const temporary = mkdtempSync(join(tmpdir(), 'neutrino-stage-'));
 const plan = readJson(join(root, 'release/plan.json'));
-const manifest = {format:1, validationToolsHash:digest(readFileSync(join(root,'release/tools/package-lock.json'))), packages:[], files:{}};
+const manifest = {format:2, validationFiles:validatorHashes(), packages:[], files:{}};
 try {
+  for(const name of ['types','contractor','cosmos-grpc','neutrino']) {
+    const source=resolve(root,'..',name);
+    assert.equal((await run('git',['status','--porcelain','--untracked-files=normal'],source)).trim(),'',`Commit pending changes in ${name} before preparing release candidates`);
+  }
+  const cosmos=resolve(root,'../cosmos-grpc');
+  const treeHash=directory=>digest(JSON.stringify(fileList(directory).map(file=>[file,digest(readFileSync(join(directory,file)))])));
+  const cosmosInputs={protoHash:treeHash(join(cosmos,'build/proto')),
+    sourceHash:treeHash(join(cosmos,'src')), scriptsHash:treeHash(join(cosmos,'scripts')),
+    lockfileHash:digest(readFileSync(join(cosmos,'pnpm-lock.yaml'))),
+    submodules:(await run('git',['submodule','status','--recursive'],cosmos)).trim()};
+  console.log('Regenerating Cosmos default library from recorded proto inputs...');
+  await run('bash',['scripts/run-plugin.sh'],cosmos);
+  assert.equal(treeHash(join(cosmos,'build/proto')),cosmosInputs.protoHash,'Proto inputs changed during generation');
   for(const name of ['types', 'contractor', 'neutrino']) {
     const cwd = resolve(root, '..', name);
+    if(name !== 'types') {
+      console.log(`Refreshing ${name}'s local dependency snapshots...`);
+      await run(process.execPath,[join(root,'release/tools/node_modules/pnpm/bin/pnpm.cjs'),'install','--force',
+        '--frozen-lockfile','--ignore-scripts',...(process.env.RELEASE_PNPM_STORE ? ['--store-dir',process.env.RELEASE_PNPM_STORE] : [])],cwd,{CI:'true'});
+    }
+    for(const [dependency,directory] of name === 'contractor' ? [['types','dist']] : name === 'neutrino'
+      ? [['types','dist'],['contractor','dist'],['cosmos-grpc','build/dist']] : []) {
+      assert.equal(treeHash(join(cwd,'node_modules/@solar-republic',dependency,directory)),
+        treeHash(resolve(root,'..',dependency,directory)),`Stale ${dependency} artifact in ${name}`);
+    }
     rmSync(join(cwd, name === 'neutrino' ? 'dist/mjs' : 'dist'), {recursive:true, force:true});
     await run(process.execPath, ['node_modules/@typescript/native/bin/tsc', '-p', name === 'neutrino' ? 'tsconfig.mjs.json' : 'tsconfig.json', '--incremental', 'false'], cwd);
   }
@@ -44,8 +68,9 @@ try {
       }
       provenance = {head:(await run('git', ['rev-parse', 'HEAD'], source)).trim(),
         dirty:Boolean((await run('git', ['status', '--porcelain', '--untracked-files=normal'], source)).trim()),
-        packedInputHash:digest(JSON.stringify(hashes))};
+        packedInputHash:digest(JSON.stringify(hashes)), ...(name === 'cosmos-grpc' ? {generation:cosmosInputs} : {})};
     }
+    if(name !== 'crypto') assert.equal(provenance.dirty,false,`${name} changed while building`);
     const pkg = readJson(join(stage, 'package.json'));
     pkg.version = version;
     for(const dependency of Object.keys(pkg.dependencies || {})) {
@@ -73,9 +98,8 @@ try {
   assert(inference, 'Missing package inference assertions');
   writeFileSync(join(fixtures,'inference.mts'), "import type {Snip20,ContractInterface} from '@solar-republic/contractor';\n"+
     inference.replaceAll(/'\.\.\/src\/(secret-contract|secret-app|app-layer)\.js'/g,"'@solar-republic/neutrino'"));
-  for(const file of readdirSync(output, {recursive:true}).sort()) {
-    if(file.endsWith('.tgz') || file.startsWith('fixtures/')) manifest.files[file] = digest(readFileSync(join(output,file)));
-  }
+  manifest.tests=names.filter(name=>name !== 'helper.js').map(name=>'fixtures/'+name).sort();
+  for(const file of fileList(output)) manifest.files[file] = digest(readFileSync(join(output,file)));
   writeJson(join(output,'manifest.json'),manifest);
   process.stdout.write(await run(process.execPath,[join(root,'release/verify.mjs'),output,'--record-lock']));
   console.log(`Bundle: ${output}\nManifest SHA-256: ${digest(readFileSync(join(output,'manifest.json')))}`);

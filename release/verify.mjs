@@ -2,30 +2,19 @@
 import assert from 'node:assert/strict';
 import {createServer} from 'node:http';
 import {createHash} from 'node:crypto';
-import {copyFileSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync} from 'node:fs';
+import {copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join, resolve} from 'node:path';
 import {digest, npm, readJson, root, run, writeJson} from './common.mjs';
+import {validateBundle} from './integrity.mjs';
 import {checkBrowsers} from './browser.mjs';
 
 const bundle = resolve(process.argv[2] || 'dist/release-candidate');
 const manifest = readJson(join(bundle,'manifest.json'));
-assert.equal(manifest.format,1);
-for(const [file, hash] of Object.entries(manifest.files)) {
-  assert(!file.includes('\\') && !file.split('/').includes('..') && !file.startsWith('/'));
-  assert.equal(digest(readFileSync(join(bundle,file))),hash,`Changed bundle file: ${file}`);
-}
-assert.equal(manifest.validationToolsHash,digest(readFileSync(join(root,'release/tools/package-lock.json'))),'Validation tool lockfile differs from prepared candidate');
 const recordLock = process.argv.includes('--record-lock');
-assert(recordLock || manifest.files['consumer-lock.json'],'Run release:prepare to freeze the consumer lockfile first');
-assert(!recordLock || !manifest.files['consumer-lock.json'],'An existing candidate lockfile is immutable; prepare a new bundle');
+validateBundle(bundle,manifest,{recordLock});
 for(const item of manifest.packages) {
-  assert(Object.hasOwn(manifest.files,item.filename));
   assert.equal('sha512-'+createHash('sha512').update(readFileSync(join(bundle,item.filename))).digest('base64'),item.integrity);
-  assert.equal(item.name,item.package.name);
-  assert.equal(item.version,item.package.version);
-  assert(!item.package.overrides && !item.package.pnpm);
-  for(const spec of Object.values(item.package.dependencies || {})) assert(!/^(file:|link:|workspace:)/.test(spec));
 }
 const temporary = mkdtempSync(join(tmpdir(),'neutrino-release-check-'));
 const consumer = join(temporary,'consumer');
@@ -116,10 +105,10 @@ try {
   // Add only offline-test dependencies after the production graph and declarations have passed.
   await npm([...install,'--include=dev'],consumer);
   mkdirSync(join(consumer,'fixtures'));
-  for(const file of readdirSync(join(bundle,'fixtures')).filter(file => file.endsWith('.js'))) {
-    copyFileSync(join(bundle,'fixtures',file),join(consumer,'fixtures',file));
+  for(const file of ['fixtures/helper.js',...manifest.tests]) {
+    copyFileSync(join(bundle,file),join(consumer,file));
   }
-  const files = readdirSync(join(consumer,'fixtures')).filter(file => file !== 'helper.js').map(file => 'fixtures/'+file);
+  const files = manifest.tests;
   process.stdout.write(await run(process.execPath,['--test',...files],consumer));
   if(process.argv.includes('--browser')) await checkBrowsers(consumer);
   if(recordLock) {

@@ -4,10 +4,11 @@
   "type": "module",
   "dependencies": {
     "@typescript/native": "npm:typescript@7.0.2",
-    "typescript": "npm:@typescript/typescript6@6.0.2",
-    "typescript59": "npm:typescript@5.9.3",
     "esbuild": "0.28.2",
     "playwright": "1.64.0",
+    "pnpm": "10.34.6",
+    "typescript": "npm:@typescript/typescript6@6.0.2",
+    "typescript59": "npm:typescript@5.9.3",
     "ws": "8.22.0"
   }
 }

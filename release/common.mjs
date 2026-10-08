@@ -26,15 +26,16 @@ export function npmCli() {
 export function run(command, args, cwd=root, env={}) {
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, {cwd, env:{...process.env, ...env}, windowsHide:true});
-    let output = '';
-    child.stdout.on('data', bytes => { output += bytes; });
-    child.stderr.on('data', bytes => { output += bytes; });
-    const timer = setTimeout(() => child.kill(), 300000);
+    let stdout = '', stderr = '';
+    let timedOut = false;
+    child.stdout.on('data', bytes => { stdout += bytes; });
+    child.stderr.on('data', bytes => { stderr += bytes; });
+    const timer = setTimeout(() => { timedOut = true; child.kill('SIGKILL'); }, 1200000);
     child.on('error', error => { clearTimeout(timer); reject(error); });
     child.on('close', code => {
       clearTimeout(timer);
-      if(code === 0) resolve(output);
-      else reject(Error(`${command} ${args.join(' ')} exited ${code}\n${output}`));
+      if(code === 0 && !timedOut) resolve(stdout);
+      else reject(Error(`${command} ${args.join(' ')} exited ${code}${timedOut ? ' (timed out)' : ''}\n${stdout}${stderr}`));
     });
   });
 }

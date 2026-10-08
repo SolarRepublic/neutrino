@@ -1,0 +1,3 @@
+# Release validator hashes must be identical on Windows, Linux and macOS.
+release/** text eol=lf
+.github/workflows/** text eol=lf
